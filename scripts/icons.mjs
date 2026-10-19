@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// DuelSight's icon: a light eye on a dark rounded square, PNG encoded by hand with zlib.
+// DuelSight's placeholder icon: a plain light card, tilted, with a violet picture box, on a dark
+// rounded square, PNG encoded by hand with zlib. Deliberately generic: no publisher imagery, no
+// card-back art. Replace it when the project has a real mark.
 // `node scripts/icons.mjs` writes it to icons/ (the folder duelsight.config.json names); the
 // build copies whatever PNG files that folder holds.
 
@@ -43,28 +45,51 @@ export function iconPng(size) {
     const dy = Math.max(r - y, 0, y - (s - r));
     return dx * dx + dy * dy <= r * r;
   };
-  // The eye: the intersection of two circles, and a round iris.
+  // A tilted card (63 x 88 proportions) with a picture box and a text line, and a pointer dot.
   const cx = s / 2;
   const cy = s / 2;
-  const w = s * 0.4;
-  const R = (w * w + (s * 0.2) ** 2) / (2 * s * 0.2);
-  const eye = (x, y) => (x - cx) ** 2 + (y - (cy - (R - s * 0.2))) ** 2 <= R * R && (x - cx) ** 2 + (y - (cy + (R - s * 0.2))) ** 2 <= R * R;
-  const iris = (x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= (s * 0.13) ** 2;
-  const pupil = (x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= (s * 0.055) ** 2;
+  const angle = (-12 * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const toCard = (x, y) => {
+    const dx = x - cx;
+    const dy = y - cy;
+    return [dx * cos + dy * sin, -dx * sin + dy * cos];
+  };
+  const rounded = (hw, hh, rr) => (u, v) => {
+    const ex = Math.max(Math.abs(u) - (hw - rr), 0);
+    const ey = Math.max(Math.abs(v) - (hh - rr), 0);
+    return ex * ex + ey * ey <= rr * rr;
+  };
+  const cardH = s * 0.64;
+  const cardW = (cardH * 63) / 88;
+  const cardShape = rounded(cardW / 2, cardH / 2, s * 0.05);
+  const card = (x, y) => cardShape(...toCard(x, y));
+  const art = (x, y) => {
+    const [u, v] = toCard(x, y);
+    return Math.abs(u) <= cardW * 0.38 && v >= -cardH * 0.4 && v <= cardH * 0.1;
+  };
+  const line = (x, y) => {
+    const [u, v] = toCard(x, y);
+    return Math.abs(u) <= cardW * 0.38 && v >= cardH * 0.2 && v <= cardH * 0.2 + Math.max(s * 0.04, 1);
+  };
+  const dot = (x, y) => (x - cx - s * 0.2) ** 2 + (y - cy + s * 0.22) ** 2 <= (s * 0.1) ** 2;
   const raw = Buffer.alloc(s * (1 + s * 4));
   for (let y = 0; y < s; y += 1) {
     raw[y * (1 + s * 4)] = 0;
     for (let x = 0; x < s; x += 1) {
       const bg = coverage(square, x, y);
-      const e = coverage(eye, x, y);
-      const i = coverage(iris, x, y);
-      const p = coverage(pupil, x, y);
-      // Layers, bottom up: dark square, light eye, violet iris, dark pupil.
+      const e = coverage(card, x, y);
+      const i = coverage(art, x, y);
+      const p = coverage(line, x, y);
+      const d = coverage(dot, x, y);
+      // Layers, bottom up: dark square, light card, violet picture box, grey text line, white dot.
       let rgb = [24, 22, 36];
       const mix = (a, b, t) => a.map((v, k) => v + (b[k] - v) * t);
       rgb = mix(rgb, [236, 232, 248], e);
       rgb = mix(rgb, [124, 92, 255], i);
-      rgb = mix(rgb, [24, 22, 36], p);
+      rgb = mix(rgb, [150, 146, 170], p);
+      rgb = mix(rgb, [255, 255, 255], d);
       const o = y * (1 + s * 4) + 1 + x * 4;
       raw[o] = Math.round(rgb[0]);
       raw[o + 1] = Math.round(rgb[1]);
