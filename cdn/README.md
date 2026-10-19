@@ -83,8 +83,8 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
 
 - **A new set:** once the catalog refresh has added the images, re-run steps 2–4.
   Only new or changed files are uploaded.
-- **Switching images off or over:** edit `config.json` (`namesOnly: true`, or `primary: null`
-  to fall back to the community server), then `publish --env-file .env --config config.json`
+- **Switching images off or over:** edit `config.json` (`namesOnly: true` shows names without pictures; `primary: null`
+  with no `fallbacks` stops images entirely), then `publish --env-file .env --config config.json`
   (config only) and `verify`. Installed extensions follow within about an hour.
 - **A replaced image** (e.g. a better scan) reaches viewers within a day; purge its URL in the
   Cloudflare dashboard (Caching → Configuration → Custom Purge) to make it immediate.
