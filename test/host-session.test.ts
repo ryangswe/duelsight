@@ -326,15 +326,11 @@ describe("HostSession", () => {
   });
 });
 
-describe("HostSession and the geometric stage", () => {
-  it("records the stage's state and passes it on, without touching what is shown", () => {
-    const seen: unknown[] = [];
-    const s = new HostSession({ now: () => 0, toWorker: () => undefined, toContent: (m) => toContent.push(m), onGeometricStatus: (g) => seen.push(g) });
+describe("HostSession and a stage report from the runtime", () => {
+  it("ignores a geometric-status reply, without touching what is shown", () => {
+    const s = new HostSession({ now: () => 0, toWorker: () => undefined, toContent: (m) => toContent.push(m) });
     toContent = [];
-    s.fromWorker({ kind: "geometric-status", state: "loading", reason: null, bytes: null });
     s.fromWorker({ kind: "geometric-status", state: "off", reason: "no-webgpu", bytes: null });
-    expect(s.geometric).toEqual({ state: "off", reason: "no-webgpu" });
-    expect(seen).toHaveLength(2);
     expect(toContent).toEqual([]);
   });
 });

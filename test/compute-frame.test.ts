@@ -134,27 +134,12 @@ describe("compute frame worker lifecycle", () => {
   });
 });
 
-describe("compute frame and the geometric stage", () => {
-  it("sends the load request it is given, and reports the stage's state", () => {
-    const states: unknown[] = [];
-    const loadRequest = { kind: "load" as const, releaseUrl: "r", wasmPaths: "w", geometricUrl: "chrome-extension://x/data/geometric.json", geometricManifestSha256: "7b9a96f636611e34183b1a845db93846cb92e5d12ad0d273dd14d1e2c60cef19" };
-    const { workers } = setup({ loadRequest, onGeometricStatus: (s) => states.push(s) });
-    expect(workers[0]!.posted[0]).toEqual(loadRequest);
-    loaded(workers[0]!);
-    workers[0]!.reply({ kind: "geometric-status", state: "ready", reason: null, bytes: 60_000_000 });
-    expect(states).toEqual([{ kind: "geometric-status", state: "ready", reason: null, bytes: 60_000_000 }]);
-  });
-});
-
-describe("compute frame worker restart and the geometric stage", () => {
-  it("sends the plain load to a restarted worker, and reports the stage off", () => {
-    const states: unknown[] = [];
-    const loadRequest = { kind: "load" as const, releaseUrl: "r", wasmPaths: "w", geometricUrl: "g", geometricManifestSha256: "s" };
-    const { workers } = setup({ loadRequest, onGeometricStatus: (s) => states.push(s) });
-    expect(workers[0]!.posted[0]).toEqual(loadRequest);
+describe("compute frame and a restarted worker", () => {
+  it("sends the same plain load to the restarted worker", () => {
+    const { workers } = setup({});
+    expect(workers[0]!.posted[0]).toMatchObject({ kind: "load" });
     loaded(workers[0]!);
     workers[0]!.fail();
-    expect(workers[1]!.posted[0]).toEqual({ kind: "load", releaseUrl: "r", wasmPaths: "w" });
-    expect(states).toContainEqual({ kind: "geometric-status", state: "off", reason: "worker-restarted", bytes: null });
+    expect(workers[1]!.posted[0]).toEqual(workers[0]!.posted[0]);
   });
 });

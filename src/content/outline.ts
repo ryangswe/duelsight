@@ -74,7 +74,7 @@ export class CardOutline {
 
   constructor(host: Element, private readonly env: OutlineEnvironment = {}) {
     const wrap = document.createElement("div");
-    wrap.dataset.kenbunshoku = "outline";
+    wrap.dataset.duelsight = "outline";
     wrap.setAttribute("aria-hidden", "true");
     // Under the tooltip (2147483646), over the player. `all:initial` first: none of the page's
     // styles for its elements reach it.

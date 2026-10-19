@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Build the unpacked extension into dist/ (not kept in the repository).
 //
-//   npm run build -- --release <release folder> [--images-index <images.jsonl>] [--dev] [--out dist]
+//   npm run build -- --release <release folder> [--dev] [--store] [--out dist]
 //
 // --release       A release folder as `cardvision build-release` writes it: release.json and the
 //                 files it pins. It is checked with the runtime's own verification (every file
 //                 against its SHA-256 and size, the components against each other, the ONNX
 //                 Runtime version) and copied into dist/release/. It is never committed.
-// --images-index  The image index of the card mirror (JSON Lines, one picture per line with
-//                 `file`, `url`, `is_placeholder`): builds the `{sourceFile}` map for the
-//                 `optcgapi` fallback afresh. Without it, the committed data/source-files.json
-//                 is used.
 // --dev           A development build: also runs on the local test page (http://127.0.0.1).
 // --store         A Chrome Web Store build: the manifest has no `key` (the store assigns the ID).
 //                 Other builds carry the public key that fixes the ID of unpacked installs.
 //
-// Everything that makes this build Kenbunshoku (names, sites, hosts, settings address, the
-// printed-number rule, the geometric stage, links, the zip name) comes from the config, which is
+// Everything that makes this build DuelSight (names, sites, hosts, settings address, the
+// printed-number rule, links, the zip name) comes from the config, which is
 // checked first (scripts/fork-config.mjs); the code reads the same file (src/config.ts), which
 // the bundles get as checked here, without its `$comment`.
 
@@ -31,27 +27,21 @@ import { parseArgs } from "node:util";
 import { build } from "esbuild";
 
 import { buildManifest } from "./manifest.mjs";
-import { buildCardTable, buildSourceFileMaps } from "./card-data.mjs";
-import { CONFIG_PATH, geometricIndexProblem, ICON_SIZES, loadForkConfig } from "./fork-config.mjs";
+import { buildCardTable } from "./card-data.mjs";
+import { CONFIG_PATH, ICON_SIZES, loadForkConfig } from "./fork-config.mjs";
 import { LEGAL_FILES, releaseLegalProblem } from "./release-legal.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const { values } = parseArgs({
   options: {
     release: { type: "string" },
-    "images-index": { type: "string" },
     dev: { type: "boolean", default: false },
     store: { type: "boolean", default: false },
-    "geo-manifest-url": { type: "string" },
     out: { type: "string", default: "dist" },
   },
 });
 if (!values.release) {
-  console.error("usage: npm run build -- --release <release folder> [--images-index <images.jsonl>] [--dev]");
-  process.exit(2);
-}
-if (values["geo-manifest-url"] && !values.dev) {
-  console.error("--geo-manifest-url is for dev builds only: a release build names the index on the CDN");
+  console.error("usage: npm run build -- --release <release folder> [--dev] [--store]");
   process.exit(2);
 }
 if (values.dev && values.store) {
@@ -64,10 +54,6 @@ try {
 } catch (e) {
   console.error(`the config is not usable: ${e.message}`);
   process.exit(1);
-}
-if (values["geo-manifest-url"] && !config.geometric) {
-  console.error("--geo-manifest-url: this config has no geometric stage");
-  process.exit(2);
 }
 const releaseDir = resolve(values.release);
 // The models' license, notice and provenance ship beside them (checked once the release is read).
@@ -116,11 +102,11 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, "runtime"), { recursive: true });
 mkdirSync(join(out, "release"), { recursive: true });
 mkdirSync(join(out, "data"), { recursive: true });
-/** src/config.ts imports kenbunshoku.config.json: give it the checked config, minus `$comment`. */
+/** src/config.ts imports duelsight.config.json: give it the checked config, minus `$comment`. */
 const configPlugin = {
   name: "fork-config",
   setup(b) {
-    b.onLoad({ filter: /kenbunshoku\.config\.json$/ }, (args) => {
+    b.onLoad({ filter: /duelsight\.config\.json$/ }, (args) => {
       // Only the checked config may reach the bundles: another file of that name is an error,
       // not a silent fallback to its unchecked contents.
       if (resolve(args.path) !== resolve(CONFIG_PATH)) throw new Error(`${args.path}: not the checked config (${CONFIG_PATH})`);
@@ -160,10 +146,9 @@ for (const name of ["compute.html", "tooltip.html", "tooltip.css", "popup.css"])
 const escapeHtml = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 writeFileSync(join(out, "popup.html"), readFileSync(join(root, "static", "popup.html"), "utf-8").replaceAll("{{name}}", escapeHtml(config.name)));
 
-// The runtime's worker, and the one pair of ONNX Runtime files it loads, from beside it.
-// OpenCV.js for the geometric stage sits beside the worker, which imports it from its own folder.
-// (OpenCV.js only with the geometric stage, the one part that uses it.)
-for (const name of ["worker.js", "worker.js.LEGAL.txt", ...(config.geometric ? ["opencv.mjs", "opencv_js.wasm", "opencv.mjs.LEGAL.txt"] : [])]) {
+// The runtime's worker, and the one pair of ONNX Runtime files it loads, from beside it. This
+// build has no geometric stage: OpenCV.js (vendor/cardvision-browser/opencv*) is never copied.
+for (const name of ["worker.js", "worker.js.LEGAL.txt"]) {
   copyFileSync(join(vendorDir, name), join(out, "runtime", name));
 }
 for (const name of vendor.ortFiles) copyFileSync(join(ortPkgDir, "dist", name), join(out, "runtime", name));
@@ -179,35 +164,6 @@ for (const path of pinned) {
 const catalog = JSON.parse(readFileSync(join(releaseDir, release.catalog.path), "utf-8"));
 const table = buildCardTable(catalog, { printed: config.printedNumber === "catalog" });
 writeFileSync(join(out, "data", "cards.json"), JSON.stringify(table));
-// The {sourceFile} map: built from --images-index when given, else the committed copy
-// (data/source-files.json, written by scripts/source-map.mjs).
-let maps;
-let mapFrom;
-if (values["images-index"]) {
-  const lines = readFileSync(resolve(values["images-index"]), "utf-8").split("\n").filter((l) => l.trim());
-  maps = buildSourceFileMaps(catalog, lines.map((l) => JSON.parse(l))).maps;
-  mapFrom = "--images-index";
-} else {
-  maps = JSON.parse(readFileSync(join(root, "data", "source-files.json"), "utf-8"));
-  mapFrom = "data/source-files.json";
-}
-const mapSummary = `{sourceFile} map from ${mapFrom}: optcgapi ${Object.keys(maps.optcgapi ?? {}).length} of ${Object.keys(table).length} cards`;
-writeFileSync(join(out, "data", "source-files.json"), JSON.stringify(maps));
-// The geometric stage's settings file (it names the card-feature index on an image host), only
-// when the config has the stage. A dev build may point it at a local copy of the index
-// (--geo-manifest-url, for the smoke check).
-if (config.geometric) {
-  const geometric = JSON.parse(readFileSync(join(root, config.geometric.settings), "utf-8"));
-  if (values["geo-manifest-url"]) geometric.index.path = values["geo-manifest-url"];
-  else {
-    const problem = geometricIndexProblem(geometric, config);
-    if (problem) {
-      console.error(`${config.geometric.settings}: ${problem}`);
-      process.exit(1);
-    }
-  }
-  writeFileSync(join(out, "data", "geometric.json"), `${JSON.stringify(geometric, null, 1)}\n`);
-}
 
 // ------------------------------------------------------------------ 5. manifest and notices
 mkdirSync(join(out, "icons"), { recursive: true });
@@ -229,4 +185,4 @@ console.log(`dist/ ${values.dev ? "(dev build) " : values.store ? "(Web Store bu
 console.log(`  release ${release.id} (${release.game}, ${release.bank.cardCount} cards in the bank), verified by the runtime`);
 console.log(`  runtime ${vendor.package} ${vendor.version} at ${vendor.commit.slice(0, 7)}, onnxruntime-web ${ortVersion}`);
 console.log(`  content.js ${kb("content.js")}, compute.js ${kb("compute.js")}, tooltip.js ${kb("tooltip.js")}, runtime/worker.js ${kb("runtime/worker.js")}`);
-console.log(`  ${mapSummary}`);
+console.log(`  ${Object.keys(table).length} cards in data/cards.json (names from the release catalog)`);

@@ -10,34 +10,36 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error plain JavaScript build scripts
 import { releaseLegalProblem } from "../scripts/release-legal.mjs";
 // @ts-expect-error plain JavaScript build scripts
-import { buildCardTable, buildSourceFileMaps } from "../scripts/card-data.mjs";
+import { buildCardTable } from "../scripts/card-data.mjs";
 // @ts-expect-error plain JavaScript build scripts
 import { buildManifest, UNPACKED_EXTENSION_ID } from "../scripts/manifest.mjs";
 // @ts-expect-error plain JavaScript build scripts
-import { configProblems, geometricIndexProblem, loadForkConfig, videoSitePatterns } from "../scripts/fork-config.mjs";
-import { GEOMETRIC_MANIFEST_SHA256, IMAGE_HOSTS, SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
+import { configProblems, loadForkConfig, videoSitePatterns, withCdnBase } from "../scripts/fork-config.mjs";
+import { IMAGE_HOSTS, SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
 import { isActivePage } from "../src/content/site.js";
 import { allowedParentOrigin } from "../src/shared/messages.js";
 import { makePrintedId, printedId } from "../src/settings/templates.js";
-import { CONFIG, IS_KENBUNSHOKU, TOY_CONFIG } from "./helpers/fork.js";
-import { buildLoadRequest, geometricOption, stageForPage } from "../src/compute/load-request.js";
-import { parseSourceFileMaps } from "../src/tooltip/card-data.js";
+import { CONFIG, FIXTURE_CDN, IS_DUELSIGHT, TOY_CONFIG } from "./helpers/fork.js";
+import { buildLoadRequest } from "../src/compute/load-request.js";
 import { knownCard } from "../src/tooltip/controller.js";
 
-describe("the config (kenbunshoku.config.json)", () => {
+/** The config as a fork without a cdnBase would write it: the hosts and the settings address spelled out. */
+const NO_CDN = { ...CONFIG, cdnBase: null };
+
+describe("the config (duelsight.config.json)", () => {
   it("has no problem", () => {
     expect(configProblems(CONFIG)).toEqual([]);
   });
 
   it("refuses what the build cannot use", () => {
-    const bad = (patch: Record<string, unknown>) => configProblems({ ...CONFIG, ...patch }, null);
+    const bad = (patch: Record<string, unknown>) => configProblems({ ...NO_CDN, ...patch }, null);
     expect(bad({ videoSites: { youtube: false, twitch: false } })).toContain("videoSites: at least one site");
     expect(bad({ imageHosts: ["https://x.example"] })[0]).toMatch(/imageHosts/);
     expect(bad({ settingsUrl: "http://x.example/c.json" })[0]).toMatch(/settingsUrl/);
     expect(bad({ settingsUrl: "https://not-listed.example/c.json", imageHosts: [] })[0]).toMatch(/must be in imageHosts/);
     expect(bad({ printedNumber: { regex: "^[A-Z]+$" } })[0]).toMatch(/capture group/);
     expect(bad({ printedNumber: { regex: "([" } })[0]).toMatch(/printedNumber.regex/);
-    expect(bad({ geometric: { settings: "x.json", manifestSha256: "nope" } })[0]).toMatch(/manifestSha256/);
+    expect(bad({ geometric: { settings: "x.json", manifestSha256: "a".repeat(64) } })).toContain('unknown key "geometric"');
     expect(bad({ packageName: "My Extension" })[0]).toMatch(/packageName/);
     expect(bad({ extra: 1 })).toContain('unknown key "extra"');
     // The tooltip has no link any more, and so no link label.
@@ -58,15 +60,16 @@ describe("the config (kenbunshoku.config.json)", () => {
     ["a printedNumber word it does not know", { printedNumber: "regex" }, "printedNumber:"],
     ["a printedNumber object with another key", { printedNumber: { regex: "(a)", flags: "i" } }, "printedNumber:"],
     ["an extra key in videoSites", { videoSites: { youtube: true, twitch: true, vimeo: true } }, "videoSites:"],
-    ["a geometric object with another key", { geometric: { settings: "x.json", manifestSha256: "a".repeat(64), url: "x" } }, "geometric:"],
+    ["a cdnBase with a path", { cdnBase: "https://cdn.example.com/art" }, "cdnBase:"],
+    ["a cdnBase that is not https", { cdnBase: "http://cdn.example.com" }, "cdnBase:"],
+    ["a cdnBase whose derived hosts were changed", { cdnBase: CONFIG.cdnBase, imageHosts: ["other.example.com"] }, "cdnBase:"],
     ["an upper-case host", { imageHosts: ["CDN.example.com"] }, "imageHosts:"],
     ["an empty icons folder name", { icons: "" }, "icons:"],
   ])("refuses %s", (_label, patch, prefix) => {
-    expect(configProblems({ ...CONFIG, ...patch }, null).some((p: string) => p.startsWith(prefix))).toBe(true);
+    expect(configProblems({ ...NO_CDN, ...patch }, null).some((p: string) => p.startsWith(prefix))).toBe(true);
   });
 
-  it("refuses a geometric settings file that is not there, and a config that is not an object", () => {
-    expect(configProblems({ ...CONFIG, geometric: { settings: "data/no-such-file.json", manifestSha256: "a".repeat(64) } })).toContain("geometric.settings: data/no-such-file.json is missing");
+  it("refuses a config that is not an object", () => {
     for (const c of [null, [], "config", 1]) expect(configProblems(c, null)).toEqual(["not a JSON object"]);
   });
 
@@ -75,20 +78,35 @@ describe("the config (kenbunshoku.config.json)", () => {
     try {
       writeFileSync(join(dir, "bad.json"), "{ not json");
       expect(() => loadForkConfig(join(dir, "bad.json"), null)).toThrow(/not readable JSON/);
-      writeFileSync(join(dir, "worse.json"), JSON.stringify({ ...CONFIG, name: "", packageName: "Bad Name" }));
+      writeFileSync(join(dir, "worse.json"), JSON.stringify({ ...NO_CDN, name: "", packageName: "Bad Name" }));
       expect(() => loadForkConfig(join(dir, "worse.json"), null)).toThrow(/name:[\s\S]*packageName:/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it("refuses a geometric index that is not on the image hosts (or not https)", () => {
-    const config = { imageHosts: ["cdn.example.com"] };
-    expect(geometricIndexProblem({ index: { path: "https://cdn.example.com/vision/geo/x/manifest.json" } }, config)).toBeNull();
-    for (const path of ["https://other.example.com/m.json", "http://cdn.example.com/m.json", "manifest.json", undefined]) {
-      expect(geometricIndexProblem({ index: { path } }, config)).toMatch(/index.path/);
+  it("derives imageHosts and settingsUrl from cdnBase, the one place the CDN host is written", () => {
+    const { imageHosts: _h, settingsUrl: _s, ...written } = CONFIG as unknown as Record<string, unknown>;
+    const derived = withCdnBase(written);
+    expect(derived.imageHosts).toEqual([new URL(CONFIG.cdnBase!).hostname]);
+    expect(derived.settingsUrl).toBe(`${CONFIG.cdnBase}/config.json`);
+    expect(derived).toEqual(CONFIG);
+    // Writing either beside cdnBase is refused, not silently overridden.
+    const dir = mkdtempSync(join(tmpdir(), "fork-config-"));
+    try {
+      writeFileSync(join(dir, "both.json"), JSON.stringify({ ...written, settingsUrl: "https://other.example.com/config.json" }));
+      expect(() => loadForkConfig(join(dir, "both.json"), null)).toThrow(/settingsUrl: not written beside cdnBase/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
-    expect(geometricIndexProblem({}, config)).toMatch(/index.path/);
+  });
+
+  it("has no geometric stage: no key, no settings file, no OpenCV in the build script", () => {
+    expect(CONFIG).not.toHaveProperty("geometric");
+    expect(existsSync(new URL("../data/geometric.json", import.meta.url))).toBe(false);
+    const build = readFileSync(new URL("../scripts/build.mjs", import.meta.url), "utf-8");
+    expect(build).not.toMatch(/copyFileSync\([^)]*opencv/);
+    expect(build).not.toContain("geometric.json");
   });
 
   it("takes an optional outline color, as a plain CSS color only", () => {
@@ -127,8 +145,8 @@ describe("manifest", () => {
   const m = buildManifest({ version: "0.1.0", dev: false });
   const hosts = CONFIG.imageHosts.map((h) => `https://${h}`);
 
-  it("asks for storage (and unlimited storage only with the card-feature file) and nothing else", () => {
-    expect(m.permissions).toEqual(CONFIG.geometric ? ["storage", "unlimitedStorage"] : ["storage"]);
+  it("asks for storage and nothing else (no unlimited storage: there is no feature index)", () => {
+    expect(m.permissions).toEqual(["storage"]);
     expect(m).not.toHaveProperty("optional_permissions");
   });
 
@@ -167,29 +185,30 @@ describe("manifest", () => {
     expect(buildManifest({ version: "0.1.0", dev: false, store: true })).not.toHaveProperty("key");
   });
 
-  it.runIf(IS_KENBUNSHOKU)("is Kenbunshoku's: its ID", () => {
-    expect(UNPACKED_EXTENSION_ID).toBe("igfdjmpikcbplijnlpkligaafepgoaaa");
+  it.runIf(IS_DUELSIGHT)("is DuelSight's: its ID", () => {
+    expect(UNPACKED_EXTENSION_ID).toBe("ddhnolhobdfnfofeloiimlelijgjihfp");
   });
 
-  it("is Kenbunshoku's name exactly when it is Kenbunshoku's key (a fork changes both)", () => {
-    const kenbunshokuKey = UNPACKED_EXTENSION_ID === "igfdjmpikcbplijnlpkligaafepgoaaa";
+  it("is DuelSight's name exactly when it is DuelSight's key (a fork changes both)", () => {
+    const ownKey = UNPACKED_EXTENSION_ID === "ddhnolhobdfnfofeloiimlelijgjihfp";
     // A fork that renames its package but keeps keys/unpacked-public.pem would install over
-    // Kenbunshoku; one that keeps the name with its own key would run Kenbunshoku's tests.
-    expect({ packageNameIsKenbunshoku: CONFIG.packageName === "kenbunshoku", keyIsKenbunshoku: kenbunshokuKey }).toEqual({
-      packageNameIsKenbunshoku: kenbunshokuKey,
-      keyIsKenbunshoku: CONFIG.packageName === "kenbunshoku",
+    // DuelSight; one that keeps the name with its own key would run DuelSight's tests.
+    expect({ packageNameIsOwn: CONFIG.packageName === "duelsight", keyIsOwn: ownKey }).toEqual({
+      packageNameIsOwn: ownKey,
+      keyIsOwn: CONFIG.packageName === "duelsight",
     });
   });
 
-  it.runIf(IS_KENBUNSHOKU)("is Kenbunshoku's: its network surface, value for value", () => {
+  it.runIf(IS_DUELSIGHT)("is DuelSight's: its network surface, value for value (YouTube, twitch.tv and the CDN, nothing else)", () => {
+    const host = new URL(FIXTURE_CDN).hostname;
     const release = buildManifest({ version: "0.1.0", dev: false });
-    expect(release.permissions).toEqual(["storage", "unlimitedStorage"]);
-    expect(release.host_permissions).toEqual(["https://www.youtube.com/*", "https://www.twitch.tv/*", "https://cdn.kenbunshoku.com/*", "https://optcgapi.com/*"]);
+    expect(release.permissions).toEqual(["storage"]);
+    expect(release.host_permissions).toEqual(["https://www.youtube.com/*", "https://www.twitch.tv/*", `https://${host}/*`]);
     expect(release.content_security_policy).toEqual({
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://cdn.kenbunshoku.com https://optcgapi.com; img-src 'self' blob: data:",
+      extension_pages: `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://${host}; img-src 'self' blob: data:`,
     });
-    expect(SETTINGS_URL).toBe("https://cdn.kenbunshoku.com/config.json");
-    expect(GEOMETRIC_MANIFEST_SHA256).toBe("7b9a96f636611e34183b1a845db93846cb92e5d12ad0d273dd14d1e2c60cef19");
+    expect(SETTINGS_URL).toBe(`${FIXTURE_CDN}/config.json`);
+    expect(CONFIG.cdnBase).toBe(FIXTURE_CDN);
   });
 });
 
@@ -218,45 +237,33 @@ describe("a fork's minimal config (names only, no settings address, no stage, on
     expect(makePrintedId("catalog")("x", "TOY-001")).toBe("TOY-001");
     expect(makePrintedId("catalog")("x", null)).toBeNull();
   });
-  it("its stage is off whatever the settings say", () => {
-    expect(geometricOption({ geometric: true }, (p) => p, null)).toBeNull();
-  });
 });
 
-describe("card data", () => {
+describe("card data (names from our own catalog; no third-party card source)", () => {
+  // Passcodes as ids; one name's other artworks share its identity in the release's groups.
   const catalog = {
     cards: [
-      { id: "OP01-001", name: "Roronoa Zoro", art: "OP01-001.jpg", facets: { set: "OP01" } },
-      { id: "OP03-081_p1", name: "Kalgara", art: "OP03-081_p1__set1.jpg", facets: { set: "OP03" } },
-      { id: "EB01-006_p4-JP", name: "Tony Tony.Chopper", art: "jp/EB01-006_p4-JP.png", facets: { set: "EB01" } },
-      { id: "P-122", name: "Nami", art: null, facets: {} },
-      { id: "OP01-002", name: "Trafalgar Law", art: "OP01-002.jpg", facets: { set: "OP01" } },
+      { id: "89631139", name: "Blue-Eyes White Dragon", art: "89631139.jpg", facets: { set: "LOB" } },
+      { id: "46986414", name: "Dark Magician", art: "46986414.jpg", facets: { set: "LOB" } },
+      { id: "122", name: "No Art Yet", art: null, facets: {} },
     ],
   };
-  const index = [
-    { file: "OP01-001.jpg", url: "https://optcgapi.com/media/static/Card_Images/OP01-001.jpg", is_placeholder: false },
-    { file: "OP03-081_p1__set1.jpg", url: "https://optcgapi.com/media/static/Card_Images/OP03-081_p1_cCn0Rtb.jpg", is_placeholder: false },
-    { file: "OP01-002.jpg", url: "https://optcgapi.com/media/static/Card_Images/OP01-002.jpg", is_placeholder: true },
-  ];
-
-  it("maps a card to optcgapi's own file name only for the picture the catalog names", () => {
-    const { maps, unmapped } = buildSourceFileMaps(catalog, index);
-    expect(maps).toEqual({ optcgapi: { "OP01-001": "OP01-001.jpg", "OP03-081_p1": "OP03-081_p1_cCn0Rtb.jpg" } });
-    expect(unmapped).toBe(3);
-  });
 
   it("writes name, set and art per card", () => {
     const table = buildCardTable(catalog);
-    expect(table["OP01-001"]).toEqual(["Roronoa Zoro", "OP01", "OP01-001.jpg"]);
-    expect(table["P-122"]).toEqual(["Nami", null, null]);
-    expect(knownCard(table, "P-122")).toEqual({ id: "P-122", name: "Nami", set: null, art: null, printed: null });
+    expect(table["89631139"]).toEqual(["Blue-Eyes White Dragon", "LOB", "89631139.jpg"]);
+    expect(table["122"]).toEqual(["No Art Yet", null, null]);
+    expect(knownCard(table, "122")).toEqual({ id: "122", name: "No Art Yet", set: null, art: null, printed: null });
     expect(knownCard(table, "ZZ-1")).toBeNull();
     expect(knownCard(table, "__proto__")).toBeNull();
   });
 
-  it("reads a map file defensively", () => {
-    expect(parseSourceFileMaps({ optcgapi: { a: "a.jpg", b: 3, c: "" }, x: [] })).toEqual({ optcgapi: { a: "a.jpg" } });
-    expect(parseSourceFileMaps(null)).toEqual({});
+  it("has no reader of any third-party card source in the build or the extension", () => {
+    for (const path of ["../scripts/card-data.mjs", "../scripts/build.mjs", "../src/tooltip/card-data.ts", "../src/settings/templates.ts"]) {
+      const text = readFileSync(new URL(path, import.meta.url), "utf-8");
+      expect(text).not.toMatch(/optcgapi|sourceFile|source-files/);
+    }
+    expect(existsSync(new URL("../data/source-files.json", import.meta.url))).toBe(false);
   });
 
   it("carries each card's printed number with the 'catalog' rule", () => {
@@ -267,78 +274,13 @@ describe("card data", () => {
   });
 });
 
-const PIN = "a".repeat(64);
-
-describe("load request (the geometric stage)", () => {
-  it("is the runtime's plain load request when the stage is off", () => {
-    expect(buildLoadRequest("chrome-extension://x/release/release.json", "chrome-extension://x/runtime/", null)).toEqual({
+describe("load request", () => {
+  it("is the runtime's plain load: no feature index, nothing else to download", () => {
+    expect(buildLoadRequest("chrome-extension://x/release/release.json", "chrome-extension://x/runtime/")).toEqual({
       kind: "load",
       releaseUrl: "chrome-extension://x/release/release.json",
       wasmPaths: "chrome-extension://x/runtime/",
     });
-  });
-  it("carries the settings file and the pinned manifest together when it is on", () => {
-    expect(buildLoadRequest("a", "b", { url: "chrome-extension://x/data/geometric.json", manifestSha256: PIN })).toEqual({
-      kind: "load",
-      releaseUrl: "a",
-      wasmPaths: "b",
-      geometricUrl: "chrome-extension://x/data/geometric.json",
-      geometricManifestSha256: PIN,
-    });
-  });
-});
-
-describe("the settings file's kill switch for the stage", () => {
-  const url = (path: string) => `chrome-extension://x/${path}`;
-  it("passes the bundled settings and the pinned manifest unless geometric is false", () => {
-    expect(geometricOption({ geometric: true }, url, PIN)).toEqual({ url: "chrome-extension://x/data/geometric.json", manifestSha256: PIN });
-    expect(geometricOption({ geometric: false }, url, PIN)).toBeNull();
-    expect(buildLoadRequest("r", "w", geometricOption({ geometric: false }, url, PIN))).not.toHaveProperty("geometricUrl");
-    // The build's own pin is the config's.
-    expect(geometricOption({ geometric: true }, url)?.manifestSha256 ?? null).toBe(CONFIG.geometric?.manifestSha256 ?? null);
-  });
-});
-
-describe("the stage when the settings cannot be read", () => {
-  const url = (path: string) => `chrome-extension://x/${path}`;
-  it("is off for the page (settings-unreadable), and the base pipeline still starts", async () => {
-    const d = await stageForPage(() => Promise.reject(new Error("storage gone")), url);
-    expect(d).toEqual({ option: null, offReason: "settings-unreadable" });
-    expect(buildLoadRequest("r", "w", d.option)).toEqual({ kind: "load", releaseUrl: "r", wasmPaths: "w" });
-  });
-  it.runIf(CONFIG.geometric !== null)("follows the settings otherwise", async () => {
-    expect((await stageForPage(async () => ({ geometric: true }), url)).offReason).toBeNull();
-    expect(await stageForPage(async () => ({ geometric: false }), url)).toEqual({ option: null, offReason: "settings" });
-  });
-});
-
-describe.runIf(CONFIG.geometric !== null)("the geometric stage's settings file (the config's geometric.settings)", () => {
-  const doc = CONFIG.geometric ? JSON.parse(readFileSync(new URL(`../${CONFIG.geometric.settings}`, import.meta.url), "utf-8")) : null;
-  it("names the index on the CDN, in the folder of the index it pins", () => {
-    const url = new URL(doc.index.path);
-    expect(url.protocol).toBe("https:");
-    expect(IMAGE_HOSTS).toContain(url.hostname);
-    expect(url.pathname).toBe(`/vision/geo/${doc.index.sha256.slice(0, 16)}/manifest.json`);
-    expect(doc.index.sha256).toMatch(/^[0-9a-f]{64}$/);
-  });
-  it("holds only the runtime's keys (it refuses others)", () => {
-    expect(Object.keys(doc).sort()).toEqual(["candidates", "crop", "features", "fusion", "index", "match", "ransac", "seed", "vote"]);
-    expect(Object.keys(doc.index).sort()).toEqual(["path", "sha256"]);
-  });
-});
-
-describe.runIf(existsSync(new URL("../data/source-files.json", import.meta.url)))("the committed {sourceFile} map", () => {
-  const raw = JSON.parse(readFileSync(new URL("../data/source-files.json", import.meta.url), "utf-8")) as Record<string, Record<string, unknown>>;
-
-  it("holds card ids and file names, and nothing else", () => {
-    for (const [id, file] of Object.values(raw).flatMap((m) => Object.entries(m))) {
-      expect(id).toMatch(/^[A-Za-z0-9_-]+$/);
-      expect(file).toMatch(/^[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/);
-    }
-  });
-
-  it("reads back unchanged through the tooltip's parser", () => {
-    expect(parseSourceFileMaps(raw)).toEqual(raw);
   });
 });
 
@@ -348,14 +290,12 @@ describe("release-legal", () => {
     expect(readFileSync(new URL("../release-legal/NOTICE", import.meta.url), "utf-8").split("\n")[0]).toMatch(/\(id [0-9a-f]{16}\)/);
   });
 
-  it.runIf(IS_KENBUNSHOKU)("is Kenbunshoku's: release B2.1, and how it differs from the evaluated B2", () => {
+  it("is marked PLACEHOLDER while it describes the dev fixture, not a DuelSight release", () => {
     const notice = readFileSync(new URL("../release-legal/NOTICE", import.meta.url), "utf-8");
-    expect(notice.split("\n")[0]).toContain("(id f80d5b56cd907f03)");
-    expect(notice.replace(/\s+/g, " ")).toContain(
-      "differs from the evaluated release B2 (26a98a0f49a74545) in one catalog entry, OP09-051_p2",
-    );
-    expect(notice.replace(/\s+/g, " ")).toContain("where that entry moves from the OP05-067 identity to the OP09-051 identity");
-    expect(notice).toContain("YOLOX");
+    const placeholder = notice.startsWith("PLACEHOLDER");
+    if (placeholder) expect(readFileSync(new URL("../release-legal/PROVENANCE.md", import.meta.url), "utf-8")).toContain("PLACEHOLDER");
+    // A DuelSight release's notice says what it is and who it is not by.
+    else expect(notice).toContain("not affiliated with or endorsed by Konami");
   });
 });
 
@@ -389,8 +329,8 @@ describe("the bundled default settings", () => {
   });
 });
 
-// Kenbunshoku's own CDN contract: only for a build that uses that CDN.
-describe.runIf(CONFIG.settingsUrl?.startsWith("https://cdn.kenbunshoku.com/") ?? false)("cdn/SETTINGS.md states what the extension enforces", () => {
+// DuelSight's own CDN contract: only for a build that uses that CDN.
+describe.runIf(IS_DUELSIGHT)("cdn/SETTINGS.md states what the extension enforces", () => {
   const doc = existsSync(new URL("../cdn/SETTINGS.md", import.meta.url)) ? readFileSync(new URL("../cdn/SETTINGS.md", import.meta.url), "utf-8") : "";
   it("gives the releases prefix and the image hosts the build uses", () => {
     if (UPDATE_URL_PREFIX) expect(doc).toContain(UPDATE_URL_PREFIX);

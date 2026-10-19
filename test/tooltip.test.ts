@@ -20,12 +20,11 @@ const defaultSettings = (): Settings => ({
   primary: { id: "art", template: "https://art.example/art/{art}" },
   fallbacks: [],
   update: null,
-  geometric: true,
 });
 
 const table = {
-  "OP01-001": ["Roronoa Zoro", "OP01", "OP01-001.jpg"],
-  don_8: ["DON!! Card", "DON!!", "don_8.png"],
+  "89631139": ["Blue-Eyes White Dragon", "LOB", "89631139.jpg"],
+  token_1: ["Sample Token", "Token", "token_1.png"],
   wide: ["A Wide Card", "X", "wide.png"],
 } as const;
 
@@ -55,7 +54,6 @@ function build(): TooltipController {
   return new TooltipController({
     elements,
     table: table as never,
-    maps: {},
     load: async (url) => {
       loads.push(url);
       if (release) await new Promise<void>((r) => (release = r));
@@ -90,20 +88,20 @@ describe("art sizes", () => {
 
 describe("TooltipController", () => {
   it("shows the card's picture alone, with the card's name as its alt text", async () => {
-    expect(controller.show("OP01-001")).toBe(true);
+    expect(controller.show("89631139")).toBe(true);
     expect(elements.root.hidden).toBe(false);
     await tick();
-    expect(loads).toEqual(["https://art.example/art/OP01-001.jpg"]);
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg"]);
     expect(elements.art.hidden).toBe(false);
     expect(elements.art.classList.contains("loading")).toBe(false);
     expect(elements.pill.hidden).toBe(true);
     expect(elements.img.getAttribute("src")).toBe("blob:fake");
-    expect(elements.img.alt).toBe("Roronoa Zoro");
-    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "OP01-001" });
+    expect(elements.img.alt).toBe("Blue-Eyes White Dragon");
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "89631139" });
   });
 
   it("has no name, number, set or link row, and nothing that can be clicked or focused", () => {
-    controller.show("OP01-001");
+    controller.show("89631139");
     const page = document.body;
     expect(page.querySelectorAll("a, button, input, select, textarea, [tabindex], [href], [onclick]")).toHaveLength(0);
     for (const id of ["name", "number", "set", "link"]) expect(document.getElementById(id)).toBeNull();
@@ -111,12 +109,12 @@ describe("TooltipController", () => {
 
   it("shows a dark card with the name while the picture loads, in the card's shape", async () => {
     release = () => undefined;
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     expect(elements.art.classList.contains("loading")).toBe(true);
-    expect(elements.placeholder.textContent).toBe("Roronoa Zoro");
+    expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
     expect(elements.pill.hidden).toBe(true);
-    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "OP01-001" });
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "89631139" });
     release!();
     await tick();
     expect(elements.art.classList.contains("loading")).toBe(false);
@@ -131,12 +129,12 @@ describe("TooltipController", () => {
   });
 
   it("shows the name in a pill when no picture can be loaded", async () => {
-    failing.add("https://art.example/art/OP01-001.jpg");
-    controller.show("OP01-001");
+    failing.add("https://art.example/art/89631139.jpg");
+    controller.show("89631139");
     await tick();
     expect(elements.art.hidden).toBe(true);
     expect(elements.pill.hidden).toBe(false);
-    expect(elements.pill.textContent).toBe("Roronoa Zoro");
+    expect(elements.pill.textContent).toBe("Blue-Eyes White Dragon");
     expect(sizes.at(-1)?.shape).toBe("pill");
   });
 
@@ -144,7 +142,7 @@ describe("TooltipController", () => {
     controller = build();
     controller.setSettings(defaultSettings());
     elements.img.decode = () => Promise.reject(new Error("broken"));
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     expect(elements.art.hidden).toBe(true);
     expect(elements.pill.hidden).toBe(false);
@@ -152,18 +150,18 @@ describe("TooltipController", () => {
 
   it("shows the name in a pill, and requests no picture, once the settings say names only", async () => {
     controller.setSettings({ ...defaultSettings(), namesOnly: true });
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     expect(loads).toEqual([]);
     expect(elements.art.hidden).toBe(true);
     expect(elements.pill.hidden).toBe(false);
-    expect(elements.pill.textContent).toBe("Roronoa Zoro");
+    expect(elements.pill.textContent).toBe("Blue-Eyes White Dragon");
     expect(sizes.at(-1)?.shape).toBe("pill");
   });
 
   it("shows the name in a pill with no image source at all (a fork with no image hosts)", async () => {
     controller.setSettings({ ...defaultSettings(), primary: null, fallbacks: [] });
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     expect(loads).toEqual([]);
     expect(elements.pill.hidden).toBe(false);
@@ -185,12 +183,12 @@ describe("TooltipController", () => {
         });
       });
     release = () => undefined;
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     const firstLoad = release!;
     controller.clear();
     release = () => undefined;
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     const secondLoad = release!;
     release = null;
@@ -227,21 +225,21 @@ describe("TooltipController", () => {
   });
 
   it("echoes the content script's sequence number in every size: placeholder, picture and pill", async () => {
-    controller.show("OP01-001", 7);
+    controller.show("89631139", 7);
     expect(controller.currentSeq).toBe(7);
-    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "OP01-001", seq: 7 });
+    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "89631139", seq: 7 });
     await tick();
     expect(elements.art.classList.contains("loading")).toBe(false);
-    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "OP01-001", seq: 7 });
+    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "89631139", seq: 7 });
     expect(sizes.every((x) => x.seq === 7)).toBe(true);
     controller.setSettings({ ...defaultSettings(), namesOnly: true });
-    controller.show("OP01-001", 9);
+    controller.show("89631139", 9);
     expect(controller.currentSeq).toBe(9);
-    expect(sizes.at(-1)).toMatchObject({ shape: "pill", cardId: "OP01-001", seq: 9 });
+    expect(sizes.at(-1)).toMatchObject({ shape: "pill", cardId: "89631139", seq: 9 });
   });
 
   it("shows nothing for an id the catalog does not have", () => {
-    controller.show("OP01-001");
+    controller.show("89631139");
     expect(controller.show("<img src=x onerror=alert(1)>")).toBe(false);
     expect(elements.root.hidden).toBe(true);
     expect(controller.current).toBeNull();
@@ -249,23 +247,23 @@ describe("TooltipController", () => {
   });
 
   it("asks for a settings refresh on each newly shown card", () => {
-    controller.show("OP01-001");
-    controller.show("don_8");
+    controller.show("89631139");
+    controller.show("token_1");
     controller.show("unknown");
     expect(refreshes).toBe(2);
   });
 
   it("does not show a picture that arrives after another card was asked for", async () => {
     release = () => undefined;
-    controller.show("OP01-001");
+    controller.show("89631139");
     await tick();
     const first = release!;
     release = null;
-    controller.show("don_8");
+    controller.show("token_1");
     first();
     await tick();
-    expect(elements.img.alt).toBe("DON!! Card");
-    expect(loads.at(-1)).toBe("https://art.example/art/don_8.png");
+    expect(elements.img.alt).toBe("Sample Token");
+    expect(loads.at(-1)).toBe("https://art.example/art/token_1.png");
   });
 });
 
@@ -286,9 +284,9 @@ describe("tooltip frame origin rule", () => {
 
   it("passes a card message's sequence number on to show()", () => {
     const { shown, seqs, send } = connect(SITE_ORIGIN);
-    send(tag({ kind: "card", cardId: "OP01-001", name: "x", seq: 12 }));
-    send(tag({ kind: "card", cardId: "OP01-002", name: "y" }));
-    expect(shown).toEqual(["OP01-001", "OP01-002"]);
+    send(tag({ kind: "card", cardId: "89631139", name: "x", seq: 12 }));
+    send(tag({ kind: "card", cardId: "46986414", name: "y" }));
+    expect(shown).toEqual(["89631139", "46986414"]);
     expect(seqs).toEqual([12, undefined]);
   });
 
@@ -296,20 +294,20 @@ describe("tooltip frame origin rule", () => {
     for (const [origin, dev, framed] of [["https://evil.example", false, true], ["http://127.0.0.1:8770", false, true], [null, false, true], [SITE_ORIGIN, false, false]] as const) {
       const { post, shown, send } = connect(origin, dev, framed);
       expect(post).toBeNull();
-      send(tag({ kind: "card", cardId: "OP01-001", name: "x" }));
+      send(tag({ kind: "card", cardId: "89631139", name: "x" }));
       expect(shown).toEqual([]);
     }
   });
 
   it("acts only on its parent's messages from its parent's origin, and posts there only", () => {
     const { post, posted, shown, send, parent } = connect(SITE_ORIGIN);
-    send(tag({ kind: "card", cardId: "OP01-001", name: "Not the catalog's" }), {}, SITE_ORIGIN);
-    send(tag({ kind: "card", cardId: "OP01-001", name: "x" }), parent, "https://evil.example");
-    send({ kind: "card", cardId: "OP01-001", name: "untagged" });
+    send(tag({ kind: "card", cardId: "89631139", name: "Not the catalog's" }), {}, SITE_ORIGIN);
+    send(tag({ kind: "card", cardId: "89631139", name: "x" }), parent, "https://evil.example");
+    send({ kind: "card", cardId: "89631139", name: "untagged" });
     expect(shown).toEqual([]);
-    send(tag({ kind: "card", cardId: "OP01-001", name: "x" }));
+    send(tag({ kind: "card", cardId: "89631139", name: "x" }));
     send(tag({ kind: "clear" }));
-    expect(shown).toEqual(["OP01-001", "clear"]);
+    expect(shown).toEqual(["89631139", "clear"]);
     post!({ kind: "ready" });
     expect(posted).toEqual([{ message: tag({ kind: "ready" }), origin: SITE_ORIGIN }]);
   });

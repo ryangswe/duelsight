@@ -3,7 +3,7 @@
 
 import { CONFIG } from "./config.js";
 
-/** The project's own page (the popup's first link). From kenbunshoku.config.json. */
+/** The project's own page (the popup's first link). From duelsight.config.json. */
 export const PROJECT_URL = CONFIG.projectUrl;
 
 /** The models this extension ships (README). */
@@ -34,8 +34,8 @@ export const IMAGE_HOSTS: readonly string[] = CONFIG.imageHosts;
 /** The video sites the extension runs on. */
 export const VIDEO_SITES = CONFIG.videoSites;
 
-/** The outline around the hovered card (kenbunshoku.config.json `outlineColor` and
- *  `outlineGlowColor`): a solid edge in a card-back navy, fading out in a brighter blue glow. */
+/** The outline around the hovered card (duelsight.config.json `outlineColor` and
+ *  `outlineGlowColor`): a solid edge, fading out in a glow. */
 export const DEFAULT_OUTLINE_COLOR = "#1b2f6b";
 export const DEFAULT_OUTLINE_GLOW_COLOR = "rgba(61, 111, 224, 0.6)";
 export const OUTLINE_COLOR = CONFIG.outlineColor ?? DEFAULT_OUTLINE_COLOR;
@@ -46,20 +46,6 @@ export const IMAGE_TIMEOUT_MS = 5_000;
 
 /** A source that failed this many times in a row is skipped until fresh settings are read. */
 export const SOURCE_FAILURE_LIMIT = 3;
-
-/**
- * The runtime's geometric stage (extra accuracy, WebGPU only), or null when the config turns it
- * off. Its settings file is copied into the built extension at GEOMETRIC_SETTINGS_PATH; it names
- * the packed card-feature index (about 60 MB) on an image host. The worker downloads the index
- * once, after the release has loaded, which happens on the first hover over a video whose
- * channel the viewer turned card hovers on for, never at install. The settings file's
- * `geometric: false` turns the stage off without a release.
- */
-export const GEOMETRIC = CONFIG.geometric;
-export const GEOMETRIC_SETTINGS_PATH = "data/geometric.json";
-/** The SHA-256 of the index's manifest.json: the manifest, and through it every shard, is
- *  pinned. Always passed with the settings file. */
-export const GEOMETRIC_MANIFEST_SHA256 = CONFIG.geometric?.manifestSha256 ?? null;
 
 /** Smallest video, in CSS pixels of width on the page, that the extension attaches to. */
 export const MIN_VIDEO_WIDTH = 320;

@@ -7,7 +7,7 @@
 
 import { loadImage } from "../images/chain.js";
 import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
-import { type CardTable, parseSourceFileMaps } from "./card-data.js";
+import type { CardTable } from "./card-data.js";
 import { connectTooltipFrame, TooltipController } from "./controller.js";
 import { frameHasShape, type ShapeWindow } from "./frame-shape.js";
 import type { TooltipOut } from "../shared/messages.js";
@@ -31,11 +31,10 @@ let post: ((message: TooltipOut) => void) | null = null;
 void (async () => {
   const framed = window.parent !== window;
   const parentOrigin = location.ancestorOrigins?.[0] ?? null;
-  const [cards, files, effective] = await Promise.all([fetchJson("data/cards.json"), fetchJson("data/source-files.json"), readEffectiveSettings(chrome.storage.local)]);
+  const [cards, effective] = await Promise.all([fetchJson("data/cards.json"), readEffectiveSettings(chrome.storage.local)]);
   const controller = new TooltipController({
     elements: { root: $("card"), art: $("art"), img: $<HTMLImageElement>("img"), placeholder: $("placeholder"), pill: $("pill") },
     table: (cards ?? {}) as CardTable,
-    maps: parseSourceFileMaps(files),
     load: (url) => loadImage(url, { fetch: (...args) => fetch(...args), decode }),
     imageSize: async (blob) => {
       const bitmap = await createImageBitmap(blob);

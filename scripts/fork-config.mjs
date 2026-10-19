@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
-// kenbunshoku.config.json: everything a fork changes to make this extension its own, read and
+// duelsight.config.json: everything a fork changes to make this extension its own, read and
 // checked here. The build refuses a file with any problem (and says which); the extension's code
 // reads the same file through src/config.ts, so the two never disagree.
 //
 //   name, shortName, description   the extension's names (manifest, popup header) and description
 //   icons                          a folder of icon-16.png, icon-32.png, icon-48.png, icon-128.png
 //   videoSites                     { "youtube": bool, "twitch": bool }: where it runs (at least one)
-//   imageHosts                     hosts it may request: card pictures, the settings file, the
-//                                  card-feature index (host permissions and the pages' connect-src)
+//   cdnBase                        the CDN and settings origin, written once (https://host, no
+//                                  path), or null. When given, `imageHosts` is its host alone and
+//                                  `settingsUrl` is `<cdnBase>/config.json`: both are derived by
+//                                  loadForkConfig and must not be written in the file
+//   imageHosts                     hosts it may request: card pictures and the settings file (host
+//                                  permissions and the pages' connect-src). Written only when
+//                                  there is no cdnBase (then `[]` for none)
 //   settingsUrl                    https address of the settings file, or null: no fetch at all,
-//                                  the bundled cdn/config.json only
+//                                  the bundled cdn/config.json only. Written only without cdnBase
 //   outlineColor, outlineGlowColor optional: the hovered card's outline, a solid edge and the glow
 //                                  around it, CSS colors (#hex, rgb()/rgba()/hsl()/hsla(), or a
-//                                  color name); a card-back navy edge and a blue glow if absent
+//                                  color name); a navy edge and a blue glow if absent
 //   printedNumber                  how the number printed on a card is found: { "regex": "…" }
 //                                  (its first capture group, matched on the card id), "catalog" (an
 //                                  optional `printed` field on each catalog card), or "none"
-//   geometric                      { "settings": path, "manifestSha256": hex } or null (stage off)
 //   updateUrlPrefix                where "New version available" may link, or null (never shown)
 //   projectUrl, runtimeUrl         the popup's two links; modelUrl, maintainerContactUrl: README's
 //   packageName                    the release zip's name (`<packageName>-<version>.zip`)
@@ -26,12 +30,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ROOT = fileURLToPath(new URL("..", import.meta.url));
-export const CONFIG_PATH = join(ROOT, "kenbunshoku.config.json");
+export const CONFIG_PATH = join(ROOT, "duelsight.config.json");
 export const ICON_SIZES = [16, 32, 48, 128];
 
 const KEYS = [
-  "$comment", "name", "shortName", "description", "icons", "videoSites", "imageHosts", "settingsUrl", "outlineColor", "outlineGlowColor",
-  "printedNumber", "geometric", "updateUrlPrefix", "projectUrl", "modelUrl", "runtimeUrl", "maintainerContactUrl", "packageName",
+  "$comment", "name", "shortName", "description", "icons", "videoSites", "cdnBase", "imageHosts", "settingsUrl", "outlineColor", "outlineGlowColor",
+  "printedNumber", "updateUrlPrefix", "projectUrl", "modelUrl", "runtimeUrl", "maintainerContactUrl", "packageName",
 ];
 /** The CSS named colors (CSS Color 4), without `transparent` and `currentcolor`. */
 const CSS_COLOR_NAMES = new Set(
@@ -152,6 +156,13 @@ export function configProblems(c, root = ROOT) {
   if (typeof sites !== "object" || sites === null || typeof sites.youtube !== "boolean" || typeof sites.twitch !== "boolean" || Object.keys(sites).length !== 2) {
     p.push('videoSites: { "youtube": true|false, "twitch": true|false }');
   } else if (!sites.youtube && !sites.twitch) p.push("videoSites: at least one site");
+  if (c.cdnBase !== null && c.cdnBase !== undefined) {
+    const url = httpsUrl(c.cdnBase);
+    if (!url || url.origin !== c.cdnBase || !HOST.test(url.hostname)) p.push("cdnBase: an https://host address with no path, or null");
+    else if (!Array.isArray(c.imageHosts) || c.imageHosts.length !== 1 || c.imageHosts[0] !== url.hostname || c.settingsUrl !== `${c.cdnBase}/config.json`) {
+      p.push("cdnBase: imageHosts and settingsUrl must be the ones it gives");
+    }
+  }
   if (!Array.isArray(c.imageHosts) || c.imageHosts.some((h) => typeof h !== "string" || !HOST.test(h))) p.push("imageHosts: a list of host names (lowercase, no scheme)");
   if (c.settingsUrl !== null) {
     const url = httpsUrl(c.settingsUrl);
@@ -169,15 +180,6 @@ export function configProblems(c, root = ROOT) {
       p.push(`printedNumber.regex: ${e.message}`);
     }
   } else p.push('printedNumber: { "regex": "…" }, "catalog" or "none"');
-  if (c.geometric !== null) {
-    const g = c.geometric;
-    if (typeof g !== "object" || g === null || typeof g.settings !== "string" || typeof g.manifestSha256 !== "string" || Object.keys(g).length !== 2) {
-      p.push('geometric: { "settings": "<file>", "manifestSha256": "<64 hex>" }, or null');
-    } else {
-      if (!/^[0-9a-f]{64}$/.test(g.manifestSha256)) p.push("geometric.manifestSha256: 64 lowercase hex digits");
-      if (root && !existsSync(join(root, g.settings))) p.push(`geometric.settings: ${g.settings} is missing`);
-    }
-  }
   if (c.updateUrlPrefix !== null && !httpsUrl(c.updateUrlPrefix)) p.push("updateUrlPrefix: an https:// address, or null");
   for (const k of ["projectUrl", "runtimeUrl"]) if (!httpsUrl(c[k])) p.push(`${k}: an https:// address`);
   for (const k of ["modelUrl", "maintainerContactUrl"]) if (c[k] !== null && !httpsUrl(c[k])) p.push(`${k}: an https:// address, or null`);
@@ -185,32 +187,32 @@ export function configProblems(c, root = ROOT) {
   return p;
 }
 
+/** The config with what `cdnBase` gives filled in: `imageHosts` (its host) and `settingsUrl`
+ *  (`<cdnBase>/config.json`). A file that writes either beside a `cdnBase` is a problem, not
+ *  silently overridden. */
+export function withCdnBase(raw) {
+  if (typeof raw !== "object" || raw === null || raw.cdnBase === null || raw.cdnBase === undefined) return raw;
+  const url = httpsUrl(raw.cdnBase);
+  if (!url || url.origin !== raw.cdnBase) return raw; // configProblems says what is wrong
+  const written = ["imageHosts", "settingsUrl"].filter((k) => k in raw);
+  if (written.length > 0) return { ...raw, imageHosts: [], settingsUrl: null, cdnBaseConflict: written };
+  return { ...raw, imageHosts: [url.hostname], settingsUrl: `${raw.cdnBase}/config.json` };
+}
+
 /** Read and check the config; throws with every problem listed. */
 export function loadForkConfig(path = CONFIG_PATH, root = ROOT) {
-  let config;
+  let raw;
   try {
-    config = JSON.parse(readFileSync(path, "utf-8"));
+    raw = JSON.parse(readFileSync(path, "utf-8"));
   } catch (e) {
     throw new Error(`${path}: not readable JSON (${e.message})`);
   }
-  const problems = configProblems(config, root);
+  const config = withCdnBase(raw);
+  const problems = config?.cdnBaseConflict
+    ? [`${config.cdnBaseConflict.join(" and ")}: not written beside cdnBase (it gives them)`]
+    : configProblems(config, root);
   if (problems.length > 0) throw new Error(`${path}:\n  - ${problems.join("\n  - ")}`);
   return config;
-}
-
-/** Whether the geometric settings name their index on one of the config's image hosts (a
- *  release build may request nothing else); null when they do. */
-export function geometricIndexProblem(geometric, config) {
-  let url = null;
-  try {
-    url = new URL(geometric?.index?.path);
-  } catch {
-    url = null;
-  }
-  if (!url || url.protocol !== "https:" || !config.imageHosts.includes(url.hostname)) {
-    return `index.path must be an https address on one of imageHosts (${config.imageHosts.join(", ") || "none"})`;
-  }
-  return null;
 }
 
 /** The manifest match patterns of the video sites the config turns on. */

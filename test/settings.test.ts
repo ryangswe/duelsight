@@ -4,18 +4,18 @@ import { describe, expect, it } from "vitest";
 import DEFAULT_CONFIG from "../cdn/config.json";
 import { UPDATE_URL_PREFIX } from "../src/constants.js";
 import { validateSettings as validateWithHosts } from "../src/settings/schema.js";
-import { IS_KENBUNSHOKU } from "./helpers/fork.js";
+import { FIXTURE_CDN as CDN, IS_DUELSIGHT } from "./helpers/fork.js";
 
 /** A settings file (a fixture, not the build's own), and the hosts these tests allow. */
 const FIXTURE = {
   schemaVersion: 1,
   updatedAt: "2026-10-16T00:00:00Z",
   namesOnly: false,
-  primary: { id: "cdn", template: "https://cdn.kenbunshoku.com/art/{art}" },
-  fallbacks: [{ id: "optcgapi", template: "https://optcgapi.com/media/static/Card_Images/{sourceFile}" }],
-  cardLink: "https://en.onepiece-cardgame.com/cardlist/?freewords={printedId}",
+  primary: { id: "cdn", template: `${CDN}/art/{art}` },
+  fallbacks: [{ id: "mirror", template: `${CDN}/mirror/{cardId}.jpg` }],
+  cardLink: "https://www.example.org/cards/{printedId}",
 };
-const HOSTS = ["cdn.kenbunshoku.com", "optcgapi.com"];
+const HOSTS = [new URL(CDN).hostname];
 const base = () => JSON.parse(JSON.stringify(FIXTURE)) as Record<string, unknown>;
 const validateSettings = (raw: unknown) => validateWithHosts(raw, HOSTS);
 
@@ -28,17 +28,16 @@ describe("the bundled default settings (cdn/config.json)", () => {
 });
 
 describe("validateSettings", () => {
-  it.runIf(IS_KENBUNSHOKU)("accepts Kenbunshoku's bundled default as it ships", () => {
+  it.runIf(IS_DUELSIGHT)("accepts DuelSight's bundled default as it ships", () => {
     const { settings, problems } = validateWithHosts(DEFAULT_CONFIG);
     expect(problems).toEqual([]);
     expect(settings).toEqual({
       schemaVersion: 1,
-      updatedAt: "2026-10-16T00:00:00Z",
+      updatedAt: "2026-10-18T00:00:00Z",
       namesOnly: false,
-      primary: { id: "cdn", template: "https://cdn.kenbunshoku.com/art/{art}" },
-      fallbacks: [{ id: "optcgapi", template: "https://optcgapi.com/media/static/Card_Images/{sourceFile}" }],
+      primary: { id: "cdn", template: `${CDN}/art/{art}` },
+      fallbacks: [],
       update: null,
-      geometric: true,
     });
   });
 
@@ -58,8 +57,8 @@ describe("validateSettings", () => {
     ["namesOnly 'false'", { ...base(), namesOnly: "false" }],
     ["updatedAt missing", (({ updatedAt: _, ...rest }) => rest)(base())],
     ["primary missing", (({ primary: _, ...rest }) => rest)(base())],
-    ["primary a string", { ...base(), primary: "https://cdn.kenbunshoku.com/art/{art}" }],
-    ["primary without id", { ...base(), primary: { template: "https://cdn.kenbunshoku.com/art/{art}" } }],
+    ["primary a string", { ...base(), primary: `${CDN}/art/{art}` }],
+    ["primary without id", { ...base(), primary: { template: `${CDN}/art/{art}` } }],
     ["fallbacks missing", (({ fallbacks: _, ...rest }) => rest)(base())],
     ["fallbacks an object", { ...base(), fallbacks: {} }],
     ["a fallback of the wrong shape", { ...base(), fallbacks: [{ id: "x" }] }],
@@ -79,16 +78,16 @@ describe("validateSettings", () => {
     const { settings, problems } = validateSettings({
       ...base(),
       fallbacks: [
-        { id: "plain", template: "http://optcgapi.com/{sourceFile}" },
-        { id: "optcgapi", template: "https://optcgapi.com/media/static/Card_Images/{sourceFile}" },
+        { id: "plain", template: `${CDN.replace("https", "http")}/mirror/{cardId}.jpg` },
+        { id: "mirror", template: `${CDN}/mirror/{cardId}.jpg` },
       ],
     });
-    expect(settings?.fallbacks.map((s) => s.id)).toEqual(["optcgapi"]);
+    expect(settings?.fallbacks.map((s) => s.id)).toEqual(["mirror"]);
     expect(problems[0]).toMatch(/fallbacks\[0\] dropped: not https/);
   });
 
   it("drops a source with an unknown placeholder", () => {
-    const { settings } = validateSettings({ ...base(), fallbacks: [{ id: "x", template: "https://optcgapi.com/{nope}" }] });
+    const { settings } = validateSettings({ ...base(), fallbacks: [{ id: "x", template: `${CDN}/{nope}` }] });
     expect(settings?.fallbacks).toEqual([]);
   });
 
@@ -98,14 +97,14 @@ describe("validateSettings", () => {
     expect(problems[0]).toMatch(/elsewhere\.example/);
   });
 
-  it("drops a primary that uses {sourceFile}", () => {
-    const { settings } = validateSettings({ ...base(), primary: { id: "cdn", template: "https://cdn.kenbunshoku.com/art/{sourceFile}" } });
+  it("drops a source that uses {sourceFile}, a placeholder this build does not have", () => {
+    const { settings } = validateSettings({ ...base(), primary: { id: "cdn", template: `${CDN}/art/{sourceFile}` } });
     expect(settings?.primary).toBeNull();
     expect(settings?.fallbacks.length).toBe(1);
   });
 
   it("ignores the obsolete cardLink, whatever it holds, and does without it", () => {
-    for (const cardLink of ["https://en.onepiece-cardgame.com/cardlist/?freewords={printedId}", "javascript:alert(1)", null, 5, { x: 1 }]) {
+    for (const cardLink of ["https://www.example.org/cards/{printedId}", "javascript:alert(1)", null, 5, { x: 1 }]) {
       const { settings, problems } = validateSettings({ ...base(), cardLink });
       expect(settings).not.toBeNull();
       expect(problems).toEqual([]);
@@ -119,20 +118,13 @@ describe("validateSettings", () => {
     expect(validateSettings({ ...base(), namesOnly: true }).settings?.namesOnly).toBe(true);
   });
 
-  describe("the optional geometric field (kill switch of the extra-accuracy stage)", () => {
-    it("is on when absent or null", () => {
-      expect(validateSettings(base()).settings?.geometric).toBe(true);
-      expect(validateSettings({ ...base(), geometric: null }).settings?.geometric).toBe(true);
-    });
-    it("turns the stage off with false", () => {
-      expect(validateSettings({ ...base(), geometric: false }).settings?.geometric).toBe(false);
-      expect(validateSettings({ ...base(), geometric: true }).settings?.geometric).toBe(true);
-    });
-    it("is ignored (on) when it is not a boolean, without refusing the file", () => {
-      const { settings, problems } = validateSettings({ ...base(), geometric: "false" });
-      expect(settings?.geometric).toBe(true);
-      expect(problems.some((p) => p.startsWith("geometric: ignored"))).toBe(true);
-    });
+  it("ignores the retired geometric field, whatever it holds", () => {
+    for (const geometric of [true, false, null, "false"]) {
+      const { settings, problems } = validateSettings({ ...base(), geometric });
+      expect(settings).not.toBeNull();
+      expect(problems).toEqual([]);
+      expect(settings).not.toHaveProperty("geometric");
+    }
   });
 
   const P = UPDATE_URL_PREFIX ?? "";
@@ -157,9 +149,9 @@ describe("validateSettings", () => {
       [{ latest: "v0.2.0", url: "https://x.example/" }],
       [{ latest: "0.2.0", url: "http://x.example/" }],
       [{ latest: "0.2.0", url: "not a url" }],
-      [{ latest: "0.2.0", url: "https://evil.example/kenbunshoku" }],
+      [{ latest: "0.2.0", url: "https://evil.example/duelsight" }],
       [{ latest: "0.2.0", url: `${P}-fake` }],
-      [{ latest: "0.2.0", url: "https://github.com/someone-else/kenbunshoku/releases" }],
+      [{ latest: "0.2.0", url: "https://github.com/someone-else/duelsight/releases" }],
       [{ latest: "0.2.0" }],
       ["0.2.0"],
     ])("ignores a malformed one without refusing the file: %j", (update) => {

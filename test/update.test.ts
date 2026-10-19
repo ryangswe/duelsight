@@ -14,7 +14,7 @@ describe("compareVersions", () => {
 });
 
 describe("updateNotice", () => {
-  const update = { latest: "0.2.0", url: "https://github.com/ryangswe/kenbunshoku/releases" };
+  const update = { latest: "0.2.0", url: "https://github.com/ryangswe/duelsight/releases" };
   it("shows nothing without the field", () => expect(updateNotice(null, "0.1.0", null)).toBeNull());
   it("shows the line when the running version is lower", () => expect(updateNotice(update, "0.1.0", null)).toEqual(update));
   it("shows nothing when the running version is the same or newer", () => {

@@ -57,7 +57,7 @@ const out = join(root, "vendor", "cardvision-browser");
 const git = (...args) => execFileSync("git", ["-C", values.repo, ...args], { encoding: "utf-8" }).trim();
 const commit = git("rev-parse", `${values.commit}^{commit}`);
 
-const work = mkdtempSync(join(tmpdir(), "kenbunshoku-vendor-"));
+const work = mkdtempSync(join(tmpdir(), "duelsight-vendor-"));
 try {
   execFileSync("sh", ["-c", `git -C "$0" archive "$1" browser LICENSE NOTICE | tar -x -C "$2"`, values.repo, commit, work], { stdio: "inherit" });
   const browser = join(work, "browser");

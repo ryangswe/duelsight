@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Zip the built extension for a release: <packageName>-<version>.zip (packageName from
-// kenbunshoku.config.json), holding one folder of the same name, which is what a user selects
+// duelsight.config.json), holding one folder of the same name, which is what a user selects
 // in Chrome's "Load unpacked".
 //
 //   npm run build -- --release <release folder> --images-index <images.jsonl>
@@ -9,7 +9,7 @@
 // It refuses a dev build. It uploads nothing: publishing the zip is a person's decision.
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,13 @@ const manifest = JSON.parse(readFileSync(join(dist, "manifest.json"), "utf-8"));
 const config = loadForkConfig();
 if (manifest.name !== config.name) {
   console.error(`dist/ is a "${manifest.name}" build; package a release build (no --dev)`);
+  process.exit(1);
+}
+// This build has no geometric stage: a package that holds OpenCV.js or a geometric settings file
+// or index is refused, whatever put it there.
+const stray = readdirSync(dist, { recursive: true }).filter((f) => /opencv|geometric/i.test(String(f)));
+if (stray.length > 0) {
+  console.error(`dist/ holds files of the geometric stage, which this build does not ship: ${stray.join(", ")}`);
   process.exit(1);
 }
 // A zip for a release page is loaded unpacked and carries the key; a Web Store build has none.

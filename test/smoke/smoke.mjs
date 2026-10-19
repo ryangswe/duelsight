@@ -148,7 +148,7 @@ async function frameOf(page, name) {
 async function computeState(page) {
   const frame = await frameOf(page, "/compute.html");
   if (!frame) return null;
-  return frame.evaluate(() => window.__kenbunshokuDebug?.() ?? null).catch(() => null);
+  return frame.evaluate(() => window.__duelsightDebug?.() ?? null).catch(() => null);
 }
 
 async function tooltipState(page) {

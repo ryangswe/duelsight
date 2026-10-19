@@ -26,7 +26,7 @@ export interface PopupEnv {
 export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; renderSwitch(): Promise<void> } {
   const $ = <T extends HTMLElement>(id: string): T => env.doc.getElementById(id) as T;
 
-  // The extension's own name, from kenbunshoku.config.json.
+  // The extension's own name, from duelsight.config.json.
   $("name").textContent = CONFIG.name;
   env.doc.title = CONFIG.name;
   $<HTMLAnchorElement>("project").href = PROJECT_URL;

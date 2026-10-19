@@ -16,7 +16,7 @@
 
 import { IMAGE_TIMEOUT_MS, SOURCE_FAILURE_LIMIT } from "../constants.js";
 import type { ImageSource, Settings } from "../settings/schema.js";
-import { type CardRef, expandTemplate, type SourceFileMaps } from "../settings/templates.js";
+import { type CardRef, expandTemplate } from "../settings/templates.js";
 
 /** Decodes a body as an image; rejects when it is not one. In a page: `createImageBitmap`. */
 export type Decode = (blob: Blob) => Promise<void>;
@@ -105,7 +105,6 @@ export type Resolution =
 export async function resolveCardImage(
   card: CardRef,
   settings: Settings,
-  maps: SourceFileMaps,
   health: SourceHealth,
   load: (url: string) => Promise<Blob>,
 ): Promise<Resolution> {
@@ -117,7 +116,7 @@ export async function resolveCardImage(
       attempts.push({ sourceId: source.id, url: null, failure: "skipped after repeated failures" });
       continue;
     }
-    const url = expandTemplate(source.template, card, source.id, maps);
+    const url = expandTemplate(source.template, card);
     if (url === null) {
       attempts.push({ sourceId: source.id, url: null, failure: "a placeholder is unavailable for this card" });
       continue;

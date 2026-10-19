@@ -10,7 +10,6 @@
 
 import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
-import type { SourceFileMaps } from "../settings/templates.js";
 import { allowedParentOrigin, parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
 import type { CardFacts, CardTable } from "./card-data.js";
 
@@ -43,7 +42,6 @@ export interface TooltipElements {
 export interface TooltipDeps {
   elements: TooltipElements;
   table: CardTable;
-  maps: SourceFileMaps;
   /** Load one picture (the fallback chain calls it per source). */
   load(url: string): Promise<Blob>;
   /** The pixel size of a loaded picture (rejects when it does not decode). */
@@ -172,7 +170,7 @@ export class TooltipController {
   private resolve(card: CardFacts, settings: Settings): Promise<Resolution> {
     let entry = this.cache.get(card.id);
     if (!entry) {
-      entry = resolveCardImage(card, settings, this.deps.maps, this.health, this.deps.load);
+      entry = resolveCardImage(card, settings, this.health, this.deps.load);
       this.cache.set(card.id, entry);
       // A card that showed names only is tried again next time.
       void entry.then((r) => {

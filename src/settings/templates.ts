@@ -8,14 +8,13 @@
 //   {printedId}   the number printed on the card (`printedId`, by the config's printedNumber
 //                 rule), percent-encoded; unavailable for a card with none (One Piece's DON!!),
 //                 so a template that needs it is skipped
-//   {sourceFile}  this source's own file name for the card, from the bundled map, percent-encoded
 //
-// A placeholder the card cannot fill (no art; not in the source's map; no printed number) makes the source
+// A placeholder the card cannot fill (no art; no printed number) makes the source
 // unusable for that card: `expandTemplate` returns null and the caller tries the next source.
 
 import { CONFIG, type PrintedNumberRule } from "../config.js";
 
-export const PLACEHOLDERS = ["art", "file", "cardId", "printedId", "sourceFile"] as const;
+export const PLACEHOLDERS = ["art", "file", "cardId", "printedId"] as const;
 export type Placeholder = (typeof PLACEHOLDERS)[number];
 
 /** What a card offers the templates. */
@@ -26,9 +25,6 @@ export interface CardRef {
   /** The catalog's `printed` number, when the config's rule is "catalog". */
   printed?: string | null;
 }
-
-/** File names of each source, by source id then card id (the bundled `{sourceFile}` map). */
-export type SourceFileMaps = Record<string, Record<string, string>>;
 
 /** Percent-encode one value: everything but unreserved characters (A-Z a-z 0-9 - . _ ~). */
 export function encodeValue(value: string): string {
@@ -41,11 +37,11 @@ export function encodePath(path: string): string {
 }
 
 /**
- * The rule that finds the number printed on a card (kenbunshoku.config.json `printedNumber`):
+ * The rule that finds the number printed on a card (duelsight.config.json `printedNumber`):
  *   { regex }   the first capture group of the regex, matched on the card id (no match: none);
  *   "catalog"   the catalog card's own `printed` field (absent: none);
  *   "none"      no card has one.
- * Kenbunshoku's regex is One Piece's: a trailing `-JP`, then `-r<n>`/`-pr<n>`, are not part of
+ * DuelSight's regex is One Piece's: a trailing `-JP`, then `-r<n>`/`-pr<n>`, are not part of
  * the number, and the first `_`-separated part shaped like a card number is
  * (`OP10-045_p2` → `OP10-045`, `OP15-039_p2-JP` → `OP15-039`, `EB03_OP05-006_p1` → `OP05-006`,
  * `don_8` → none).
@@ -78,7 +74,7 @@ export function templateProblem(template: string): string | null {
 }
 
 /** The value of each placeholder for a card and a source; a missing key is unavailable. */
-export function placeholderValues(card: CardRef, sourceId: string | null, maps: SourceFileMaps): Partial<Record<Placeholder, string>> {
+export function placeholderValues(card: CardRef): Partial<Record<Placeholder, string>> {
   const values: Partial<Record<Placeholder, string>> = { cardId: encodeValue(card.id) };
   const printed = printedId(card.id, card.printed);
   if (printed !== null) values.printedId = encodeValue(printed);
@@ -86,8 +82,6 @@ export function placeholderValues(card: CardRef, sourceId: string | null, maps: 
     values.art = encodePath(card.art);
     values.file = encodeValue(card.art.split("/").pop() ?? card.art);
   }
-  const sourceFile = sourceId === null ? undefined : maps[sourceId]?.[card.id];
-  if (sourceFile) values.sourceFile = encodeValue(sourceFile);
   return values;
 }
 
@@ -95,9 +89,9 @@ export function placeholderValues(card: CardRef, sourceId: string | null, maps: 
  * Fill in a template for a card. Null when the template needs a placeholder the card cannot fill
  * for this source, or when the template is not usable at all.
  */
-export function expandTemplate(template: string, card: CardRef, sourceId: string | null, maps: SourceFileMaps = {}): string | null {
+export function expandTemplate(template: string, card: CardRef): string | null {
   if (templateProblem(template)) return null;
-  const values = placeholderValues(card, sourceId, maps);
+  const values = placeholderValues(card);
   let missing = false;
   const url = template.replace(/\{([A-Za-z]+)\}/g, (_, name: string) => {
     const value = values[name as Placeholder];

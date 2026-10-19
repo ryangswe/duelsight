@@ -4,16 +4,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { IMAGE_TIMEOUT_MS, SOURCE_FAILURE_LIMIT } from "../src/constants.js";
 import { ImageLoadError, loadImage, resolveCardImage, SourceHealth } from "../src/images/chain.js";
 import type { Settings } from "../src/settings/schema.js";
+import { FIXTURE_CDN as CDN } from "./helpers/fork.js";
 
-/** Settings with a primary and a {sourceFile} fallback (a fixture: not the build's own). */
+/** Settings with a primary and a fallback on the same host (a fixture: not the build's own). */
 const defaultSettings = (): Settings => ({
   schemaVersion: 1,
   updatedAt: "2026-10-16T00:00:00Z",
   namesOnly: false,
-  primary: { id: "cdn", template: "https://cdn.kenbunshoku.com/art/{art}" },
-  fallbacks: [{ id: "optcgapi", template: "https://optcgapi.com/media/static/Card_Images/{sourceFile}" }],
+  primary: { id: "cdn", template: `${CDN}/art/{art}` },
+  fallbacks: [{ id: "mirror", template: `${CDN}/mirror/{cardId}.jpg` }],
   update: null,
-  geometric: true,
 });
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -46,8 +46,8 @@ afterEach(() => vi.useRealTimers());
 
 describe("loadImage", () => {
   it("resolves with the body when it decodes, whatever the name says (.jpg holding PNG)", async () => {
-    const f = fetchOf({ "https://cdn.kenbunshoku.com/art/A.jpg": png() });
-    const blob = await loadImage("https://cdn.kenbunshoku.com/art/A.jpg", { fetch: f, decode: decodeByBytes });
+    const f = fetchOf({ [`${CDN}/art/A.jpg`]: png() });
+    const blob = await loadImage(`${CDN}/art/A.jpg`, { fetch: f, decode: decodeByBytes });
     expect(blob.size).toBe(PNG.length);
   });
 
@@ -85,15 +85,14 @@ describe("loadImage", () => {
 });
 
 describe("resolveCardImage", () => {
-  const card = { id: "OP01-001", art: "OP01-001.jpg" };
-  const maps = { optcgapi: { "OP01-001": "OP01-001.jpg" } };
-  const primaryUrl = "https://cdn.kenbunshoku.com/art/OP01-001.jpg";
-  const fallbackUrl = "https://optcgapi.com/media/static/Card_Images/OP01-001.jpg";
+  const card = { id: "89631139", art: "89631139.jpg" };
+  const primaryUrl = `${CDN}/art/89631139.jpg`;
+  const fallbackUrl = `${CDN}/mirror/89631139.jpg`;
   const loaderOf = (f: typeof fetch) => (url: string) => loadImage(url, { fetch: f, decode: decodeByBytes, timeoutMs: 50 });
 
   it("shows the primary when it loads, and asks nothing else", async () => {
     const f = fetchOf({ [primaryUrl]: png(), [fallbackUrl]: png() });
-    const r = await resolveCardImage(card, defaultSettings(), maps, new SourceHealth(), loaderOf(f));
+    const r = await resolveCardImage(card, defaultSettings(), new SourceHealth(), loaderOf(f));
     expect(r.kind).toBe("image");
     expect(r.kind === "image" && r.sourceId).toBe("cdn");
     expect(f.calls).toEqual([primaryUrl]);
@@ -101,57 +100,57 @@ describe("resolveCardImage", () => {
 
   it("moves to the fallback on non-2xx, then shows it", async () => {
     const f = fetchOf({ [primaryUrl]: new Response("", { status: 503 }), [fallbackUrl]: png() });
-    const r = await resolveCardImage(card, defaultSettings(), maps, new SourceHealth(), loaderOf(f));
-    expect(r.kind === "image" && r.sourceId).toBe("optcgapi");
+    const r = await resolveCardImage(card, defaultSettings(), new SourceHealth(), loaderOf(f));
+    expect(r.kind === "image" && r.sourceId).toBe("mirror");
     expect(r.attempts.map((a) => a.failure)).toEqual(["HTTP 503", null]);
   });
 
   it("moves to the fallback after a timeout", async () => {
     const f = fetchOf({ [primaryUrl]: "hang", [fallbackUrl]: png() });
-    const r = await resolveCardImage(card, defaultSettings(), maps, new SourceHealth(), loaderOf(f));
-    expect(r.kind === "image" && r.sourceId).toBe("optcgapi");
+    const r = await resolveCardImage(card, defaultSettings(), new SourceHealth(), loaderOf(f));
+    expect(r.kind === "image" && r.sourceId).toBe("mirror");
     expect(r.attempts[0]?.failure).toMatch(/no picture within/);
   });
 
   it("falls back to names when every source fails", async () => {
     const f = fetchOf({ [primaryUrl]: "throw", [fallbackUrl]: new Response("<html>", { status: 200 }) });
-    const r = await resolveCardImage(card, defaultSettings(), maps, new SourceHealth(), loaderOf(f));
+    const r = await resolveCardImage(card, defaultSettings(), new SourceHealth(), loaderOf(f));
     expect(r.kind).toBe("names");
   });
 
   it("skips a source whose placeholder is unavailable, without counting a failure", async () => {
     const health = new SourceHealth();
-    const f = fetchOf({ [primaryUrl]: "throw" });
-    const r = await resolveCardImage({ id: "OP09-999", art: "OP01-001.jpg" }, defaultSettings(), maps, health, loaderOf(f));
+    const f = fetchOf({ [fallbackUrl.replace("89631139", "122")]: "throw" });
+    const r = await resolveCardImage({ id: "122", art: null }, defaultSettings(), health, loaderOf(f));
     expect(r.kind).toBe("names");
-    expect(f.calls).toEqual([primaryUrl]);
-    expect(r.attempts[1]).toEqual({ sourceId: "optcgapi", url: null, failure: "a placeholder is unavailable for this card" });
+    expect(f.calls).toEqual([fallbackUrl.replace("89631139", "122")]);
+    expect(r.attempts[0]).toEqual({ sourceId: "cdn", url: null, failure: "a placeholder is unavailable for this card" });
   });
 
   it("requests nothing under namesOnly", async () => {
     const f = fetchOf({ [primaryUrl]: png() });
     const settings: Settings = { ...defaultSettings(), namesOnly: true };
-    const r = await resolveCardImage(card, settings, maps, new SourceHealth(), loaderOf(f));
+    const r = await resolveCardImage(card, settings, new SourceHealth(), loaderOf(f));
     expect(r).toEqual({ kind: "names", reason: "names only", attempts: [] });
     expect(f.calls).toEqual([]);
   });
 
   it("goes straight to the fallbacks when the primary is null", async () => {
     const f = fetchOf({ [fallbackUrl]: png() });
-    const r = await resolveCardImage(card, { ...defaultSettings(), primary: null }, maps, new SourceHealth(), loaderOf(f));
-    expect(r.kind === "image" && r.sourceId).toBe("optcgapi");
+    const r = await resolveCardImage(card, { ...defaultSettings(), primary: null }, new SourceHealth(), loaderOf(f));
+    expect(r.kind === "image" && r.sourceId).toBe("mirror");
     expect(f.calls).toEqual([fallbackUrl]);
   });
 
   it("skips a source after repeated failures in a row, until reset", async () => {
     const health = new SourceHealth();
     const f = fetchOf({ [primaryUrl]: "throw", [fallbackUrl]: png() });
-    for (let i = 0; i < SOURCE_FAILURE_LIMIT; i += 1) await resolveCardImage(card, defaultSettings(), maps, health, loaderOf(f));
+    for (let i = 0; i < SOURCE_FAILURE_LIMIT; i += 1) await resolveCardImage(card, defaultSettings(), health, loaderOf(f));
     expect(f.calls.filter((u) => u === primaryUrl).length).toBe(SOURCE_FAILURE_LIMIT);
-    await resolveCardImage(card, defaultSettings(), maps, health, loaderOf(f));
+    await resolveCardImage(card, defaultSettings(), health, loaderOf(f));
     expect(f.calls.filter((u) => u === primaryUrl).length).toBe(SOURCE_FAILURE_LIMIT);
     health.reset();
-    await resolveCardImage(card, defaultSettings(), maps, health, loaderOf(f));
+    await resolveCardImage(card, defaultSettings(), health, loaderOf(f));
     expect(f.calls.filter((u) => u === primaryUrl).length).toBe(SOURCE_FAILURE_LIMIT + 1);
   });
 

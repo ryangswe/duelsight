@@ -30,8 +30,6 @@ import {
 import type { ComputeIn, ComputeOut, ShownCard } from "../shared/messages.js";
 import { POINTER_GRACE_MS } from "../constants.js";
 
-export type GeometricStatus = Extract<WorkerReply, { kind: "geometric-status" }>;
-
 /** How often the frame calls `tick`: the runtime's own driver tick. */
 export const DRIVER_TICK_MS = 250;
 /** A capture or an analysis with no answer after this long is given up on (the runtime's value). */
@@ -53,8 +51,6 @@ export interface HostDeps {
   toContent(message: ComputeOut): void;
   /** A frame was analyzed (dev builds: timings for the smoke check). */
   onAnalysis?(analysis: FrameAnalysis): void;
-  /** The geometric stage's state changed (`geometric-status`). */
-  onGeometricStatus?(status: GeometricStatus): void;
   /** Replaceable for tests; the runtime's hit test by default. */
   hoverAt?: typeof hoverAt;
 }
@@ -76,8 +72,6 @@ export class HostSession {
   lastFrameError: string | null = null;
   framesAnalyzed = 0;
   lastWorkerMs: number | null = null;
-  /** The geometric stage's state, once the worker has reported it. */
-  geometric: { state: "loading" | "ready" | "off"; reason: string | null } | null = null;
 
   private analysisWidth = { min: 720, max: 1920 };
   private maxAgeMs = HOVER_MAX_AGE_MS;
@@ -177,11 +171,8 @@ export class HostSession {
 
   // ------------------------------------------------------------------ from the worker
   fromWorker(reply: WorkerReply): void {
-    if (reply.kind === "geometric-status") {
-      this.geometric = { state: reply.state, reason: reply.reason };
-      this.deps.onGeometricStatus?.(reply);
-      return;
-    }
+    // The runtime may report a stage this build does not use; there is nothing to do with it.
+    if (reply.kind === "geometric-status") return;
     if (reply.kind === "release-status") {
       this.state = reply.ok ? "ready" : "failed";
       this.error = reply.error;
@@ -283,8 +274,7 @@ export class HostSession {
    * in a row have nothing there, or `HOLD_MAX_MS` have passed with no analysis seeing it. A
    * different card at the pointer replaces it at once; the pointer leaving its box, a seek or a
    * new source end it at once. The limit is counted in analyses rather than in time because a
-   * resting pointer is analyzed at the slow cadence (1–2 s apart, more with the geometric
-   * stage): a time limit shorter than that would hide the card on every single miss.
+   * resting pointer is analyzed at the slow cadence (1–2 s apart): a time limit shorter than that would hide the card on every single miss.
    */
   shown(): ShownCard | null {
     const now = this.deps.now();

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// Kenbunshoku's icon: a light eye on a dark rounded square, PNG encoded by hand with zlib.
-// `node scripts/icons.mjs` writes it to icons/ (the folder kenbunshoku.config.json names); the
+// DuelSight's icon: a light eye on a dark rounded square, PNG encoded by hand with zlib.
+// `node scripts/icons.mjs` writes it to icons/ (the folder duelsight.config.json names); the
 // build copies whatever PNG files that folder holds.
 
 import { mkdirSync, writeFileSync } from "node:fs";

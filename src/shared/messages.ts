@@ -6,12 +6,12 @@
 // They travel by `window.postMessage`, so the page itself could post to the frames or read their
 // replies. Every message is checked on arrival (`parse*`), and nothing in them is secret: frames
 // are pictures the page already shows, replies are card names and boxes. Each message carries
-// `kenbunshoku: 1` so that unrelated messages on the same window are told apart.
+// `duelsight: 1` so that unrelated messages on the same window are told apart.
 
 import type { VideoSites } from "../config.js";
 import { VIDEO_SITES } from "../constants.js";
 
-export const TAG = "kenbunshoku" as const;
+export const TAG = "duelsight" as const;
 
 /** A box in fractions of the analyzed frame (0 to 1). */
 export interface FractionBox {

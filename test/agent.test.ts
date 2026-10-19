@@ -34,7 +34,7 @@ function makeVideo(): HTMLVideoElement {
 const frames = () => [...document.querySelectorAll("iframe")];
 const compute = () => frames().find((f) => f.src.endsWith("/compute.html"));
 const tooltip = () => frames().find((f) => f.src.endsWith("/tooltip.html"));
-const outline = () => document.querySelector<HTMLElement>("[data-kenbunshoku=outline]");
+const outline = () => document.querySelector<HTMLElement>("[data-duelsight=outline]");
 
 function move(x: number, y: number): void {
   document.dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true }));
@@ -182,7 +182,7 @@ describe("Agent", () => {
     fromFrame(compute(), { kind: "ready" });
     showCard({ cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
-    expect(document.querySelector("[data-kenbunshoku=link]")).toBeNull();
+    expect(document.querySelector("[data-duelsight=link]")).toBeNull();
     expect(document.querySelectorAll("a")).toHaveLength(0);
     expect(tooltip()!.style.pointerEvents).toBe("none");
     expect(tooltip()!.tabIndex).toBe(-1);
@@ -253,7 +253,7 @@ describe("Agent", () => {
     fromFrame(compute(), { kind: "size", width: 900, height: 900, shape: "card" });
     window.dispatchEvent(message(tag({ kind: "size", width: 900, height: 900, shape: "card" }), "http://127.0.0.1:8770", window));
     expect(tooltip()!.style.cssText).toBe(before);
-    expect(document.querySelector("[data-kenbunshoku=link]")).toBeNull();
+    expect(document.querySelector("[data-duelsight=link]")).toBeNull();
   });
 
   it("forgets the time a video last played when its source changes", async () => {
@@ -325,7 +325,7 @@ describe("Agent", () => {
     agent = await startAgent(true, storage);
     move(100, 100);
     expect(frames()).toEqual([]);
-    const button = document.querySelector("[data-kenbunshoku=button]") as HTMLElement;
+    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
     expect(button.style.display).toBe("block");
     const b = (agent as unknown as { button: PlayerButton }).button;
     expect(b.element.getAttribute("aria-label")).toBe("Card hovers for this channel");
@@ -389,7 +389,7 @@ describe("Agent", () => {
   it("hides the button when the pointer leaves the player", async () => {
     agent = await startAgent();
     move(100, 100);
-    const button = document.querySelector("[data-kenbunshoku=button]") as HTMLElement;
+    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
     expect(button.style.display).toBe("block");
     move(100, 700);
     expect(button.style.display).toBe("none");
@@ -539,7 +539,7 @@ describe("Agent", () => {
       document.dispatchEvent(new Event("fullscreenchange"));
       expect(tooltip()!.parentElement).toBe(player);
       expect(outline()!.parentElement).toBe(player);
-      expect(document.querySelectorAll("[data-kenbunshoku=outline]")).toHaveLength(1);
+      expect(document.querySelectorAll("[data-duelsight=outline]")).toHaveLength(1);
       fromFrame(tooltip(), { kind: "ready" });
       showCard({ cardId: "OP01-002", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
       expect(tooltip()!.style.visibility).toBe("visible");
@@ -741,7 +741,7 @@ describe("Agent", () => {
   it("moves the in-player button with the player on a resize", async () => {
     agent = await startAgent();
     move(100, 100);
-    const button = document.querySelector("[data-kenbunshoku=button]") as HTMLElement;
+    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
     expect(button.style.display).toBe("block");
     const before = button.style.left;
     video.getBoundingClientRect = () => ({ left: 100, top: 60, width: 1280, height: 720, right: 1380, bottom: 780, x: 100, y: 60, toJSON() {} }) as DOMRect;
@@ -753,7 +753,7 @@ describe("Agent", () => {
   it("hides the in-player button when the pointer leaves the window", async () => {
     agent = await startAgent();
     move(100, 100);
-    const button = document.querySelector("[data-kenbunshoku=button]") as HTMLElement;
+    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
     expect(button.style.display).toBe("block");
     document.documentElement.dispatchEvent(new PointerEvent("pointerleave"));
     expect(button.style.display).toBe("none");
@@ -763,10 +763,10 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     expect(frames()).toHaveLength(2);
-    expect(document.querySelector("[data-kenbunshoku=button]")).not.toBeNull();
+    expect(document.querySelector("[data-duelsight=button]")).not.toBeNull();
     agent.setEnabled(false);
     expect(frames()).toHaveLength(0);
-    expect(document.querySelector("[data-kenbunshoku=button]")).toBeNull();
+    expect(document.querySelector("[data-duelsight=button]")).toBeNull();
     move(100, 100);
     expect(frames()).toHaveLength(0);
   });

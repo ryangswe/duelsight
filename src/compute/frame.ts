@@ -8,7 +8,7 @@
 
 import type { FrameAnalysis, WorkerReply, WorkerRequest } from "../../vendor/cardvision-browser/cardvision.js";
 import { allowedParentOrigin, type ComputeOut, parseComputeIn, TAG, tag } from "../shared/messages.js";
-import { type GeometricStatus, HostSession } from "./host-session.js";
+import { HostSession } from "./host-session.js";
 import type { LoadRequest } from "./load-request.js";
 
 /** The part of a Worker used here. */
@@ -35,16 +35,8 @@ export interface ComputeEnv {
   createWorker(): WorkerLike;
   loadRequest: LoadRequest;
   now(): number;
-  /** The geometric stage's state changed. */
-  onGeometricStatus?(status: GeometricStatus): void;
   /** A frame was analyzed. */
   onAnalysis?(analysis: FrameAnalysis): void;
-}
-
-/** The load request without the geometric stage. */
-export function plainLoad(request: LoadRequest): LoadRequest {
-  const { geometricUrl: _url, geometricManifestSha256: _sha, ...plain } = request;
-  return plain;
 }
 
 /** How many times a worker that failed after loading is started again. */
@@ -74,7 +66,6 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
       now: env.now,
       toWorker: (request, transfer) => w.postMessage(request, transfer ?? []),
       toContent,
-      ...(env.onGeometricStatus ? { onGeometricStatus: env.onGeometricStatus } : {}),
       ...(env.onAnalysis ? { onAnalysis: env.onAnalysis } : {}),
     });
     w.onmessage = (event) => {
@@ -86,7 +77,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     worker = w;
     session = s;
     // A restarted worker gets the plain load: the stage is not tried again in this page.
-    w.postMessage(restarts > 0 ? plainLoad(env.loadRequest) : env.loadRequest);
+    w.postMessage(env.loadRequest);
   };
 
   const onWorkerError = (event: ErrorEvent): void => {
@@ -100,7 +91,6 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     toContent({ kind: "shown", card: null });
     if (restarts < WORKER_RESTARTS) {
       restarts += 1;
-      env.onGeometricStatus?.({ kind: "geometric-status", state: "off", reason: "worker-restarted", bytes: null });
       toContent({ kind: "status", state: "loading", error: null, backend: null });
       start();
       return;

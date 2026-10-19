@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The background: it fetches the settings file at start-up, and again when a page of the
 // extension asks and the last attempt is an hour old or more. It makes no other request, and
-// none at all when the build has no settings address (kenbunshoku.config.json settingsUrl null).
+// none at all when the build has no settings address (duelsight.config.json settingsUrl null).
 
 import { refreshSettings } from "../settings/store.js";
 

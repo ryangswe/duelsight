@@ -38,7 +38,7 @@ export class PlayerButton {
   constructor(private readonly options: PlayerButtonOptions) {
     this.host = document.createElement("div");
     this.host.style.cssText = `${HOST_STYLE}left:0;top:0;display:none;`;
-    this.host.dataset.kenbunshoku = "button";
+    this.host.dataset.duelsight = "button";
     const root = this.host.attachShadow({ mode: "closed" });
 
     this.label = document.createElement("span");

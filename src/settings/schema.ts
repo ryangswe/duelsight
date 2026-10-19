@@ -8,7 +8,6 @@
 //   - a template that is not an absolute https:// URL;
 //   - a template with a placeholder this extension does not know;
 //   - a template whose host is not one the extension may request images from (IMAGE_HOSTS);
-//   - a primary that uses {sourceFile} (our CDN is keyed by {art}).
 // Unknown extra fields are ignored, among them the obsolete `cardLink` (the tooltip no longer
 // has a link; files may still carry it, of any type). The optional `update` field (an addition proposed for
 // unpacked installs) is read when it is well formed and ignored otherwise.
@@ -35,9 +34,6 @@ export interface Settings {
   primary: ImageSource | null;
   fallbacks: ImageSource[];
   update: UpdateNotice | null;
-  /** The geometric stage (extra accuracy). Optional in the file; absent means on. `false` turns
-   *  it off without a release. */
-  geometric: boolean;
 }
 
 export interface Validation {
@@ -105,13 +101,6 @@ function updateField(value: unknown, problems: string[]): UpdateNotice | null {
   return { latest: value.latest, url: url.href };
 }
 
-function geometricField(value: unknown, problems: string[]): boolean {
-  if (value === undefined || value === null) return true;
-  if (typeof value === "boolean") return value;
-  problems.push("geometric: ignored (not true or false); the stage stays on");
-  return true;
-}
-
 /** Validate a parsed settings file. */
 export function validateSettings(raw: unknown, allowedHosts: readonly string[] = IMAGE_HOSTS): Validation {
   const fail = (problem: string): Validation => ({ settings: null, problems: [problem] });
@@ -136,7 +125,7 @@ export function validateSettings(raw: unknown, allowedHosts: readonly string[] =
 
   const problems: string[] = [];
   if (primary) {
-    const problem = primary.template.includes("{sourceFile}") ? "the primary may not use {sourceFile}" : imageSourceProblem(primary, allowedHosts);
+    const problem = imageSourceProblem(primary, allowedHosts);
     if (problem) {
       problems.push(`primary dropped: ${problem}`);
       primary = null;
@@ -155,7 +144,6 @@ export function validateSettings(raw: unknown, allowedHosts: readonly string[] =
       primary,
       fallbacks: kept,
       update: updateField(raw.update, problems),
-      geometric: geometricField(raw.geometric, problems),
     },
     problems,
   };

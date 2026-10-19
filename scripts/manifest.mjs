@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// The extension's manifest, made from kenbunshoku.config.json. Permissions are the least the
+// The extension's manifest, made from duelsight.config.json. Permissions are the least the
 // extension needs:
 //   - `storage`: the on/off switch, the channels turned on, the last good settings file, a
 //     dismissed update notice;
-//   - `unlimitedStorage`, only with the geometric stage: keeps its card-feature file (about
-//     60 MB) from being evicted (no install warning);
 //   - the video sites the config turns on (where the content script runs);
-//   - the image hosts the config names, so the extension's pages can load pictures, the settings
-//     file and the card-feature index from them; the pages' connect-src names the same hosts.
+//   - the image hosts the config names (the CDN), so the extension's pages can load pictures and
+//     the settings file from it; the pages' connect-src names the same hosts.
 // No tabs, no history, no other host. A dev build also runs on the local test page.
 
 import { createHash } from "node:crypto";
@@ -65,7 +63,7 @@ export function buildManifest({ version, dev, store = false, config = loadForkCo
     description: config.description,
     ...(store ? {} : { key: UNPACKED_PUBLIC_KEY }),
     minimum_chrome_version: "121",
-    permissions: config.geometric ? ["storage", "unlimitedStorage"] : ["storage"],
+    permissions: ["storage"],
     host_permissions: [...sites, ...imageHostPatterns(config)],
     background: { service_worker: "background.js", type: "module" },
     content_scripts: [{ matches: pages, js: ["content.js"], run_at: "document_idle", all_frames: true }],
