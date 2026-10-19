@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+*.zip
+.DS_Store
+test/manual/*.local.*
+# Private keys: never commit one (docs/make-it-yours.md, step 6). The extension's public key,
+# keys/unpacked-public.pem, is the one .pem file that is tracked.
+*.pem
+!keys/unpacked-public.pem

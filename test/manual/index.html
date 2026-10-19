@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kenbunshoku manual test page</title>
+<style>
+  body { margin: 0; padding: 16px; font: 14px/1.4 system-ui, sans-serif; background: #111; color: #ddd; }
+  video { display: block; width: min(1280px, 100%); background: #000; }
+  p { max-width: 1280px; }
+</style>
+</head>
+<body>
+<p>Kenbunshoku manual test page. Load the <strong>dev build</strong> (<code>npm run build -- --dev --release …</code>) in Chrome, then rest the pointer on a face-up card in the video.</p>
+<video id="video" src="/video" controls muted loop playsinline></video>
+</body>
+</html>

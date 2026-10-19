@@ -1,0 +1,23 @@
+{
+  "$comment": "Everything a fork changes to make this extension its own. Read docs/make-it-yours.md. The build validates this file (scripts/fork-config.mjs).",
+  "name": "Kenbunshoku",
+  "shortName": "Kenbunshoku",
+  "description": "Unofficial fan project, not affiliated with Bandai. Hover a One Piece Card Game card in a YouTube or Twitch video to see the card.",
+  "icons": "icons",
+  "videoSites": { "youtube": true, "twitch": true },
+  "imageHosts": ["cdn.kenbunshoku.com", "optcgapi.com"],
+  "settingsUrl": "https://cdn.kenbunshoku.com/config.json",
+  "outlineColor": "#1b2f6b",
+  "outlineGlowColor": "rgba(61, 111, 224, 0.6)",
+  "printedNumber": { "regex": "^(?:[^_]*_)*?([A-Z]{1,4}\\d{0,2}-\\d{2,3}[A-Z]?)(?:_.*)?(?:-(?:r|pr)\\d+)?(?:-JP)?$" },
+  "geometric": {
+    "settings": "data/geometric.json",
+    "manifestSha256": "7b9a96f636611e34183b1a845db93846cb92e5d12ad0d273dd14d1e2c60cef19"
+  },
+  "updateUrlPrefix": "https://github.com/ryangswe/kenbunshoku/releases",
+  "projectUrl": "https://github.com/ryangswe/kenbunshoku",
+  "modelUrl": "https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece",
+  "runtimeUrl": "https://github.com/ryangswe/kenbunshoku#built-on-cardvision",
+  "maintainerContactUrl": "https://github.com/ryangswe/kenbunshoku/issues",
+  "packageName": "kenbunshoku"
+}

@@ -1,0 +1,73 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* The popup's look. Every color is a custom property here: change these to retheme it. */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1c1d21;
+  --muted: #6b6f78;
+  --border: #e3e5ea;
+  --shadow: 0 1px 2px rgba(16, 18, 24, 0.06);
+  --track-off: #c9ccd3;
+  --track-on: #2f6fde;
+  --knob: #ffffff;
+  --focus: #2f6fde;
+  --notice-bg: #eef3fd;
+  --notice-fg: #1f4fa3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1f24;
+    --fg: #eceef2;
+    --muted: #9aa0ab;
+    --border: #30333a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --track-off: #4a4e57;
+    --track-on: #5b8ef0;
+    --knob: #f5f6f8;
+    --focus: #8fb2f6;
+    --notice-bg: #22304a;
+    --notice-fg: #b9cdf7;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body { width: 280px; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.panel { padding: 16px; display: grid; gap: 14px; }
+.head { display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.icon { border-radius: 5px; }
+.name { font-weight: 600; font-size: 14px; letter-spacing: 0.01em; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.label { font-size: 14px; }
+
+.switch {
+  position: relative; flex: none; width: 42px; height: 24px; padding: 0; border: 0; border-radius: 999px;
+  background: var(--track-off); cursor: pointer; box-shadow: var(--shadow);
+}
+.switch[aria-checked="true"] { background: var(--track-on); }
+/* Until the stored state is read, the switch is still and cannot be pressed; it then shows that
+   state without sliding, and slides only on later changes. */
+.switch:disabled { cursor: default; }
+.switch[data-ready] { transition: background-color 0.15s ease; }
+.switch[data-ready] .knob { transition: transform 0.15s ease; }
+.switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.knob {
+  position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--knob); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.switch[aria-checked="true"] .knob { transform: translateX(18px); }
+@media (prefers-reduced-motion: reduce) {
+  .switch, .knob, .switch[data-ready], .switch[data-ready] .knob { transition: none; }
+}
+
+.update {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--notice-bg); font-size: 13px;
+}
+.update[hidden] { display: none; }
+.update a { color: var(--notice-fg); }
+.foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; }
+.foot a { color: var(--muted); text-decoration: none; }
+.foot a:hover, .foot a:focus-visible { color: var(--fg); text-decoration: underline; }
+.dismiss { border: 0; background: transparent; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.dismiss:focus-visible { outline: 2px solid var(--focus); }

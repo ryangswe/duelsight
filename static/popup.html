@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>{{name}}</title>
+<link rel="stylesheet" href="popup.css">
+<script type="module" src="popup.js"></script>
+</head>
+<body>
+<main class="panel">
+  <header class="head">
+    <img class="icon" src="icons/icon-32.png" alt="" width="20" height="20">
+    <span id="name" class="name">{{name}}</span>
+  </header>
+  <div class="row">
+    <span id="switch-label" class="label">Card hovers</span>
+    <button id="enabled" class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="switch-label" aria-busy="true" disabled>
+      <span class="knob" aria-hidden="true"></span>
+    </button>
+  </div>
+  <p id="update" class="update" hidden>
+    <a id="update-link" target="_blank" rel="noopener noreferrer"></a>
+    <button id="update-dismiss" class="dismiss" type="button" aria-label="Dismiss">&times;</button>
+  </p>
+  <footer class="foot">
+    <a id="project" target="_blank" rel="noopener noreferrer">Project page</a>
+    <a id="runtime" target="_blank" rel="noopener noreferrer">Built on cardvision</a>
+  </footer>
+</main>
+</body>
+</html>

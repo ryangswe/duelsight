@@ -1,0 +1,56 @@
+Kenbunshoku
+Copyright 2026 The Kenbunshoku authors
+
+This product is licensed under the Apache License, Version 2.0. The full text is in the file
+LICENSE.
+
+------------------------------------------------------------------------------
+Not affiliated
+------------------------------------------------------------------------------
+
+Kenbunshoku is an unofficial fan project. It is not affiliated with, endorsed by or sponsored by
+Bandai, Eiichiro Oda, Shueisha or Toei Animation. The One Piece Card Game, its card names and its
+card art belong to their owners. This repository contains no card images.
+
+------------------------------------------------------------------------------
+cardvision-browser (vendored in vendor/cardvision-browser/)
+License: Apache-2.0
+Upstream: https://github.com/ryangswe/riftsight-vision (the cardvision toolkit, browser/)
+------------------------------------------------------------------------------
+
+The card detection and recognition runtime this extension runs on. Its own LICENSE and NOTICE
+are kept beside it, in vendor/cardvision-browser/ and in the built extension's runtime/ folder.
+The commit it was built from is recorded in vendor/cardvision-browser/VENDOR.json.
+
+------------------------------------------------------------------------------
+ONNX Runtime Web
+License: MIT
+Upstream: https://github.com/microsoft/onnxruntime
+------------------------------------------------------------------------------
+
+Bundled into the runtime's modules and shipped as its WebAssembly files. The license text is in
+THIRD_PARTY_LICENSES.txt.
+
+------------------------------------------------------------------------------
+OpenCV.js (OpenCV 5.0.0, built with Emscripten 4.0.20; vendor/cardvision-browser/opencv.*)
+License: Apache-2.0 (OpenCV); MIT or NCSA (Emscripten runtime); MIT (musl); Apache-2.0 WITH
+LLVM-exception (libc++, libc++abi, compiler-rt); zlib (zlib)
+Upstream: https://github.com/opencv/opencv, https://github.com/emscripten-core/emscripten
+------------------------------------------------------------------------------
+
+Used by the runtime's geometric stage, and shipped in the built extension's runtime/ folder.
+The copyright notices and license texts are in opencv.mjs.LEGAL.txt beside it; the build it
+came from is pinned in vendor/cardvision-browser/VENDOR.json (opencv.lock).
+
+------------------------------------------------------------------------------
+One Piece Card Game models (shipped in the built extension's release/ folder)
+License: Apache-2.0
+Upstream: https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece
+------------------------------------------------------------------------------
+
+Release B2.1 (id f80d5b56cd907f03; the evaluated release B2, 26a98a0f49a74545, with one
+catalog entry corrected and its identity grouping updated to match): a YOLOX-derived card
+detector, fine-tuned from Megvii's COCO-pretrained YOLOX-Nano weights (Apache-2.0), and the
+cardvision recognizer, trained by the open-source cardvision project on labels made on frames of
+public videos plus composites made from official card art (the art is not included). The model files are not kept in this
+repository; their LICENSE, NOTICE and PROVENANCE.md are, in release-legal/, and ship beside them.

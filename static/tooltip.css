@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* The tooltip is the card's picture alone, filling this frame; the content script sizes the
+   frame, rounds its corners and gives it its shadow. Without a picture it is a small pill with
+   the card's name. */
+:root { color-scheme: normal; }
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; width: 100%; height: 100%; }
+body { font: 600 14px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #f2f2f4; }
+.card, .art { width: 100%; height: 100%; }
+.card[hidden], .art[hidden], .pill[hidden] { display: none; }
+.art { position: relative; background: #1d1d24; }
+.art img { display: block; width: 100%; height: 100%; object-fit: fill; }
+/* While the picture loads: a dark card with the name in its middle. */
+.art.loading img { visibility: hidden; }
+.placeholder { display: none; }
+.art.loading .placeholder {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 0 12%; text-align: center; overflow-wrap: anywhere; color: #d8d8e0;
+}
+.pill {
+  position: absolute; left: 0; top: 0; box-sizing: border-box; width: max-content; max-width: 320px;
+  padding: 7px 14px; background: #17171c; border-radius: 999px; overflow-wrap: anywhere;
+}

@@ -1,0 +1,30 @@
+{
+  "name": "kenbunshoku",
+  "version": "0.1.0",
+  "description": "Hover a One Piece Card Game card in a YouTube or Twitch video to see which card it is.",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit && vitest run",
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs",
+    "vendor": "node scripts/vendor-runtime.mjs",
+    "manual": "node test/manual/serve.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.29.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.5",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "happy-dom": "21.0.3",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  }
+}

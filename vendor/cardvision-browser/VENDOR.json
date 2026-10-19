@@ -1,0 +1,84 @@
+{
+  "package": "cardvision-browser",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "source": "cardvision-browser, the browser runtime of the cardvision toolkit (source published with the toolkit release)",
+  "commit": "9e59fee44750e1da7314355768a83ef4d8172f37",
+  "onnxruntimeWeb": "1.29.0",
+  "ortFiles": [
+    "ort-wasm-simd-threaded.jsep.mjs",
+    "ort-wasm-simd-threaded.jsep.wasm"
+  ],
+  "opencv": {
+    "lock": {
+      "schemaVersion": 1,
+      "about": "The OpenCV.js build of the geometric stage: what scripts/build-opencv.mjs builds from, and the files it made. The build itself is not kept in the repository.",
+      "opencv": {
+        "repository": "https://github.com/opencv/opencv.git",
+        "tag": "5.0.0",
+        "commit": "40738fb16ceddb5fb3fea747585f7ce6abb0605b"
+      },
+      "emsdk": {
+        "repository": "https://github.com/emscripten-core/emsdk.git",
+        "tag": "4.0.20",
+        "commit": "e4fe26ef59168ff44f4c23c466e497bf60b3411e",
+        "sdk": "4.0.20"
+      },
+      "whitelist": {
+        "path": "scripts/opencv-whitelist.py",
+        "sha256": "1ac7984956baf8d1e298abf470a735531c0a2c06e3ccd9082dbd08e8d1945c0b"
+      },
+      "buildJs": {
+        "options": [
+          "--disable_single_file",
+          "--simd",
+          "--clean_build_dir"
+        ],
+        "cmakeOptions": [
+          "-DCMAKE_CXX_STANDARD=17",
+          "-DBUILD_opencv_dnn=OFF",
+          "-DBUILD_opencv_objdetect=OFF",
+          "-DBUILD_opencv_video=OFF",
+          "-DBUILD_opencv_calib=OFF",
+          "-DBUILD_opencv_stereo=OFF",
+          "-DBUILD_opencv_ptcloud=OFF",
+          "-DBUILD_TESTS=OFF",
+          "-DBUILD_PERF_TESTS=OFF",
+          "-DBUILD_EXAMPLES=OFF",
+          "-DWITH_PROTOBUF=OFF",
+          "-DWITH_FLATBUFFERS=OFF"
+        ],
+        "buildFlags": "-s EXPORT_ES6=1 -s ENVIRONMENT=web,worker,node -s DYNAMIC_EXECUTION=0"
+      },
+      "built": {
+        "files": {
+          "opencv.mjs": {
+            "bytes": 125547,
+            "sha256": "ec4e6e0575dedbec1dfc64bf6bc4e38060b818adba4fe75f341fe67e9a6a2cf3"
+          },
+          "opencv_js.wasm": {
+            "bytes": 3405437,
+            "sha256": "b50d847c8df5e9838e74fad950910ce520adb9069e948fb67d160ec8992d2597"
+          }
+        },
+        "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.20 (6913738ec5371a88c4af5a80db0ab42bad3de681)",
+        "cmake": "cmake version 3.31.12",
+        "python": "Python 3.10.6",
+        "host": "darwin-arm64"
+      }
+    },
+    "legalSha256": "b899de1ca0191a9b729d69cd93185647e785849f00045fa60f780042dc164185"
+  },
+  "files": [
+    "LICENSE",
+    "NOTICE",
+    "cardvision.d.ts",
+    "cardvision.js",
+    "cardvision.js.LEGAL.txt",
+    "opencv.mjs",
+    "opencv.mjs.LEGAL.txt",
+    "opencv_js.wasm",
+    "worker.js",
+    "worker.js.LEGAL.txt"
+  ]
+}
