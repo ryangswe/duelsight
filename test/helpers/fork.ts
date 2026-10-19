@@ -14,7 +14,7 @@ export const IS_DUELSIGHT = CONFIG.packageName === "duelsight";
 export const SITE_ORIGIN = CONFIG.videoSites.youtube ? "https://www.youtube.com" : "https://www.twitch.tv";
 
 /** The CDN origin the fixtures use: the placeholder, an address that never resolves. */
-export const FIXTURE_CDN = "https://cdn.duelsight.invalid";
+export const FIXTURE_CDN = "https://cdn.duelsight.com";
 
 /** A passcode-shaped printed-number rule (tests of the rule engine): the whole id, up to 8 digits. */
 export const PASSCODE_RULE = { regex: String.raw`^(\d{1,8})$` } as const;

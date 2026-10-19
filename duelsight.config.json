@@ -1,11 +1,11 @@
 {
-  "$comment": "Everything a fork changes to make this extension its own. Read docs/make-it-yours.md. The build validates this file (scripts/fork-config.mjs). cdnBase is the one place the CDN and settings host is written: imageHosts and settingsUrl follow from it. It is a placeholder until the domain is decided.",
+  "$comment": "Everything a fork changes to make this extension its own. Read docs/make-it-yours.md. The build validates this file (scripts/fork-config.mjs). cdnBase is the one place the CDN and settings host is written: imageHosts and settingsUrl follow from it.",
   "name": "DuelSight",
   "shortName": "DuelSight",
   "description": "Unofficial fan project, not affiliated with or endorsed by Konami. Hover a Yu-Gi-Oh! card in a YouTube or Twitch video to see it.",
   "icons": "icons",
   "videoSites": { "youtube": true, "twitch": true },
-  "cdnBase": "https://cdn.duelsight.invalid",
+  "cdnBase": "https://cdn.duelsight.com",
   "outlineColor": "#3b2a78",
   "outlineGlowColor": "rgba(139, 109, 230, 0.6)",
   "printedNumber": { "regex": "^(\\d{1,8})$" },

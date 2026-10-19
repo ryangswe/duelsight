@@ -1,8 +1,8 @@
 # Card-art CDN (`cdn/`)
 
 Serves Yu-Gi-Oh! card images for the DuelSight extension from the project's own Cloudflare
-account and domain (the host in `cdnBase` of `duelsight.config.json`; a placeholder,
-`cdn.duelsight.invalid`, until the domain is decided), plus the small settings file
+account and domain (the host in `cdnBase` of `duelsight.config.json`,
+`cdn.duelsight.com`), plus the small settings file
 (`config.json`, contract in [SETTINGS.md](SETTINGS.md)) that tells the extension where images
 come from.
 
@@ -48,10 +48,9 @@ Uploads are additive: the tool never deletes. Order is images → `art/index.jso
    DSCDN_R2_ACCESS_KEY_ID=…
    DSCDN_R2_SECRET_ACCESS_KEY=…
    DSCDN_BUCKET=<bucket name>
-   DSCDN_PUBLIC_BASE=https://cdn.duelsight.invalid   # the cdnBase value, once the domain exists
+   DSCDN_PUBLIC_BASE=https://cdn.duelsight.com   # the cdnBase value
    ```
-7. **Domain:** not decided yet. Until it is, `cdn.duelsight.invalid` (an address that never
-   resolves) stands in everywhere: `cdnBase` in `duelsight.config.json`, the `primary` template
+7. **Domain:** `cdn.duelsight.com` on duelsight.com. It appears in `cdnBase` in `duelsight.config.json`, the `primary` template
    in `cdn/config.json`, `cdn/SETTINGS.md` and its `DSCDN_PUBLIC_BASE`. Change them together.
 8. **Network Error Logging off.** Turn off Network Error Logging for the zone (or strip NEL/Report-To
    with a response header transform rule); verify checks it. Otherwise every viewer's browser

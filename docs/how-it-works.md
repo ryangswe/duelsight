@@ -81,7 +81,7 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
 ## The settings file
 
 Where pictures come from is decided by a small settings file at
-`<cdnBase>/config.json` (schema version 1; `cdnBase` is the one value in `duelsight.config.json` that names the CDN host, a placeholder until the domain is decided), so that images can be switched to
+`<cdnBase>/config.json` (schema version 1; `cdnBase` is the one value in `duelsight.config.json` that names the CDN host, `https://cdn.duelsight.com`), so that images can be switched to
 another source, or off, without a new extension release:
 
 - `namesOnly: true` shows no pictures at all: the card's name alone.

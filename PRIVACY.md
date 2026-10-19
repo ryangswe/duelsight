@@ -10,8 +10,7 @@ what it sends, and what it keeps.
 - No accounts, no analytics, no telemetry, no advertising.
 - Video frames are processed temporarily in memory, inside your browser. They are not saved to
   storage and never uploaded.
-- The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.invalid` until
-  the domain is decided), for a settings file and card pictures.
+- The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a settings file and card pictures.
 
 ## What it reads
 

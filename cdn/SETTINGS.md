@@ -9,7 +9,7 @@ This document states what the extension enforces (`src/settings/`, `src/images/c
 file that `dscdn.py` accepts can still have parts the extension drops.
 
 - **URL:** `<cdnBase>/config.json`, where `cdnBase` is the one value in `duelsight.config.json` that
-  names the CDN host (a placeholder, `https://cdn.duelsight.invalid`, until the domain is decided).
+  names the CDN host (`https://cdn.duelsight.com`).
 - **Served with:** `Content-Type: application/json`, `Cache-Control: public, max-age=300`,
   `Access-Control-Allow-Origin: *`.
 - **Written by:** `dscdn.py publish --config <file>`, last, after any images it references.
@@ -21,7 +21,7 @@ file that `dscdn.py` accepts can still have parts the extension drops.
   "schemaVersion": 1,
   "updatedAt": "2026-10-16T00:00:00Z",
   "namesOnly": false,
-  "primary": { "id": "cdn", "template": "https://cdn.duelsight.invalid/art/{art}" },
+  "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
   "fallbacks": []
 }
 ```
@@ -72,7 +72,7 @@ always available.
 ## Image hosts
 
 The extension requests images only from hosts in its manifest's host permissions, today
-`cdn.duelsight.invalid` alone, the placeholder host (YouTube and twitch.tv are the sites it runs on, not image hosts); its pages'
+`cdn.duelsight.com` alone (YouTube and twitch.tv are the sites it runs on, not image hosts); its pages'
 Content-Security-Policy (`connect-src`) allows only that host, so a redirect to another host
 fails too. A `primary` or fallback whose
 template names any other host is dropped (the rest kept). **A new image host needs an extension

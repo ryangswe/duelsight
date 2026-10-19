@@ -2,6 +2,6 @@
   "schemaVersion": 1,
   "updatedAt": "2026-10-18T00:00:00Z",
   "namesOnly": false,
-  "primary": { "id": "cdn", "template": "https://cdn.duelsight.invalid/art/{art}" },
+  "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
   "fallbacks": []
 }
