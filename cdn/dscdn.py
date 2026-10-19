@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-"""One Piece card-art CDN: plan, publish and verify.
+"""Card-art CDN: plan, publish and verify.
 
 Runs on the maintainer's machine, where the mirrored images live; nothing image-bearing is ever
 committed. Uploads to a Cloudflare R2 bucket in the project's own account, never another
 project's. See README.md (setup, usage) and SETTINGS.md (the config.json contract).
 
-  opcdn.py plan    --catalog C --images DIR [--config F] [--offline]
-  opcdn.py publish --catalog C --images DIR [--config F] [--dry-run]
-  opcdn.py publish --config F                 # config.json only
-  opcdn.py verify  [--samples N]
-  opcdn.py publish-geo --dir PACKED --expect-sha256 SHA [--dry-run] [--fix-metadata]
-  opcdn.py verify-geo  --dir PACKED --expect-sha256 SHA
-  opcdn.py selftest
+  dscdn.py plan    --catalog C --images DIR [--config F] [--offline]
+  dscdn.py publish --catalog C --images DIR [--config F] [--dry-run]
+  dscdn.py publish --config F                 # config.json only
+  dscdn.py verify  [--samples N]
+  dscdn.py selftest
 
-Credentials (environment or --env-file; only OPCDN_* entries are read):
-  OPCDN_R2_ACCOUNT_ID, OPCDN_R2_ACCESS_KEY_ID, OPCDN_R2_SECRET_ACCESS_KEY,
-  OPCDN_BUCKET, OPCDN_PUBLIC_BASE (e.g. https://cdn.example.org, no trailing slash)
+Credentials (environment or --env-file; only DSCDN_* entries are read):
+  DSCDN_R2_ACCOUNT_ID, DSCDN_R2_ACCESS_KEY_ID, DSCDN_R2_SECRET_ACCESS_KEY,
+  DSCDN_BUCKET, DSCDN_PUBLIC_BASE (e.g. https://cdn.example.org, no trailing slash)
 """
 
 from __future__ import annotations
@@ -44,14 +42,10 @@ CONFIG_CACHE = "public, max-age=300"
 INDEX_CACHE = "no-cache"
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-PLACEHOLDERS = ("{art}", "{file}", "{cardId}", "{printedId}", "{sourceFile}")
-FORBIDDEN_WORDS = ("riftsight", "riftbound", "riftatlas")
-USER_AGENT = "op-cdn-verify/1"
-GEO_PREFIX = "vision/geo/"
-GEO_CACHE = "public, max-age=31536000, immutable"
-GEO_SHARD = re.compile(r"shard-[0-9]+\.bin")
-HEX64 = re.compile(r"[0-9a-f]{64}")
-ENV_KEYS = ("OPCDN_R2_ACCOUNT_ID", "OPCDN_R2_ACCESS_KEY_ID", "OPCDN_R2_SECRET_ACCESS_KEY", "OPCDN_BUCKET", "OPCDN_PUBLIC_BASE")
+PLACEHOLDERS = ("{art}", "{file}", "{cardId}", "{printedId}")
+FORBIDDEN_WORDS = ("riftsight", "riftbound", "riftatlas", "kenbunshoku", "onepiece")
+USER_AGENT = "duelsight-cdn-verify/1"
+ENV_KEYS = ("DSCDN_R2_ACCOUNT_ID", "DSCDN_R2_ACCESS_KEY_ID", "DSCDN_R2_SECRET_ACCESS_KEY", "DSCDN_BUCKET", "DSCDN_PUBLIC_BASE")
 
 
 class Refused(Exception):
@@ -67,7 +61,7 @@ def load_env_file(path: Path) -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip().removeprefix("export ").strip()
-        if key.startswith("OPCDN_"):
+        if key.startswith("DSCDN_"):
             os.environ[key] = value.strip().strip('"').strip("'")
 
 
@@ -82,16 +76,16 @@ class Target:
 
 def target_from_env(env: dict[str, str] | None = None, need_secrets: bool = True) -> Target:
     env = dict(os.environ) if env is None else env
-    wanted = ENV_KEYS if need_secrets else ("OPCDN_PUBLIC_BASE",)
+    wanted = ENV_KEYS if need_secrets else ("DSCDN_PUBLIC_BASE",)
     missing = [k for k in wanted if not env.get(k)]
     if missing:
         raise Refused(f"missing environment: {', '.join(missing)} (README.md, 'Credentials')")
     t = Target(
-        account=env.get("OPCDN_R2_ACCOUNT_ID", ""),
-        key_id=env.get("OPCDN_R2_ACCESS_KEY_ID", ""),
-        secret=env.get("OPCDN_R2_SECRET_ACCESS_KEY", ""),
-        bucket=env.get("OPCDN_BUCKET", ""),
-        public_base=env["OPCDN_PUBLIC_BASE"].rstrip("/"),
+        account=env.get("DSCDN_R2_ACCOUNT_ID", ""),
+        key_id=env.get("DSCDN_R2_ACCESS_KEY_ID", ""),
+        secret=env.get("DSCDN_R2_SECRET_ACCESS_KEY", ""),
+        bucket=env.get("DSCDN_BUCKET", ""),
+        public_base=env["DSCDN_PUBLIC_BASE"].rstrip("/"),
     )
     check_target(t, env)
     if need_secrets:
@@ -114,15 +108,15 @@ def credential_problems(t: Target) -> list[str]:
         hint = ""
         if "cloudflarestorage" in t.account or "://" in t.account:
             hint = " It looks like the endpoint URL: keep only the 32-character part before .r2.cloudflarestorage.com."
-        out.append(f"OPCDN_R2_ACCOUNT_ID should be 32 lowercase hex characters (the id in dash.cloudflare.com/<id>/…); "
+        out.append(f"DSCDN_R2_ACCOUNT_ID should be 32 lowercase hex characters (the id in dash.cloudflare.com/<id>/…); "
                    f"it has {shape(t.account)}.{hint}")
     if not re.fullmatch(r"[0-9a-f]{32}", t.key_id):
-        out.append(f"OPCDN_R2_ACCESS_KEY_ID should be the token's 32-character Access Key ID; it has {shape(t.key_id)}")
+        out.append(f"DSCDN_R2_ACCESS_KEY_ID should be the token's 32-character Access Key ID; it has {shape(t.key_id)}")
     if not re.fullmatch(r"[0-9a-f]{64}", t.secret):
-        out.append(f"OPCDN_R2_SECRET_ACCESS_KEY should be the token's 64-character Secret Access Key (not the "
+        out.append(f"DSCDN_R2_SECRET_ACCESS_KEY should be the token's 64-character Secret Access Key (not the "
                    f"'Token value'); it has {shape(t.secret)}")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", t.bucket):
-        out.append(f"OPCDN_BUCKET should be the bucket's name only (lowercase letters, digits, hyphens); it has {shape(t.bucket)}")
+        out.append(f"DSCDN_BUCKET should be the bucket's name only (lowercase letters, digits, hyphens); it has {shape(t.bucket)}")
     return out
 
 
@@ -130,14 +124,14 @@ def check_target(t: Target, env: dict[str, str]) -> None:
     """The decoupling guard: this tool must never touch another project's account, bucket or domain
     (the R2_* credentials of another project, if present in the environment; FORBIDDEN_WORDS)."""
     if t.account and env.get("R2_ACCOUNT_ID") and t.account == env["R2_ACCOUNT_ID"]:
-        raise Refused("OPCDN_R2_ACCOUNT_ID equals the environment's R2_ACCOUNT_ID (another project's): this tool only publishes to the project's own account")
+        raise Refused("DSCDN_R2_ACCOUNT_ID equals the environment's R2_ACCOUNT_ID (another project's): this tool only publishes to the project's own account")
     if t.key_id and env.get("R2_ACCESS_KEY_ID") and t.key_id == env["R2_ACCESS_KEY_ID"]:
-        raise Refused("OPCDN_R2_ACCESS_KEY_ID equals the environment's R2_ACCESS_KEY_ID (another project's)")
-    for label, value in (("OPCDN_BUCKET", t.bucket), ("OPCDN_PUBLIC_BASE", t.public_base)):
+        raise Refused("DSCDN_R2_ACCESS_KEY_ID equals the environment's R2_ACCESS_KEY_ID (another project's)")
+    for label, value in (("DSCDN_BUCKET", t.bucket), ("DSCDN_PUBLIC_BASE", t.public_base)):
         if any(w in value.lower() for w in FORBIDDEN_WORDS):
             raise Refused(f"{label} names another project ({value!r}); this CDN is a separate service")
     if not t.public_base.startswith("https://"):
-        raise Refused("OPCDN_PUBLIC_BASE must be an https:// URL")
+        raise Refused("DSCDN_PUBLIC_BASE must be an https:// URL")
 
 
 # ---------------------------------------------------------------------------- catalog and files
@@ -237,11 +231,9 @@ def scan_images(paths: dict[str, list[str]], images: Path) -> list[LocalFile]:
 
 # ---------------------------------------------------------------------------- config.json
 
-def validate_config(cfg: object, public_base: Optional[str], warnings: Optional[list[str]] = None) -> list[str]:
-    """Errors against SETTINGS.md (schema 1). `public_base`, when given, must host `primary`.
-    Problems that do not stop a publish (the obsolete `cardLink`) go to `warnings` when given."""
+def validate_config(cfg: object, public_base: Optional[str]) -> list[str]:
+    """Errors against SETTINGS.md (schema 1). `public_base`, when given, must host `primary`."""
     errs: list[str] = []
-    warn = warnings if warnings is not None else []
     if not isinstance(cfg, dict):
         return ["config: not a JSON object"]
     if cfg.get("schemaVersion") != 1 or isinstance(cfg.get("schemaVersion"), bool):
@@ -251,8 +243,8 @@ def validate_config(cfg: object, public_base: Optional[str], warnings: Optional[
     if not isinstance(cfg.get("updatedAt"), str):
         errs.append("config: updatedAt must be an ISO-8601 string")
 
-    def check_template(label: str, tpl: object, into: Optional[list[str]] = None) -> None:
-        out = errs if into is None else into
+    def check_template(label: str, tpl: object) -> None:
+        out = errs
         # Another project's address is refused whatever its scheme or case (checked first, so an
         # http:// or HTTPS:// link to it is not merely "not https").
         if isinstance(tpl, str) and any(w in tpl.lower() for w in FORBIDDEN_WORDS):
@@ -278,27 +270,14 @@ def validate_config(cfg: object, public_base: Optional[str], warnings: Optional[
     elif cfg["primary"] is not None:
         check_source("primary", cfg["primary"])
         tpl = cfg["primary"].get("template") if isinstance(cfg["primary"], dict) else None
-        if isinstance(tpl, str) and "{sourceFile}" in tpl:
-            errs.append("config: primary.template cannot use {sourceFile} (our CDN is keyed by {art})")
         if public_base and isinstance(tpl, str) and not tpl.startswith(public_base.rstrip("/") + "/" + ART_PREFIX):
-            errs.append(f"config: primary.template must start with {public_base.rstrip('/')}/{ART_PREFIX} (OPCDN_PUBLIC_BASE)")
+            errs.append(f"config: primary.template must start with {public_base.rstrip('/')}/{ART_PREFIX} (DSCDN_PUBLIC_BASE)")
     fallbacks = cfg.get("fallbacks")
     if not isinstance(fallbacks, list):
         errs.append("config: fallbacks must be an array (may be empty)")
     else:
         for i, src in enumerate(fallbacks):
             check_source(f"fallbacks[{i}]", src)
-    if "geometric" in cfg and cfg["geometric"] is not None and not isinstance(cfg["geometric"], bool):
-        errs.append("config: geometric must be true, false or null (or absent)")
-    # cardLink is obsolete (extensions 0.1.0+ ignore it; earlier development builds required a
-    # template or null), so it is only warned about; pointing at another project still refuses.
-    if "cardLink" not in cfg:
-        warn.append("config: cardLink is absent; 0.1.0+ ignore it, earlier development builds refuse the file without it")
-    elif cfg["cardLink"] is not None:
-        link_errs: list[str] = []
-        check_template("cardLink", cfg["cardLink"], link_errs)
-        for e in link_errs:
-            (errs if "another project" in e else warn).append(e)
     return errs
 
 
@@ -308,12 +287,9 @@ def load_config(path: Path, public_base: Optional[str]) -> bytes:
         cfg = json.loads(raw)
     except json.JSONDecodeError as e:
         raise Refused(f"config: {path} is not JSON ({e})")
-    warnings: list[str] = []
-    errs = validate_config(cfg, public_base, warnings)
+    errs = validate_config(cfg, public_base)
     if errs:
         raise Refused("\n".join(errs))
-    for w in warnings:
-        print(f"warning: {w}", file=sys.stderr)
     return raw
 
 
@@ -566,205 +542,6 @@ def verify(public_base: str, samples: int, get=http_get) -> int:
 
 # ---------------------------------------------------------------------------- CLI
 
-# ---------------------------------------------------------------------------- the geometric index
-
-@dataclass
-class GeoFile:
-    name: str           # file name in the folder (manifest.json, shard-N.bin)
-    data: bytes
-    sha256: str
-    content_type: str
-
-
-def geo_plan(folder: Path, expect_sha256: str) -> tuple[str, list[GeoFile]]:
-    """The packed index of `cardvision pack-features` in `folder`: its manifest must have the
-    SHA-256 the extension pins (`expect_sha256`), and every shard the manifest names must be
-    present with its SHA-256. Returns the CDN folder, `vision/geo/<first 16 hex of the source
-    index's sha256>/`, and the files to upload, shards first and the manifest last."""
-    if not HEX64.fullmatch(expect_sha256 or ""):
-        raise Refused("--expect-sha256 must be 64 lowercase hex digits (the manifest's SHA-256 the extension pins)")
-    mpath = folder / "manifest.json"
-    if not mpath.is_file():
-        raise Refused(f"{mpath}: missing")
-    mbytes = mpath.read_bytes()
-    msha = hashlib.sha256(mbytes).hexdigest()
-    if msha != expect_sha256:
-        raise Refused(f"manifest.json has SHA-256 {msha}, not the expected {expect_sha256}")
-    try:
-        m = json.loads(mbytes)
-    except json.JSONDecodeError as e:
-        raise Refused(f"manifest.json is not JSON ({e})")
-    if not isinstance(m, dict) or m.get("schemaVersion") != 1 or m.get("kind") != "geometric-index-packed":
-        raise Refused("manifest.json is not a packed geometric index (schemaVersion 1, kind geometric-index-packed)")
-    source = (m.get("source") or {}).get("sha256") if isinstance(m.get("source"), dict) else None
-    if not isinstance(source, str) or not HEX64.fullmatch(source):
-        raise Refused("manifest.json: source.sha256 must be 64 lowercase hex digits")
-    shards = m.get("shards")
-    if not isinstance(shards, list) or not shards:
-        raise Refused("manifest.json: shards must be a non-empty list")
-    files: list[GeoFile] = []
-    seen: set[str] = set()
-    for i, sh in enumerate(shards):
-        name = sh.get("path") if isinstance(sh, dict) else None
-        sha = sh.get("sha256") if isinstance(sh, dict) else None
-        if not isinstance(name, str) or not GEO_SHARD.fullmatch(name) or name in seen:
-            raise Refused(f"manifest.json: shards[{i}].path must be a distinct shard-N.bin name")
-        if not isinstance(sha, str) or not HEX64.fullmatch(sha):
-            raise Refused(f"manifest.json: shards[{i}].sha256 must be 64 lowercase hex digits")
-        seen.add(name)
-        p = folder / name
-        if not p.is_file():
-            raise Refused(f"{p}: missing")
-        data = p.read_bytes()
-        got = hashlib.sha256(data).hexdigest()
-        if got != sha:
-            raise Refused(f"{name}: SHA-256 {got}, the manifest says {sha}")
-        files.append(GeoFile(name, data, sha, "application/octet-stream"))
-    files.append(GeoFile("manifest.json", mbytes, msha, "application/json"))
-    return f"{GEO_PREFIX}{source[:16]}/", files
-
-
-def _remote(s3, bucket: str, key: str) -> Optional[dict]:
-    """HEAD of an object, or None when there is none."""
-    try:
-        return s3.head_object(Bucket=bucket, Key=key)
-    except Exception as e:  # botocore's ClientError 404; anything else is a real error
-        code = str(getattr(e, "response", {}).get("Error", {}).get("Code", ""))
-        if code in ("404", "NoSuchKey", "NotFound"):
-            return None
-        raise
-
-
-def _remote_sha(s3, bucket: str, key: str, head: dict) -> str:
-    """The object's SHA-256: from the metadata this tool writes, else by reading it."""
-    meta = {k.lower(): v for k, v in (head.get("Metadata") or {}).items()}
-    if HEX64.fullmatch(meta.get("sha256", "")):
-        return meta["sha256"]
-    return hashlib.sha256(s3.get_object(Bucket=bucket, Key=key)["Body"].read()).hexdigest()
-
-
-def _metadata_problems(head: dict, f: GeoFile) -> list[str]:
-    out = []
-    if head.get("ContentType") != f.content_type:
-        out.append(f"content-type {head.get('ContentType')!r}, want {f.content_type!r}")
-    if head.get("CacheControl") != GEO_CACHE:
-        out.append(f"cache-control {head.get('CacheControl')!r}, want {GEO_CACHE!r}")
-    return out
-
-
-def _check(s3, bucket: str, key: str, f: GeoFile) -> Optional[str]:
-    """Why the object at `key` is not exactly `f` (bytes, type, caching), or None."""
-    head = _remote(s3, bucket, key)
-    if head is None:
-        return "missing"
-    if head.get("ContentLength") != len(f.data) or _remote_sha(s3, bucket, key, head) != f.sha256:
-        return "other bytes"
-    problems = _metadata_problems(head, f)
-    return "; ".join(problems) if problems else None
-
-
-def publish_geo(s3, bucket: str, folder: str, files: list[GeoFile], dry_run: bool = False,
-                fix_metadata: bool = False, log: Callable[[str], None] = print) -> int:
-    """Upload the index under `folder`, shards first, then the manifest only once every shard is
-    checked (size, SHA-256, Content-Type, Cache-Control). Nothing is ever overwritten with other
-    bytes: such an object refuses the run before anything is uploaded. An object with the same
-    bytes but the wrong Content-Type or Cache-Control refuses it too, unless `fix_metadata`,
-    which rewrites its metadata in place (a copy onto itself; the bytes do not change). Returns
-    the number of failures (0: all published and checked)."""
-    todo: list[GeoFile] = []
-    to_fix: list[GeoFile] = []
-    wrong_meta: list[str] = []
-    for f in files:
-        key = folder + f.name
-        head = _remote(s3, bucket, key)
-        if head is None:
-            todo.append(f)
-            continue
-        if head.get("ContentLength") != len(f.data) or _remote_sha(s3, bucket, key, head) != f.sha256:
-            raise Refused(f"{key} is already on the CDN with other bytes; an index folder is never overwritten")
-        problems = _metadata_problems(head, f)
-        if problems:
-            wrong_meta.append(f"{key}: {'; '.join(problems)}")
-            to_fix.append(f)
-        else:
-            log(f"same  {key} (already there)")
-    if wrong_meta and not fix_metadata:
-        raise Refused("already on the CDN with the right bytes but wrong metadata (re-run with --fix-metadata to "
-                      "rewrite the metadata only): " + " | ".join(wrong_meta))
-    for f in todo:
-        log(f"{'would upload' if dry_run else 'upload'} {folder + f.name} ({len(f.data)} bytes)")
-    for f in to_fix:
-        log(f"{'would fix metadata of' if dry_run else 'fix metadata of'} {folder + f.name}")
-    if dry_run:
-        log(f"dry run: {len(todo)} to upload, {len(to_fix)} to fix, {len(files) - len(todo) - len(to_fix)} already there; nothing changed")
-        return 0
-
-    def put(f: GeoFile) -> Optional[str]:
-        key = folder + f.name
-        try:
-            if f in to_fix:
-                s3.copy_object(Bucket=bucket, Key=key, CopySource={"Bucket": bucket, "Key": key}, MetadataDirective="REPLACE",
-                               ContentType=f.content_type, CacheControl=GEO_CACHE, Metadata={"sha256": f.sha256})
-            elif f in todo:
-                s3.put_object(Bucket=bucket, Key=key, Body=f.data, ContentType=f.content_type,
-                              CacheControl=GEO_CACHE, Metadata={"sha256": f.sha256})
-        except Exception as e:
-            return f"upload failed: {e}"
-        return _check(s3, bucket, key, f)
-
-    shards = [f for f in files if f.name != "manifest.json"]
-    manifest = [f for f in files if f.name == "manifest.json"]
-    bad = 0
-    for f in shards:
-        problem = put(f)
-        if problem:
-            bad += 1
-            log(f"FAILED {folder + f.name}: {problem}")
-        else:
-            log(f"ok    {folder + f.name}")
-    if bad:
-        # A manifest is never live before every shard it names is there and right.
-        log(f"{bad} shard(s) failed; manifest.json NOT uploaded. Re-run to retry.")
-        return bad
-    for f in manifest:
-        problem = put(f)
-        if problem:
-            bad += 1
-            log(f"FAILED {folder + f.name}: {problem}")
-        else:
-            log(f"ok    {folder + f.name}")
-    return bad
-
-
-def verify_geo(public_base: str, folder: str, files: list[GeoFile], get=http_get) -> int:
-    """Read the index back over HTTPS: every file's bytes, its Cache-Control, and the CORS header
-    an extension's request gets."""
-    bad = 0
-    for f in files:
-        url = f"{public_base}/{folder}{f.name}"
-        status, h, body = get(url, origin="chrome-extension://kenbunshoku")
-        problems = []
-        if status != 200:
-            problems.append(f"HTTP {status} {h.get('x-error', '')}".strip())
-        else:
-            if hashlib.sha256(body).hexdigest() != f.sha256:
-                problems.append("bytes differ from the local file")
-            if h.get("cache-control") != GEO_CACHE:
-                problems.append(f"cache-control {h.get('cache-control')!r}, want {GEO_CACHE!r}")
-            if (h.get("content-type") or "").split(";")[0].strip() != f.content_type:
-                problems.append(f"content-type {h.get('content-type')!r}, want {f.content_type!r}")
-            if nel_problem(h):
-                problems.append(nel_problem(h))
-            if h.get("access-control-allow-origin") not in ("*", "chrome-extension://kenbunshoku"):
-                problems.append("no CORS header for an extension origin")
-        if problems:
-            bad += 1
-            print(f"FAIL {url}: {'; '.join(problems)}")
-        else:
-            print(f"ok   {url} ({len(body)} bytes)")
-    return bad
-
-
 def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, Optional[bytes]]:
     config = load_config(Path(args.config), public_base) if args.config else None
     if not args.catalog:
@@ -778,18 +555,14 @@ def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, 
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=("plan", "publish", "verify", "publish-geo", "verify-geo", "selftest"))
+    ap.add_argument("command", choices=("plan", "publish", "verify", "selftest"))
     ap.add_argument("--catalog", help="catalog JSON (entries with an id and an `art` path or null)")
     ap.add_argument("--images", help="directory the `art` paths are relative to")
     ap.add_argument("--config", help="config.json to publish (SETTINGS.md); uploaded last")
-    ap.add_argument("--env-file", help="read OPCDN_* entries from this file")
+    ap.add_argument("--env-file", help="read DSCDN_* entries from this file")
     ap.add_argument("--offline", action="store_true", help="plan: no credentials, treat the CDN as empty")
     ap.add_argument("--dry-run", action="store_true", help="publish: read the live index, print the plan, upload nothing")
     ap.add_argument("--samples", type=int, default=8, help="verify: images to fetch")
-    ap.add_argument("--dir", help="publish-geo/verify-geo: the packed geometric index (manifest.json, shard-N.bin)")
-    ap.add_argument("--expect-sha256", help="publish-geo/verify-geo: the manifest's SHA-256 the extension pins")
-    ap.add_argument("--fix-metadata", action="store_true",
-                    help="publish-geo: rewrite the Content-Type/Cache-Control of objects already there with the right bytes (bytes never change)")
     args = ap.parse_args(argv)
 
     if args.command == "selftest":
@@ -799,17 +572,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         if args.command == "verify":
             return 1 if verify(target_from_env(need_secrets=False).public_base, args.samples) else 0
-        if args.command in ("publish-geo", "verify-geo"):
-            if not args.dir:
-                raise Refused(f"{args.command} needs --dir")
-            folder, files = geo_plan(Path(args.dir), args.expect_sha256 or "")
-            if args.command == "verify-geo":
-                return 1 if verify_geo(target_from_env(need_secrets=False).public_base, folder, files) else 0
-            t = target_from_env()
-            print(f"target: bucket {t.bucket}, served at {t.public_base}; folder {folder}")
-            return 1 if publish_geo(r2_client(t), t.bucket, folder, files, dry_run=args.dry_run, fix_metadata=args.fix_metadata) else 0
         if args.command == "plan" and args.offline:
-            base = os.environ.get("OPCDN_PUBLIC_BASE")
+            base = os.environ.get("DSCDN_PUBLIC_BASE")
             files, artless, cards, config = build(args, base.rstrip("/") if base else None)
             print_plan(make_plan(files, {}, artless, cards), config)
             return 0
@@ -852,31 +616,31 @@ def selftest() -> int:
 
     # target guards
     acct, kid, sec = "a" * 32, "b" * 32, "c" * 64
-    env = {"OPCDN_R2_ACCOUNT_ID": acct, "OPCDN_R2_ACCESS_KEY_ID": kid, "OPCDN_R2_SECRET_ACCESS_KEY": sec,
-           "OPCDN_PUBLIC_BASE": base, "OPCDN_BUCKET": "op-art"}
+    env = {"DSCDN_R2_ACCOUNT_ID": acct, "DSCDN_R2_ACCESS_KEY_ID": kid, "DSCDN_R2_SECRET_ACCESS_KEY": sec,
+           "DSCDN_PUBLIC_BASE": base, "DSCDN_BUCKET": "card-art"}
     assert target_from_env(env).public_base == base
     assert refused(lambda: target_from_env(env | {"R2_ACCOUNT_ID": acct})), "same account as another project"
-    for k, v in (("OPCDN_R2_ACCOUNT_ID", f"https://{acct}.r2.cloudflarestorage.com"),
-                 ("OPCDN_R2_ACCOUNT_ID", acct + " "), ("OPCDN_R2_ACCOUNT_ID", acct.upper()),
-                 ("OPCDN_R2_ACCESS_KEY_ID", "x" * 40), ("OPCDN_R2_SECRET_ACCESS_KEY", "tokenvalue"),
-                 ("OPCDN_BUCKET", "s3://op-art")):
+    for k, v in (("DSCDN_R2_ACCOUNT_ID", f"https://{acct}.r2.cloudflarestorage.com"),
+                 ("DSCDN_R2_ACCOUNT_ID", acct + " "), ("DSCDN_R2_ACCOUNT_ID", acct.upper()),
+                 ("DSCDN_R2_ACCESS_KEY_ID", "x" * 40), ("DSCDN_R2_SECRET_ACCESS_KEY", "tokenvalue"),
+                 ("DSCDN_BUCKET", "s3://card-art")):
         assert refused(lambda: target_from_env(env | {k: v})), (k, v)
     try:
-        target_from_env(env | {"OPCDN_R2_SECRET_ACCESS_KEY": "s3cr3t-value"})
+        target_from_env(env | {"DSCDN_R2_SECRET_ACCESS_KEY": "s3cr3t-value"})
     except Refused as e:
         assert "s3cr3t" not in str(e), "never echo a credential"
-    assert refused(lambda: target_from_env(env | {"OPCDN_BUCKET": "riftsight-assets"}))
-    assert refused(lambda: target_from_env(env | {"OPCDN_PUBLIC_BASE": "https://assets.riftsight.gg"}))
-    assert refused(lambda: target_from_env(env | {"OPCDN_PUBLIC_BASE": "http://cdn.example.org"}))
-    assert refused(lambda: target_from_env({"OPCDN_PUBLIC_BASE": base}))
-    assert target_from_env({"OPCDN_PUBLIC_BASE": base}, need_secrets=False)
+    assert refused(lambda: target_from_env(env | {"DSCDN_BUCKET": "riftsight-assets"}))
+    assert refused(lambda: target_from_env(env | {"DSCDN_PUBLIC_BASE": "https://assets.riftsight.gg"}))
+    assert refused(lambda: target_from_env(env | {"DSCDN_PUBLIC_BASE": "http://cdn.example.org"}))
+    assert refused(lambda: target_from_env({"DSCDN_PUBLIC_BASE": base}))
+    assert target_from_env({"DSCDN_PUBLIC_BASE": base}, need_secrets=False)
 
     # catalog shapes and path rules
-    for shape in ([{"id": "OP01-001", "art": "OP01-001.jpg"}, {"id": "X", "art": None}],
-                  {"cards": [{"cardId": "OP01-001", "art": "OP01-001.jpg"}, {"cardId": "X", "art": None}]},
-                  {"cards": {"OP01-001": {"art": "OP01-001.jpg"}, "X": {"art": None}}}):
+    for shape in ([{"id": "89631139", "art": "89631139.jpg"}, {"id": "X", "art": None}],
+                  {"cards": [{"cardId": "89631139", "art": "89631139.jpg"}, {"cardId": "X", "art": None}]},
+                  {"cards": {"89631139": {"art": "89631139.jpg"}, "X": {"art": None}}}):
         paths, artless = catalog_art_paths(shape)
-        assert paths == {"OP01-001.jpg": ["OP01-001"]} and artless == 1, shape
+        assert paths == {"89631139.jpg": ["89631139"]} and artless == 1, shape
     for bad in ("../x.jpg", "/x.jpg", "a//b.jpg", "x.gif", "a\\b.jpg", ""):
         assert refused(lambda b=bad: catalog_art_paths([{"id": "A", "art": b}])), bad
     assert refused(lambda: catalog_art_paths([{"id": "A"}])), "art field required"
@@ -885,46 +649,31 @@ def selftest() -> int:
 
     # config contract
     assert validate_config(good_cfg, None) == []
-    assert validate_config(good_cfg | {"cardLink": "https://x.example/?q={printedId}"}, None) == []
     good_cfg_here = good_cfg | {"primary": {"id": "cdn", "template": base + "/art/{art}"}}
     assert validate_config(good_cfg_here, base) == []
     assert validate_config(good_cfg, "https://other.example.org"), "primary must be on our base"
     for mutate in ({"schemaVersion": 2}, {"schemaVersion": True}, {"namesOnly": "no"},
                    {"fallbacks": None}, {"fallbacks": [{"id": "c", "template": "http://x/{cardId}"}]},
                    {"fallbacks": [{"id": "c", "template": "https://x/{name}"}]},
-                   {"cardLink": "https://assets.riftsight.gg/{cardId}"}, {"primary": {"template": "https://x/{art}"}},
+                   {"fallbacks": [{"id": "c", "template": "https://assets.riftsight.gg/{cardId}"}]}, {"primary": {"template": "https://x/{art}"}},
                    {"primary": {"id": "cdn", "template": "https://cdn.example.org/art/{sourceFile}"}}):
         assert validate_config(good_cfg | mutate, None), mutate
-    for value in (True, False, None):
-        assert validate_config(good_cfg | {"geometric": value}, None) == [], value
-    for value in ("false", 0, 1, {}):
-        assert validate_config(good_cfg | {"geometric": value}, None), value
     no_primary = dict(good_cfg); del no_primary["primary"]
     assert validate_config(no_primary, None), "primary required"
-    assert validate_config(good_cfg | {"primary": None, "namesOnly": True, "fallbacks": [], "cardLink": None}, base) == []
-    # cardLink is obsolete: absent or malformed only warns; pointing at another project still refuses
-    no_link = dict(good_cfg); no_link.pop("cardLink", None)
-    warned: list[str] = []
-    assert validate_config(no_link, None, warned) == [] and warned, "cardLink absent: a warning, not a refusal"
-    warned = []
-    assert validate_config(good_cfg | {"cardLink": "http://x.example/{cardId}"}, None, warned) == [] and warned
-    assert validate_config(good_cfg | {"cardLink": "https://assets.riftsight.gg/{cardId}"}, None), "another project"
-    for foreign in ("http://assets.riftsight.gg/{cardId}", "HTTPS://Assets.RiftSight.gg/{cardId}"):
-        warned = []
-        assert validate_config(good_cfg | {"cardLink": foreign}, None, warned), f"another project, any scheme: {foreign}"
+    assert validate_config(good_cfg | {"primary": None, "namesOnly": True, "fallbacks": []}, base) == []
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "images"
         (root / "jp").mkdir(parents=True)
-        (root / "OP01-001.jpg").write_bytes(jpg)
-        (root / "jp" / "P-001.png").write_bytes(png)
+        (root / "89631139.jpg").write_bytes(jpg)
+        (root / "jp" / "46986414.png").write_bytes(png)
         (root / "fake.png").write_bytes(b"<html>not found</html>")
         (root / "png-named.jpg").write_bytes(png)
         (Path(tmp) / "outside.jpg").write_bytes(jpg)
 
-        paths = {"OP01-001.jpg": ["OP01-001"], "jp/P-001.png": ["P-001"]}
+        paths = {"89631139.jpg": ["89631139"], "jp/46986414.png": ["46986414"]}
         files = scan_images(paths, root)
-        assert [f.path for f in files] == ["OP01-001.jpg", "jp/P-001.png"]
+        assert [f.path for f in files] == ["89631139.jpg", "jp/46986414.png"]
         assert refused(lambda: scan_images({"missing.jpg": ["M"]}, root))
         assert refused(lambda: scan_images({"fake.png": ["F"]}, root)), "not an image"
         renamed = scan_images({"png-named.jpg": ["R"]}, root)
@@ -940,8 +689,8 @@ def selftest() -> int:
 
         # plan: new / changed / unchanged / live-only, merged index
         live = {"schemaVersion": 1, "files": {
-            "OP01-001.jpg": {"sha256": files[0].sha256, "bytes": files[0].bytes},
-            "jp/P-001.png": {"sha256": "0" * 64, "bytes": 1},
+            "89631139.jpg": {"sha256": files[0].sha256, "bytes": files[0].bytes},
+            "jp/46986414.png": {"sha256": "0" * 64, "bytes": 1},
             "OLD-001.jpg": {"sha256": "1" * 64, "bytes": 1}}}
         plan = make_plan(files, live, 0, 2)
         assert (len(plan.new), len(plan.changed), plan.unchanged, plan.live_only) == (0, 1, 1, 1)
@@ -963,17 +712,17 @@ def selftest() -> int:
         s3 = FakeS3()
         assert execute(s3, "b", make_plan(files, {}, 0, 2), cfg_bytes, workers=1, log=lambda _: None) == 0
         keys = [p[0] for p in s3.puts]
-        assert set(keys[:2]) == {"art/OP01-001.jpg", "art/jp/P-001.png"}
+        assert set(keys[:2]) == {"art/89631139.jpg", "art/jp/46986414.png"}
         assert keys[2:] == [INDEX_KEY, CONFIG_KEY], keys
-        assert dict((p[0], (p[1], p[2])) for p in s3.puts)["art/jp/P-001.png"] == ("image/png", ART_CACHE)
+        assert dict((p[0], (p[1], p[2])) for p in s3.puts)["art/jp/46986414.png"] == ("image/png", ART_CACHE)
         assert s3.puts[-1][2] == CONFIG_CACHE
 
-        s3 = FakeS3(fail_keys={"art/jp/P-001.png"})
+        s3 = FakeS3(fail_keys={"art/jp/46986414.png"})
         assert execute(s3, "b", make_plan(files, {}, 0, 2), cfg_bytes, workers=1, log=lambda _: None) == 1
         keys = [p[0] for p in s3.puts]
         assert CONFIG_KEY not in keys, "no config after a failed image"
         index = json.loads(next(p[3] for p in s3.puts if p[0] == INDEX_KEY))
-        assert "jp/P-001.png" not in index["files"] and "OP01-001.jpg" in index["files"]
+        assert "jp/46986414.png" not in index["files"] and "89631139.jpg" in index["files"]
 
         s3 = FakeS3()
         assert execute(s3, "b", make_plan(files, {"schemaVersion": 1, "files": {
@@ -990,8 +739,8 @@ def selftest() -> int:
         store = {
             CONFIG_KEY: (200, {"content-type": "application/json", "cache-control": CONFIG_CACHE, "access-control-allow-origin": "*"}, cfg_bytes),
             INDEX_KEY: (200, {"content-type": "application/json"}, index_body),
-            "art/OP01-001.jpg": (200, {"content-type": "image/jpeg", "cache-control": ART_CACHE}, jpg),
-            "art/jp/P-001.png": (200, {"content-type": "image/png", "cache-control": ART_CACHE}, png),
+            "art/89631139.jpg": (200, {"content-type": "image/jpeg", "cache-control": ART_CACHE}, jpg),
+            "art/jp/46986414.png": (200, {"content-type": "image/png", "cache-control": ART_CACHE}, png),
         }
 
         def fake_get(url, origin=None):
@@ -1006,7 +755,7 @@ def selftest() -> int:
             store[CONFIG_KEY] = (200, {**good_config[1], "nel": '{"report_to":"cf-nel"}', "report-to": "{}"}, cfg_bytes)
             assert verify(base, 5, get=fake_get) == 1, "NEL/Report-To on the zone"
             store[CONFIG_KEY] = good_config
-            store["art/jp/P-001.png"] = (200, {"content-type": "image/png", "cache-control": ART_CACHE}, png + b"!")
+            store["art/jp/46986414.png"] = (200, {"content-type": "image/png", "cache-control": ART_CACHE}, png + b"!")
             assert verify(base, 5, get=fake_get) == 1, "sha mismatch"
             store[CONFIG_KEY] = (200, {"content-type": "application/json", "cache-control": CONFIG_CACHE}, cfg_bytes)
             assert verify(base, 5, get=fake_get) == 2, "missing CORS"
@@ -1015,137 +764,20 @@ def selftest() -> int:
             sys.stdout = stdout
             quiet.close()
 
-        # env file reads only OPCDN_* entries
+        # env file reads only DSCDN_* entries
         envf = Path(tmp) / ".env"
-        envf.write_text("export OPCDN_BUCKET='op-art'\nR2_SECRET_ACCESS_KEY=nope\n# c\n")
-        saved = {k: os.environ.get(k) for k in ("OPCDN_BUCKET", "R2_SECRET_ACCESS_KEY")}
+        envf.write_text("export DSCDN_BUCKET='card-art'\nR2_SECRET_ACCESS_KEY=nope\n# c\n")
+        saved = {k: os.environ.get(k) for k in ("DSCDN_BUCKET", "R2_SECRET_ACCESS_KEY")}
         try:
             os.environ.pop("R2_SECRET_ACCESS_KEY", None)
             load_env_file(envf)
-            assert os.environ["OPCDN_BUCKET"] == "op-art" and "R2_SECRET_ACCESS_KEY" not in os.environ
+            assert os.environ["DSCDN_BUCKET"] == "card-art" and "R2_SECRET_ACCESS_KEY" not in os.environ
         finally:
             for k, v in saved.items():
                 if v is None:
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
-
-    # the geometric index: plan, publish (fake R2), verify (fake HTTPS)
-    class FakeS3:
-        def __init__(self, corrupt: bool = False, fail_on: Optional[str] = None):
-            self.objects: dict[str, dict] = {}
-            self.puts: list[str] = []
-            self.copies: list[str] = []
-            self.corrupt = corrupt
-            self.fail_on = fail_on
-
-        def copy_object(self, Bucket, Key, CopySource, MetadataDirective, ContentType, CacheControl, Metadata):
-            assert CopySource == {"Bucket": Bucket, "Key": Key} and MetadataDirective == "REPLACE"
-            self.copies.append(Key)
-            o = self.objects[Key]
-            o.update(ContentType=ContentType, CacheControl=CacheControl, Metadata=Metadata)
-
-        def head_object(self, Bucket, Key):
-            o = self.objects.get(Key)
-            if o is None:
-                e = Exception("404")
-                e.response = {"Error": {"Code": "404"}}
-                raise e
-            return {"ContentLength": len(o["Body"]), "Metadata": dict(o.get("Metadata", {})),
-                    "ContentType": o.get("ContentType"), "CacheControl": o.get("CacheControl")}
-
-        def get_object(self, Bucket, Key):
-            import io
-            return {"Body": io.BytesIO(self.objects[Key]["Body"])}
-
-        def put_object(self, Bucket, Key, Body, ContentType, CacheControl, Metadata):
-            if self.fail_on and Key.endswith(self.fail_on):
-                raise OSError("connection reset")
-            self.puts.append(Key)
-            self.objects[Key] = {"Body": (Body + b"!" if self.corrupt else Body), "ContentType": ContentType,
-                                 "CacheControl": CacheControl, "Metadata": Metadata}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        g = Path(tmp) / "packed"
-        g.mkdir()
-        shard0, shard1 = b"\x01" * 64, b"\x02" * 96
-        src = "cd676903704f456d" + "e" * 48
-        man = {"schemaVersion": 1, "kind": "geometric-index-packed", "source": {"sha256": src},
-               "shards": [{"path": "shard-0.bin", "sha256": hashlib.sha256(shard0).hexdigest(), "rows": 2},
-                          {"path": "shard-1.bin", "sha256": hashlib.sha256(shard1).hexdigest(), "rows": 3}]}
-        (g / "shard-0.bin").write_bytes(shard0)
-        (g / "shard-1.bin").write_bytes(shard1)
-        mbytes = json.dumps(man).encode()
-        (g / "manifest.json").write_bytes(mbytes)
-        msha = hashlib.sha256(mbytes).hexdigest()
-        assert refused(lambda: geo_plan(g, "0" * 64)), "manifest sha must be the pinned one"
-        assert refused(lambda: geo_plan(g, "")), "the pin is required"
-        folder, gfiles = geo_plan(g, msha)
-        assert folder == "vision/geo/cd676903704f456d/", folder
-        assert [f.name for f in gfiles] == ["shard-0.bin", "shard-1.bin", "manifest.json"], "shards first, manifest last"
-        assert [f.content_type for f in gfiles] == ["application/octet-stream"] * 2 + ["application/json"]
-        quiet = lambda _m: None
-
-        s3 = FakeS3()
-        assert publish_geo(s3, "b", folder, gfiles, dry_run=True, log=quiet) == 0 and s3.puts == [], "dry run uploads nothing"
-        assert publish_geo(s3, "b", folder, gfiles, log=quiet) == 0
-        assert s3.puts == [folder + "shard-0.bin", folder + "shard-1.bin", folder + "manifest.json"]
-        o = s3.objects[folder + "manifest.json"]
-        assert o["ContentType"] == "application/json" and o["CacheControl"] == GEO_CACHE == "public, max-age=31536000, immutable"
-        assert s3.objects[folder + "shard-0.bin"]["ContentType"] == "application/octet-stream"
-        assert publish_geo(s3, "b", folder, gfiles, log=quiet) == 0 and len(s3.puts) == 3, "a re-run keeps what is there"
-        s3.objects[folder + "shard-1.bin"]["Metadata"] = {}
-        assert publish_geo(s3, "b", folder, gfiles, log=quiet) == 0 and len(s3.puts) == 3, "same bytes without metadata: read and kept"
-        s3.objects[folder + "shard-1.bin"]["Body"] = b"\x03" * 96
-        assert refused(lambda: publish_geo(s3, "b", folder, gfiles, log=quiet)), "never overwrite other bytes"
-        assert len(s3.puts) == 3, "a conflict uploads nothing"
-        corrupt = FakeS3(corrupt=True)
-        assert publish_geo(corrupt, "b", folder, gfiles, log=quiet) == 2, "the HEAD check catches bad shards"
-        assert folder + "manifest.json" not in corrupt.objects, "no manifest before every shard checks out"
-        broken = FakeS3(fail_on="shard-1.bin")
-        assert publish_geo(broken, "b", folder, gfiles, log=quiet) == 1, "a PUT that throws mid-run"
-        assert folder + "manifest.json" not in broken.objects and folder + "shard-0.bin" in broken.objects
-        assert publish_geo(FakeS3(), "b", folder, gfiles, log=quiet) == 0
-        # The same bytes with the wrong metadata: refused, or fixed in place with --fix-metadata.
-        meta = FakeS3()
-        publish_geo(meta, "b", folder, gfiles, log=quiet)
-        meta.objects[folder + "shard-0.bin"]["CacheControl"] = "public, max-age=60"
-        meta.objects[folder + "manifest.json"]["ContentType"] = "text/plain"
-        before_bytes = {k: v["Body"] for k, v in meta.objects.items()}
-        assert refused(lambda: publish_geo(meta, "b", folder, gfiles, log=quiet)), "wrong metadata is reported, not kept"
-        assert publish_geo(meta, "b", folder, gfiles, dry_run=True, fix_metadata=True, log=quiet) == 0 and meta.copies == []
-        assert publish_geo(meta, "b", folder, gfiles, fix_metadata=True, log=quiet) == 0
-        assert sorted(meta.copies) == sorted([folder + "shard-0.bin", folder + "manifest.json"]) and len(meta.puts) == 3
-        assert {k: v["Body"] for k, v in meta.objects.items()} == before_bytes, "metadata fixes never change bytes"
-        assert meta.objects[folder + "shard-0.bin"]["CacheControl"] == GEO_CACHE
-        assert meta.objects[folder + "manifest.json"]["ContentType"] == "application/json"
-
-        (g / "shard-1.bin").write_bytes(b"\x09" * 96)
-        assert refused(lambda: geo_plan(g, msha)), "a shard that does not match the manifest"
-        (g / "shard-1.bin").write_bytes(shard1)
-        bad_man = json.dumps(man | {"shards": [{"path": "../shard-0.bin", "sha256": man["shards"][0]["sha256"]}]}).encode()
-        (g / "manifest.json").write_bytes(bad_man)
-        assert refused(lambda: geo_plan(g, hashlib.sha256(bad_man).hexdigest())), "shard names are plain"
-        (g / "manifest.json").write_bytes(mbytes)
-
-        served = {f"{base}/{folder}{f.name}": f.data for f in gfiles}
-
-        def geo_get(url, origin=None, cache="public, max-age=31536000, immutable", cors="*", body=None, ctype=None, extra=None):
-            if url not in served:
-                return 404, {}, b""
-            t = ctype or ("application/json" if url.endswith(".json") else "application/octet-stream")
-            return 200, {"cache-control": cache, "access-control-allow-origin": cors, "content-type": t, **(extra or {})}, body if body is not None else served[url]
-
-        import contextlib, io
-        with contextlib.redirect_stdout(io.StringIO()):
-            assert verify_geo(base, folder, gfiles, get=geo_get) == 0
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, cache="public, max-age=60")) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, cors="")) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, body=b"x")) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: (404, {}, b"")) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, ctype="text/plain")) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, extra={"nel": '{"report_to":"cf-nel"}'})) == 3
-            assert verify_geo(base, folder, gfiles, get=lambda u, origin=None: geo_get(u, origin, extra={"report-to": "{}"})) == 3
 
     print("selftest: ok")
     return 0

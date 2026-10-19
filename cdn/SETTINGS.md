@@ -6,13 +6,13 @@ turned off or moved between paths on the host the extension already has permissi
 image host needs an extension release (see "Image hosts").
 
 This document states what the extension enforces (`src/settings/`, `src/images/chain.ts`); a
-file that `opcdn.py` accepts can still have parts the extension drops.
+file that `dscdn.py` accepts can still have parts the extension drops.
 
 - **URL:** `<cdnBase>/config.json`, where `cdnBase` is the one value in `duelsight.config.json` that
   names the CDN host (a placeholder, `https://cdn.duelsight.invalid`, until the domain is decided).
 - **Served with:** `Content-Type: application/json`, `Cache-Control: public, max-age=300`,
   `Access-Control-Allow-Origin: *`.
-- **Written by:** `opcdn.py publish --config <file>`, last, after any images it references.
+- **Written by:** `dscdn.py publish --config <file>`, last, after any images it references.
 
 ## Shape
 
