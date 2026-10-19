@@ -29,7 +29,7 @@ export interface PlayerButtonOptions {
 export class PlayerButton {
   readonly host: HTMLDivElement;
   private readonly button: HTMLButtonElement;
-  private readonly iris: SVGCircleElement;
+  private readonly art: SVGRectElement;
   private readonly label: HTMLSpanElement;
   private on = false;
   private visible = false;
@@ -74,25 +74,27 @@ export class PlayerButton {
       justifyContent: "center",
       outlineOffset: "2px",
     });
-    // The eye of the extension's icon.
+    // The glyph of the extension's icon: a plain tilted card with a picture box.
     const svg = document.createElementNS(SVG, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("width", "20");
     svg.setAttribute("height", "20");
     svg.setAttribute("aria-hidden", "true");
-    const eye = document.createElementNS(SVG, "path");
-    eye.setAttribute("d", "M2 12 C6 5, 18 5, 22 12 C18 19, 6 19, 2 12 Z");
-    eye.setAttribute("fill", "#ece8f8");
-    this.iris = document.createElementNS(SVG, "circle");
-    this.iris.setAttribute("cx", "12");
-    this.iris.setAttribute("cy", "12");
-    this.iris.setAttribute("r", "3.6");
-    const pupil = document.createElementNS(SVG, "circle");
-    pupil.setAttribute("cx", "12");
-    pupil.setAttribute("cy", "12");
-    pupil.setAttribute("r", "1.5");
-    pupil.setAttribute("fill", "#181624");
-    svg.append(eye, this.iris, pupil);
+    const card = document.createElementNS(SVG, "rect");
+    card.setAttribute("x", "6.5");
+    card.setAttribute("y", "3");
+    card.setAttribute("width", "11");
+    card.setAttribute("height", "18");
+    card.setAttribute("rx", "1.8");
+    card.setAttribute("fill", "#ece8f8");
+    card.setAttribute("transform", "rotate(-12 12 12)");
+    this.art = document.createElementNS(SVG, "rect");
+    this.art.setAttribute("x", "8.5");
+    this.art.setAttribute("y", "5.5");
+    this.art.setAttribute("width", "7");
+    this.art.setAttribute("height", "7");
+    this.art.setAttribute("transform", "rotate(-12 12 12)");
+    svg.append(card, this.art);
     this.button.appendChild(svg);
 
     // The page under the player never sees these presses (no pause, no seek), nor the keys that
@@ -140,7 +142,7 @@ export class PlayerButton {
   private render(): void {
     this.button.setAttribute("aria-label", BUTTON_LABEL);
     this.button.setAttribute("aria-pressed", this.on ? "true" : "false");
-    this.iris.setAttribute("fill", this.on ? "#7c5cff" : "#8a8796");
+    this.art.setAttribute("fill", this.on ? "#7c5cff" : "#8a8796");
     this.button.style.borderColor = this.on ? "#7c5cff" : "rgba(255,255,255,.35)";
     this.button.style.opacity = this.on ? "1" : "0.85";
   }
