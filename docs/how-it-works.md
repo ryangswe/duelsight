@@ -8,28 +8,25 @@ The extension's parts and the settings file that controls where card pictures co
 ## Overview
 
 The extension is built on an open-source card recognition runtime,
-`cardvision-browser` (Apache-2.0; see [Built on cardvision](../README.md#built-on-cardvision)), and a One
-Piece Card Game release of its models: a detector that finds cards in the picture and a
+`cardvision-browser` (Apache-2.0; see [Built on cardvision](../README.md#built-on-cardvision)), and a
+Yu-Gi-Oh! release of its models: a detector that finds cards in the picture and a
 recognizer that matches each card against a bank of known cards, with an accept rule that shows
 nothing when the match is not clear.
 
 - The **content script** (`src/content/`) runs in YouTube and Twitch pages. It follows the
   page's main video and the pointer over it, and captures a picture when asked.
 - A hidden **compute frame** (`src/compute/`), an extension page inside the video page, hosts
-  the runtime's worker. It decides when to analyze a picture (only around pointer activity,
+  the runtime's worker. It decides when to analyze a picture (around pointer activity,
   with the runtime's scheduler), and which card a tooltip shows at the pointer (the runtime's
-  hover rule). Pictures go from the content script to this frame only.
+  hover rule). Pictures go from the content script to this frame and nowhere else.
 - The **tooltip frame** (`src/tooltip/`), an extension page placed beside the card, shows its
   picture alone (320 px wide, scaled down to fit the window but not below 200 px), or its name
   when there is no picture. It takes no pointer events.
 - The **background** (`src/background/`) fetches the settings file.
-- The runtime's **geometric stage** (WebGPU only) checks each recognized card against its art's
-  ORB features, using OpenCV.js and a packed card-feature index on the CDN. The compute frame
-  passes the bundled stage settings (`data/geometric.json`, which names the index's manifest)
-  and the manifest's pinned SHA-256 (`kenbunshoku.config.json`); the worker downloads the index after
-  the release has loaded, keeps it in the Cache API, checks every shard's SHA-256, and turns
-  the stage off by itself when it is too slow or fails. The compute frame asks the browser to
-  keep that storage (`navigator.storage.persist()`).
+- There is **no geometric stage** in this build (the runtime's extra-accuracy check with OpenCV.js
+  and a large card-feature index). It is not configured, not copied into the package and not
+  requested: the compute frame sends the runtime a plain load request. The vendored runtime's own
+  code still contains the stage, dormant, since changing it is a toolkit matter.
 
 ## Architecture
 
@@ -43,15 +40,13 @@ flowchart TD
         subgraph CF["Compute iframe, extension origin"]
             HS["Host session:<br/>when to analyze, hover rule"]
             W["Worker: cardvision-browser<br/>ONNX Runtime Web,<br/>WebGPU or WASM"]
-            GEO["Geometric stage:<br/>WebGPU, optional"]
         end
         TT["Tooltip iframe,<br/>extension origin"]
     end
     PKG["Bundled in the extension:<br/>release, models, bank"]
     POP["Popup"]
     BG["Background"]
-    CDN["cdn.kenbunshoku.com"]
-    OPT["optcgapi.com"]
+    CDN["DuelSight card CDN"]
 
     BTN -- "on or off,<br/>per channel" --> CS
     VID -- "drawn to a canvas<br/>at analysis size" --> CS
@@ -59,7 +54,6 @@ flowchart TD
     HS -- "capture request;<br/>card id, name, box" --> CS
     HS <-- "frame out,<br/>boxes and names back" --> W
     PKG -- "release.json<br/>at load" --> W
-    W -.-> GEO
     CS -- "card id and name" --> TT
     TT -- "its size" --> CS
     CS -- "the named box" --> OUT
@@ -67,13 +61,10 @@ flowchart TD
     POP -- "refresh request" --> BG
     BG -- "config.json: install, update,<br/>browser start, then at most hourly" --> CDN
     TT -- "card picture,<br/>when not loaded yet" --> CDN
-    TT -. "card picture,<br/>when the CDN fails" .-> OPT
-    GEO -. "card-feature index:<br/>when hovers start, WebGPU,<br/>then cached" .-> CDN
 ```
 
-**How to read it.** Dashed arrows are the optional geometric stage and the picture fallback;
-the rest is the base pipeline. An arrow into `cdn.kenbunshoku.com` or
-`optcgapi.com` is a request, with its contents and its timing as in [PRIVACY.md](../PRIVACY.md).
+**How to read it.** An arrow into the card CDN is a request, with its contents and its timing as
+in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
 
 - **The content script** works out the page's channel from its address or channel link, and
   shows the in-player button. Until the viewer turns card hovers on for that channel, it makes
@@ -81,11 +72,8 @@ the rest is the base pipeline. An arrow into `cdn.kenbunshoku.com` or
   and, when asked and the pointer is active over the player, draws the video to a canvas at
   analysis size and transfers it as an `ImageBitmap`.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
-  vendored runtime on the release bundled in the extension. Nothing in it goes to the network
-  except the card-feature index of the optional geometric stage, which the worker downloads
-  after the release has loaded and keeps in Cache Storage.
-- **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, then
-  `optcgapi.com` if the CDN fails, or none with `namesOnly`), and reports its size back. The
+  vendored runtime on the release bundled in the extension. Nothing in it goes to the network.
+- **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box.
 - **The background** fetches the settings file. The popup and the tooltip frame ask it for a
   refresh, which it makes at most once an hour.
@@ -93,20 +81,23 @@ the rest is the base pipeline. An arrow into `cdn.kenbunshoku.com` or
 ## The settings file
 
 Where pictures come from is decided by a small settings file at
-`https://cdn.kenbunshoku.com/config.json` (schema version 1), so that images can be switched to
+`<cdnBase>/config.json` (schema version 1; `cdnBase` is the one value in `duelsight.config.json` that names the CDN host, a placeholder until the domain is decided), so that images can be switched to
 another source, or off, without a new extension release:
 
-- `namesOnly: true` shows no pictures at all: the card's name only.
-- `geometric: false` (optional; absent means on) turns the extra-accuracy stage off: the
-  card-feature file is not downloaded, from the next page a video is hovered on.
+- `namesOnly: true` shows no pictures at all: the card's name alone.
 - `primary` is the project's own image server; `fallbacks` are tried in order when it fails
   (an error, a body that is not a picture, or no picture within 5 seconds); with none left, the
   tooltip shows the card's name.
-- `cardLink` is obsolete: the tooltip has no link. A file may still carry it; it is ignored.
+- Card ids are Yu-Gi-Oh! passcodes (digits, up to 8). One card name with several artworks is one
+  identity in the release's groups.
+- `cardLink` and `geometric` are retired fields: a file may still carry them; they are ignored.
+- The tooltip's link to Konami's official card database is built by `src/tooltip/card-link.ts` as
+  an address (a card page when the catalog row has a `konamiId`, else a name search). It is
+  never fetched.
 
 The file is checked strictly. A file that cannot be used leaves the last good copy in effect, or
 the copy built into the extension. An image source on a host the extension has no permission
 for is ignored (adding a host needs a new release). The extension also reads an optional
 `update: { "latest": "x.y.z", "url": "https://…" }` field: when the running version is lower,
 the popup shows one dismissible "New version available" line. The address must be on the
-project's releases page; any other is ignored.
+project's releases page; others are ignored.

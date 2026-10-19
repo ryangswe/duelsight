@@ -284,6 +284,24 @@ describe("load request", () => {
   });
 });
 
+describe("public copy", () => {
+  const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf-8");
+  const disclaimer = "is an unofficial fan project, not affiliated with or endorsed by Konami.";
+  it("says in the popup, the README, PRIVACY and the manifest that it is not affiliated with Konami", () => {
+    expect(read("../static/popup.html")).toContain(`{{name}} ${disclaimer}`);
+    expect(read("../README.md")).toContain(`DuelSight ${disclaimer}`.replace("DuelSight is", "**DuelSight is").replace("Konami.", "Konami.**"));
+    expect(read("../PRIVACY.md")).toContain("not affiliated with or endorsed by Konami");
+    expect(CONFIG.description).toContain("not affiliated with or endorsed by Konami");
+  });
+  it("avoids the words the project does not use in its own copy", () => {
+    for (const path of ["../README.md", "../PRIVACY.md", "../static/popup.html", "../MAINTAINING.md", "../docs/store-listing.md", "../docs/using.md", "../docs/how-it-works.md", "../docs/accuracy.md", "../docs/permissions.md", "../docs/install-from-zip.md"]) {
+      const text = read(path).replace(/<!--[\s\S]*?-->/g, "");
+      expect(text, path).not.toMatch(/\b(first|only|best)\b|any video|every card/i);
+    }
+    expect(CONFIG.description).not.toMatch(/\b(first|only|best)\b|any video|every card/i);
+  });
+});
+
 describe("release-legal", () => {
   it("holds the models' LICENSE, NOTICE and PROVENANCE.md; NOTICE's first line names a release", () => {
     for (const name of ["LICENSE", "NOTICE", "PROVENANCE.md"]) expect(existsSync(new URL(`../release-legal/${name}`, import.meta.url))).toBe(true);

@@ -1,16 +1,25 @@
-Kenbunshoku
-Copyright 2026 The Kenbunshoku authors
+DuelSight
+Copyright 2026 The DuelSight authors
 
 This product is licensed under the Apache License, Version 2.0. The full text is in the file
 LICENSE.
 
 ------------------------------------------------------------------------------
+Derived from
+------------------------------------------------------------------------------
+
+DuelSight is derived from Kenbunshoku (https://github.com/ryangswe/kenbunshoku, Apache-2.0),
+the extension for the One Piece Card Game, starting from its commit 8a319d7, and runs the
+cardvision toolkit's browser runtime (https://github.com/ryangswe/riftsight-vision, Apache-2.0).
+Kenbunshoku's license and attribution notices are kept: this file is the DuelSight notice and
+adds to them, it does not replace them.
+
+------------------------------------------------------------------------------
 Not affiliated
 ------------------------------------------------------------------------------
 
-Kenbunshoku is an unofficial fan project. It is not affiliated with, endorsed by or sponsored by
-Bandai, Eiichiro Oda, Shueisha or Toei Animation. The One Piece Card Game, its card names and its
-card art belong to their owners. This repository contains no card images.
+DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami. Yu-Gi-Oh!,
+its card names and its card art belong to their owners. This repository contains no card images.
 
 ------------------------------------------------------------------------------
 cardvision-browser (vendored in vendor/cardvision-browser/)
@@ -32,25 +41,11 @@ Bundled into the runtime's modules and shipped as its WebAssembly files. The lic
 THIRD_PARTY_LICENSES.txt.
 
 ------------------------------------------------------------------------------
-OpenCV.js (OpenCV 5.0.0, built with Emscripten 4.0.20; vendor/cardvision-browser/opencv.*)
-License: Apache-2.0 (OpenCV); MIT or NCSA (Emscripten runtime); MIT (musl); Apache-2.0 WITH
-LLVM-exception (libc++, libc++abi, compiler-rt); zlib (zlib)
-Upstream: https://github.com/opencv/opencv, https://github.com/emscripten-core/emscripten
-------------------------------------------------------------------------------
-
-Used by the runtime's geometric stage, and shipped in the built extension's runtime/ folder.
-The copyright notices and license texts are in opencv.mjs.LEGAL.txt beside it; the build it
-came from is pinned in vendor/cardvision-browser/VENDOR.json (opencv.lock).
-
-------------------------------------------------------------------------------
-One Piece Card Game models (shipped in the built extension's release/ folder)
+DuelSight models (shipped in the built extension's release/ folder)
 License: Apache-2.0
-Upstream: https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece
 ------------------------------------------------------------------------------
 
-Release B2.1 (id f80d5b56cd907f03; the evaluated release B2, 26a98a0f49a74545, with one
-catalog entry corrected and its identity grouping updated to match): a YOLOX-derived card
-detector, fine-tuned from Megvii's COCO-pretrained YOLOX-Nano weights (Apache-2.0), and the
-cardvision recognizer, trained by the open-source cardvision project on labels made on frames of
-public videos plus composites made from official card art (the art is not included). The model files are not kept in this
-repository; their LICENSE, NOTICE and PROVENANCE.md are, in release-legal/, and ship beside them.
+The card detector and recognizer of the DuelSight release, trained with the cardvision
+toolkit. The model files are not kept in this repository; their LICENSE, NOTICE and
+PROVENANCE.md are, in release-legal/, and ship beside them. Until the DuelSight release exists,
+release-legal/ describes a placeholder (the toolkit's toy release).

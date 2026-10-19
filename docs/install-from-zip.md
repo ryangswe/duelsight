@@ -1,57 +1,54 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Install from a release zip (Load unpacked)
 
-Most people should install Kenbunshoku from the [Chrome Web Store](https://chromewebstore.google.com/detail/kenbunshoku/gndfmgcngfebiiiioddngmifddjiiabf): one click, and Chrome keeps it
-up to date. This page is for the other cases: a Chrome setup that can't use the Web Store,
-trying a release before it reaches the store, or learning how to load an extension you build
-yourself (**Load unpacked**), for example a [fork for another card game](make-it-yours.md). It takes a few
-minutes, and a zip install does not update itself.
+This page is for installing DuelSight without the Chrome Web Store: before a store listing
+exists, in a Chrome setup that cannot use the store, or to learn how to load an extension you
+build yourself (**Load unpacked**), for example a [fork for another card game](make-it-yours.md).
+It takes a few minutes, and a zip install does not update itself.
 
-<img src="install/install.gif" alt="Installing Kenbunshoku from the zip, step by step" width="600">
+> TODO: screenshots. The images that were here showed another extension and were removed. Add
+> DuelSight's own for each step below (download, unzip, extensions page, developer mode, load
+> unpacked, choose folder, installed, pin, button, hover), then link them here.
 
-1. Open the project's [releases page](https://github.com/ryangswe/kenbunshoku/releases) and,
-   under the newest release, download the file named `kenbunshoku-<version>.zip`.
+1. Open the project's [releases page](https://github.com/ryangswe/duelsight/releases) and, under
+   the newest release, download the file named `duelsight-<version>.zip`.
 
-   <img src="install/step-1-download.png" alt="Download kenbunshoku-0.1.0.zip from Assets on the project's releases page." width="600">
+   *TODO: screenshot of the release's Assets.*
 
 2. Unzip it: double-click the file on a Mac, or right-click it and choose **Extract All** on
-   Windows. You get a folder named `kenbunshoku-<version>`. Move that folder somewhere it can stay,
+   Windows. You get a folder named `duelsight-<version>`. Move that folder somewhere it can stay,
    for example your Documents folder. Chrome loads the extension from it each time it starts, so
    do not delete it.
 
-   <img src="install/step-2-unzip.png" alt="Unzip it. Mac: double-click the zip file. Windows: right-click it, then Extract All." width="600">
+   *TODO: screenshot.*
 
 3. In Chrome, open a new tab, type `chrome://extensions` in the address bar and press Enter.
 
-   <img src="install/step-3-extensions-page.png" alt="In Chrome, type chrome://extensions in the address bar and press Enter." width="600">
+   *TODO: screenshot.*
 
 4. Turn on **Developer mode**, the switch in the top right corner of that page.
 
-   <img src="install/step-4-developer-mode.png" alt="Turn on Developer mode, the switch in the top right corner." width="600">
+   *TODO: screenshot.*
 
 5. Click **Load unpacked**, the button that appears at the top left.
 
-   <img src="install/step-5-load-unpacked.png" alt="Click Load unpacked, the button that appears at the top left." width="600">
+   *TODO: screenshot.*
 
-6. Choose the `kenbunshoku-<version>` folder from step 2 (the folder itself, not a file inside
+6. Choose the `duelsight-<version>` folder from step 2 (the folder itself, not a file inside
    it) and click **Select**.
 
-   <img src="install/step-6-choose-folder.png" alt="Choose the kenbunshoku-0.1.0 folder itself (not a file inside it), then Select." width="600">
+   *TODO: screenshot.*
 
-7. Kenbunshoku appears in the list. To keep its button in view, click the puzzle-piece icon to
-   the right of the address bar, then the pin beside **Kenbunshoku**.
+7. DuelSight appears in the list. To keep its button in view, click the puzzle-piece icon to the
+   right of the address bar, then the pin beside **DuelSight**.
 
-   <img src="install/step-7-installed.png" alt="Kenbunshoku now appears in your list of extensions." width="600">
+   *TODO: screenshots.*
 
-   <img src="install/step-7b-pin.png" alt="To keep it in view, click the puzzle piece, then the pin beside Kenbunshoku." width="600">
+8. Open a Yu-Gi-Oh! video on YouTube or Twitch, point at the player and click the round
+   DuelSight button in its top-right corner to turn card hovers on for that channel. Then rest
+   the pointer on a card: its picture appears beside it (see [Using DuelSight](using.md)).
 
-8. Open a One Piece Card Game video on Twitch or YouTube, point at the player and click the round
-   eye button in its top-right corner to turn card hovers on for that channel. Then rest the
-   pointer on a card: its picture appears beside it (see [Using Kenbunshoku](using.md)).
-
-   <img src="install/step-8-eye-button.png" alt="On a Twitch or YouTube video, point at the player and click the eye button." width="600">
-
-   <img src="install/step-8b-hover.png" alt="Then rest the pointer on a card: its picture appears beside it." width="600">
+   *TODO: screenshots.*
 
 Chrome may show a notice about extensions in developer mode when it starts. That is normal for
 an extension installed this way; choose to keep it.

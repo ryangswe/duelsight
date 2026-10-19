@@ -3,10 +3,10 @@
 
 *[Back to README](../README.md)*
 
-Kenbunshoku is Apache-2.0. Its recognition is not specific to One Piece: the models, the bank
-and the card list all come from the release folder. What makes this build Kenbunshoku (its
-names, sites, hosts, addresses and the rule for printed numbers) is in one file,
-`kenbunshoku.config.json`. The build checks it and refuses a file with a problem, saying which.
+DuelSight is Apache-2.0, and began as a copy of Kenbunshoku (the One Piece extension). Its
+recognition is not specific to one game: the models, the bank and the card list all come from the
+release folder. What makes this build DuelSight (its names, sites, CDN host, addresses and the
+rule for card numbers) is in one file, `duelsight.config.json`. The build checks it and refuses a file with a problem, saying which.
 To make the same extension for another card game, copy this repository, edit that file, add
 your release and its legal files, and build.
 
@@ -27,34 +27,34 @@ in Chrome for Testing on the local test page it named the cards under the pointe
 nothing beyond the local server.
 
 1. **Copy the repository, then `npm ci` and `npm test`.** The tests read
-   `kenbunshoku.config.json`, so they stay green as you change it. Tests of Kenbunshoku's own
-   values (its ID, its CDN, its release) are skipped in a copy whose `packageName` is not
-   `kenbunshoku`. One test fails until you change both the `packageName` (step 2) and the
-   extension's key (step 6): a copy must not keep one of Kenbunshoku's and not the other.
+   `duelsight.config.json`, so they stay green as you change it. Tests of DuelSight's own
+   values (its ID, its CDN) are skipped in a copy whose `packageName` is not
+   `duelsight`. One test fails until you change both the `packageName` (step 2) and the
+   extension's key (step 6): a copy must not keep one of DuelSight's and not the other.
    Every run of `npm test` also prints `DOMException` lines and stack traces before its
    summary ("Failed to load iframe page ... Iframe page loading is disabled.", from the
    happy-dom test environment): they are harmless when the summary says every test passed.
 
-2. **Edit `kenbunshoku.config.json`.** Its keys are explained at the top of
+2. **Edit `duelsight.config.json`.** Its keys are explained at the top of
    `scripts/fork-config.mjs`. In short:
    - `name`, `shortName`, `description`: your extension's names (manifest, popup, store);
      `packageName`: the release zip's name.
    - `icons`: a folder holding `icon-16.png`, `icon-32.png`, `icon-48.png` and `icon-128.png`
-     (`node scripts/icons.mjs` redraws Kenbunshoku's).
+     (`node scripts/icons.mjs` redraws DuelSight's placeholder).
    - `videoSites`: `{ "youtube": true|false, "twitch": true|false }`. The manifest's sites
      and the pages the extension's frames accept follow it.
-   - `imageHosts`: every host the extension may request (card pictures, the settings file,
-     the card-feature index). They become its host permissions and the only hosts its pages
-     may connect to. `[]` for none.
-   - `settingsUrl`: the address of your hosted settings file, or `null`: the extension then
-     fetches nothing and uses the copy built into it (step 4).
+   - `cdnBase`: the CDN and settings origin, written once (`https://host`, no path). The
+     build derives `imageHosts` (that host, which becomes the extension's host permission and the
+     one host its pages may connect to) and `settingsUrl` (`<cdnBase>/config.json`) from it; do
+     not write them beside it. Without a `cdnBase`, write `imageHosts` (`[]` for none) and
+     `settingsUrl` (an address on one of them, or `null`: the extension then fetches nothing and
+     uses the copy built into it, step 4) yourself.
    - `printedNumber`: how the number printed on a card is found, available to image addresses
      as `{printedId}`: `{ "regex": "…" }` (its first capture group,
      matched on the card id), `"catalog"` (an optional `printed` field on each card in your
-     catalog), or `"none"`.
+     catalog), or `"none"`. DuelSight's ids are passcodes, so its rule is `^(\\d{1,8})$`.
    - `outlineColor` and `outlineGlowColor` (optional): the hovered card's outline, a solid edge
      and the glow fading out around it, as CSS colors (defaults `"#1b2f6b"` navy, `"rgba(61, 111, 224, 0.6)"` blue).
-   - `geometric`: the extra-accuracy stage, or `null` for off (step 5).
    - `projectUrl` and `runtimeUrl`: the popup's two links (keep `runtimeUrl`: it credits the
      runtime). `updateUrlPrefix`: where a "New version available" line may link, or `null`
      for never. `modelUrl`, `maintainerContactUrl`: yours, or `null`.
@@ -64,41 +64,28 @@ nothing beyond the local server.
    line must contain `(id <your release id>)` (the build refuses any other release), and
    `PROVENANCE.md` (what the models were trained and built from). Release files are never
    committed. The card's name (the picture's alt text, and what shows without a picture)
-   comes from the release's catalog. Replace `data/source-files.json` with `{}` (it maps One Piece cards to
-   file names on `optcgapi.com`) and build without `--images-index`. The build still prints a
-   line such as `{sourceFile} map from data/source-files.json: optcgapi 0 of 20 cards`: that is
-   expected in a copy that does not use that host.
+   comes from the release's catalog. This build reads names from the release's catalog only: it has no third-party card source and
+   no `{sourceFile}` map.
 
 4. **Card pictures: choose one.** `cdn/config.json` is the settings file built into the
    extension, used when no fetch has succeeded (always, with `settingsUrl` `null`).
    - **Names only.** Set `"namesOnly": true`, `"primary": null`, `"fallbacks": []`,
-     and `"geometric": false`. The tooltip then shows each card's name.
-   - **Either way, set `"cardLink": null`.** The file still holds `cardLink`, a One Piece
-     address. It is obsolete: the extension never reads it, so it has no effect, but it should
-     not name One Piece in your copy. `null` is the clean value: `cdn/opcdn.py` accepts it
-     silently, and only warns if the key is left out altogether
-     ([cdn/SETTINGS.md](../cdn/SETTINGS.md)).
+     The tooltip then shows each card's name.
+   - `cardLink` and `geometric` are retired fields: leave them out of the file; the extension
+     ignores them ([cdn/SETTINGS.md](../cdn/SETTINGS.md)).
    - **Your own image host.** Follow [cdn/SETTINGS.md](../cdn/SETTINGS.md), the settings file's
      contract. Serve each picture at a path made from the catalog's `art` value (for example
      `https://<your host>/art/{art}`), serve `config.json` beside it with
-     `Access-Control-Allow-Origin: *`, set `primary` to that template and drop the `optcgapi`
-     fallback. Put the host in `imageHosts` and the file's address in `settingsUrl`.
-     `cdn/opcdn.py` publishes to Cloudflare R2 ([cdn/README.md](../cdn/README.md)); read its
+     `Access-Control-Allow-Origin: *`, set `primary` to that template. Put the host in
+     `cdnBase`. `cdn/dscdn.py` publishes to Cloudflare R2 ([cdn/README.md](../cdn/README.md)); read its
      guards before you reuse it, since they name other projects. Any static host that serves
      the same files works too.
 
-5. **Extra accuracy (the geometric stage), on or off.**
-   - **Off:** `"geometric": null` in the config. The build then needs no
-     `data/geometric.json` (delete it), asks for no unlimited storage and ships no OpenCV.
-   - **On:** `geometric.settings` names the stage's settings file; choose yours on data you do
-     not test on (adapt guide, tier 2, step 7). Build the card-feature index from the bank in
-     your release, `cardvision build-features --config <settings> --catalog <catalog> --art
-     <card images> --bank <your release's bank> --pin`, and pack it with
-     `cardvision pack-features --index <index> --out <folder> --config <settings>`. Host the
-     folder on a host in `imageHosts` and never change what it holds. Set the settings file's
-     `index.path` to the address of its `manifest.json`, and `geometric.manifestSha256` to that
-     file's SHA-256. A dev build can point at a local copy with `--geo-manifest-url`. An index
-     built for another bank is refused, and the stage turns itself off.
+5. **No extra-accuracy stage.** This build has none: no `geometric` key, no settings file, no
+   OpenCV.js in the package (`npm run package` refuses one), no unlimited-storage permission. The
+   vendored runtime's own code still holds the stage, dormant. A fork that wants it back takes
+   it from Kenbunshoku, which keeps it (its `geometric` config key, `data/geometric.json` and
+   the CDN index).
 
 6. **Your own extension ID.** Builds carry `keys/unpacked-public.pem` as the manifest's `key`,
    which fixes the ID of unpacked installs. Do not reuse it: make your own key pair, keep the
@@ -118,9 +105,11 @@ nothing beyond the local server.
 
    A `--store` build leaves the key out; the Chrome Web Store assigns its own ID.
 
-7. **Delete the One Piece text** that no longer applies: the README and the pages in `docs/` (the figures in
-   [accuracy.md](accuracy.md) are for the One Piece models only: measure your own), `PRIVACY.md` (rewrite it
-   for your hosts), and `cdn/README.md` if you do not use `cdn/opcdn.py`. Keep `LICENSE` and
+7. **Delete the text of the game you copied** that no longer applies: the README and the pages in
+   `docs/` (accuracy figures are for one game's models only: measure your own), `PRIVACY.md`
+   (rewrite it for your host), and `cdn/README.md` if you do not use `cdn/dscdn.py`. Delete the
+   install screenshots (they show the extension you copied). Rename the package in
+   `package.json` and `package-lock.json`. Keep `LICENSE` and
    the attributions in `NOTICE`, and add your own.
 
 8. **Build, load and check on a local video.** Use a video file of your own game:

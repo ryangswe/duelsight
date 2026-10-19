@@ -12,19 +12,18 @@ Node 22 or later.
 ```
 npm ci
 npm test
-npm run build -- --release <release folder> --images-index <images.jsonl>
+npm run build -- --release <release folder>
 ```
 
 - `--release` is a release folder of the recognition models as the runtime's
   `cardvision build-release` writes it (`release.json` and the files it pins). The build checks
   it with the runtime's own verification (every file against its SHA-256 and size, the parts
   against each other) and copies it into `dist/release/`. Release files are never committed.
-- `--images-index` (optional) is the card picture mirror's index (JSON Lines with `file` and
-  `url`), from which the file-name map of the `optcgapi` fallback is built afresh. Without it,
-  the build uses the committed copy, `data/source-files.json` (card ids and file names only),
-  which `node scripts/source-map.mjs --catalog <catalog.json> --images-index <images.jsonl>`
-  regenerates.
 - `--dev` makes a development build that also runs on the local test page.
+- Until the DuelSight release exists, `release-legal/` is a placeholder for the cardvision toolkit's
+  20-card toy release (a dev fixture; its id is on the first line of `release-legal/NOTICE`).
+  Build against that toy release to try the build and the tests' manual page; a package made from
+  it is not a DuelSight release. No other game's data or art is in this repository.
 
 The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as in [Install from a release zip](install-from-zip.md).
 
@@ -34,7 +33,8 @@ The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as
 - The models' license, notice and provenance (`release-legal/`) are copied beside them into
   `dist/release/`; the build fails without them.
 
-`npm run package` zips a release build into `kenbunshoku-<version>.zip` for a release page.
+`npm run package` zips a release build into `duelsight-<version>.zip` for a release page. It refuses a
+build that holds OpenCV.js or geometric-stage files (this build ships none).
 
 ## The runtime
 
@@ -45,6 +45,10 @@ The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as
 node scripts/vendor-runtime.mjs --repo <path to a cardvision toolkit checkout> --commit <sha> \
     --opencv <folder with the runtime's OpenCV.js build>
 ```
+
+The runtime's own build still wants OpenCV.js, so the vendor step does too; DuelSight's build never
+copies it into the extension (see "The runtime" in [how-it-works.md](how-it-works.md)). Dropping it
+from the vendored folder is a change for the toolkit's build, not for this repository.
 
 It builds the runtime from that commit in a temporary folder (its own `npm ci` and `npm run
 build`) and copies the result here. OpenCV.js (`opencv.mjs`, `opencv_js.wasm`, their
@@ -60,7 +64,7 @@ A dev build runs on a local test page that plays a video file you name. No foota
 this repository.
 
 ```
-npm run build -- --dev --release <release folder> --images-index <images.jsonl>
+npm run build -- --dev --release <release folder>
 npm run manual -- --video /path/to/clip.mp4
 ```
 
@@ -72,21 +76,19 @@ was shown (see the comment at its top; it needs `puppeteer-core`, which is not a
 
 ## Maintainer notes
 
-- **The card-art CDN** (`cdn.kenbunshoku.com`: card images and the settings file) is published
-  from `cdn/` with `cdn/opcdn.py` (plan, publish, verify; credentials from `cdn/.env`, never
-  committed). [cdn/README.md](../cdn/README.md) has the setup and the steps;
+- **The card-art CDN** (card images and the settings file) is published from `cdn/` with
+  `cdn/dscdn.py` (plan, publish, verify; credentials from `cdn/.env`, never committed), by the
+  owner. [cdn/README.md](../cdn/README.md) has the setup and the steps;
   [cdn/SETTINGS.md](../cdn/SETTINGS.md) is the settings file's contract, and `cdn/config.json` is
   both the published settings and the extension's built-in default.
-
-- `kenbunshoku.config.json` holds the extension's names, sites, image hosts, settings address,
-  printed-number rule, geometric pin and links; `scripts/fork-config.mjs` explains and checks it.
-- A new image host needs an extension release: the settings file can only name hosts in the
-  config's `imageHosts`, which become the manifest's host permissions and the extension pages'
-  `connect-src`.
+- `duelsight.config.json` holds the extension's names, sites, CDN base, printed-number rule and
+  links; `scripts/fork-config.mjs` explains and checks it. `cdnBase` is the one place the CDN host is
+  written. The places that follow it: the manifest's host permissions and the pages' `connect-src`
+  (derived), `settingsUrl` (derived), `cdn/config.json`'s `primary` template, `cdn/SETTINGS.md`,
+  `cdn/README.md`, `PRIVACY.md`, `docs/permissions.md` and the tests' fixture host. The tests fail
+  when the derived values and the config disagree; the prose files are updated by hand.
+- A new image host needs an extension release: the settings file can name the config's host
+  alone, which becomes the manifest's host permission and the extension pages' `connect-src`.
 - The settings file's `update.url` must lie under the config's `updateUrlPrefix`.
-- TODO (each new set): when a release adds a set, update the set line in the "New sets" bullet of
-  the Limits list in [accuracy.md](accuracy.md) (today OP-17, EB-04, ST-36, PRB-02).
-- TODO (unpublished addresses): the cardvision toolkit's repository, its adapt guide and the
-  runtime's source are not public yet. When they are, link them from "Built on cardvision" in the README, the
-  steps in [make-it-yours.md](make-it-yours.md), "The runtime" above and `NOTICE` (the cardvision-browser upstream). The
-  models' `release-legal/` already points at the README's "Built on cardvision", so it needs no change.
+- Card ids are YGOPRODeck passcodes (digits, up to 8): the `printedNumber` rule in the config.
+- The routine for new cards, a model refresh and a handoff is in [MAINTAINING.md](../MAINTAINING.md).

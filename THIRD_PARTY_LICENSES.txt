@@ -5,15 +5,6 @@ The license comments of all code bundled into the runtime's modules are in
 runtime/worker.js.LEGAL.txt (and vendor/cardvision-browser/*.LEGAL.txt in the repository).
 
 ------------------------------------------------------------------------------
-OpenCV.js (runtime/opencv.mjs, runtime/opencv_js.wasm)
-------------------------------------------------------------------------------
-
-OpenCV 5.0.0 (Apache-2.0), compiled with Emscripten 4.0.20. Bundled with it: MIT or NCSA
-(Emscripten runtime); MIT (musl); Apache-2.0 WITH LLVM-exception (libc++, libc++abi,
-compiler-rt); zlib (zlib). The full notices and license texts are in runtime/opencv.mjs.LEGAL.txt
-(vendor/cardvision-browser/opencv.mjs.LEGAL.txt in the repository).
-
-------------------------------------------------------------------------------
 onnxruntime-web 1.29.0 (bundled into runtime/worker.js and compute.js; runtime/ort-wasm-*)
 ------------------------------------------------------------------------------
 
