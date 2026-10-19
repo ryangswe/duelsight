@@ -19,8 +19,8 @@ export const CACHE_LIMIT = 60;
 export const PORTRAIT_WIDTH = 320;
 /** A landscape picture is shown this wide. */
 export const LANDSCAPE_WIDTH = 448;
-/** The card's shape while its picture loads (One Piece and most card games: 63 x 88 mm). */
-export const CARD_ASPECT = 88 / 63;
+/** The card's shape while its picture loads (a Yu-Gi-Oh! card: 59 x 86 mm). */
+export const CARD_ASPECT = 86 / 59;
 
 /** The size a picture is shown at, before the content script fits it into the page. */
 export function artSize(width: number, height: number): { width: number; height: number } {

@@ -82,7 +82,7 @@ describe("art sizes", () => {
     expect(artSize(600, 838)).toEqual({ width: PORTRAIT_WIDTH, height: 447 });
     expect(artSize(320, 448)).toEqual({ width: 320, height: 448 });
     expect(artSize(838, 600)).toEqual({ width: LANDSCAPE_WIDTH, height: 321 });
-    expect(artSize(0, 0)).toEqual({ width: 320, height: 447 });
+    expect(artSize(0, 0)).toEqual({ width: 320, height: 466 });
   });
 });
 
@@ -114,7 +114,7 @@ describe("TooltipController", () => {
     expect(elements.art.classList.contains("loading")).toBe(true);
     expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
     expect(elements.pill.hidden).toBe(true);
-    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "89631139" });
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 466, shape: "card", cardId: "89631139" });
     release!();
     await tick();
     expect(elements.art.classList.contains("loading")).toBe(false);

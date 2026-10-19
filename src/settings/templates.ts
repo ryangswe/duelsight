@@ -6,7 +6,7 @@
 //   {file}        the last segment of {art}, percent-encoded
 //   {cardId}      the catalog card id, percent-encoded
 //   {printedId}   the number printed on the card (`printedId`, by the config's printedNumber
-//                 rule), percent-encoded; unavailable for a card with none (One Piece's DON!!),
+//                 rule), percent-encoded; unavailable for a card whose id the rule does not match,
 //                 so a template that needs it is skipped
 //
 // A placeholder the card cannot fill (no art; no printed number) makes the source
@@ -20,7 +20,7 @@ export type Placeholder = (typeof PLACEHOLDERS)[number];
 /** What a card offers the templates. */
 export interface CardRef {
   id: string;
-  /** The catalog's art path, e.g. `OP01-001.png` or `jp/P-001_p1.png`; null for a card without art. */
+  /** The catalog's art path, e.g. `89631139.jpg`; null for a card without art. */
   art: string | null;
   /** The catalog's `printed` number, when the config's rule is "catalog". */
   printed?: string | null;
@@ -41,10 +41,9 @@ export function encodePath(path: string): string {
  *   { regex }   the first capture group of the regex, matched on the card id (no match: none);
  *   "catalog"   the catalog card's own `printed` field (absent: none);
  *   "none"      no card has one.
- * DuelSight's regex is One Piece's: a trailing `-JP`, then `-r<n>`/`-pr<n>`, are not part of
- * the number, and the first `_`-separated part shaped like a card number is
- * (`OP10-045_p2` → `OP10-045`, `OP15-039_p2-JP` → `OP15-039`, `EB03_OP05-006_p1` → `OP05-006`,
- * `don_8` → none).
+ * DuelSight's regex is the passcode rule: card ids are YGOPRODeck passcodes, 1 to 8 digits, and
+ * the whole id is the number (`89631139` → `89631139`, `token_1` → none). One name's other
+ * artworks are one identity in the release's groups, not another id shape.
  */
 export function makePrintedId(rule: PrintedNumberRule): (cardId: string, printed?: string | null) => string | null {
   if (rule === "none") return () => null;

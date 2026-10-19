@@ -35,9 +35,9 @@ const analysisNow = (): FrameAnalysis =>
       detected.box === "card" ? [{ box: [100, 100, 200, 300] }] : detected.box === "other" ? [{ box: [150, 200, 60, 80] }] : [],
   }) as unknown as FrameAnalysis;
 
-/** A hit test with one card: by default OP01-001 in the box x 100..300, y 100..400 of a
+/** A hit test with one card: by default 89631139 in the box x 100..300, y 100..400 of a
  *  1000 x 500 frame. `scene.card` changes what the next analyses see there (null: nothing). */
-const scene: { card: { cardId: string; name: string } | null } = { card: { cardId: "OP01-001", name: "Monkey.D.Luffy" } };
+const scene: { card: { cardId: string; name: string } | null } = { card: { cardId: "89631139", name: "Dark Magician" } };
 const hit = (_: FrameAnalysis, x: number, y: number) =>
   scene.card && x >= 100 && x <= 300 && y >= 100 && y <= 400
     ? { card: null, boxIndex: 0, box: { x: 100, y: 100, width: 200, height: 300 }, ...scene.card }
@@ -74,7 +74,7 @@ function analyzeAt(x: number, y: number, mediaTime = 1): void {
 }
 
 beforeEach(() => {
-  scene.card = { cardId: "OP01-001", name: "Monkey.D.Luffy" };
+  scene.card = { cardId: "89631139", name: "Dark Magician" };
   detected.box = "card";
   clock = 1_000;
   toWorker = [];
@@ -129,11 +129,11 @@ describe("HostSession", () => {
   it("names the card under the pointer, with its box in fractions of the frame", () => {
     ready();
     analyzeAt(0.2, 0.5);
-    expect(lastShown()).toMatchObject({ cardId: "OP01-001", name: "Monkey.D.Luffy", box: { x: 0.1, y: 0.2, width: 0.2, height: 0.6 } });
+    expect(lastShown()).toMatchObject({ cardId: "89631139", name: "Dark Magician", box: { x: 0.1, y: 0.2, width: 0.2, height: 0.6 } });
     session.fromContent({ kind: "pointer", x: 0.8, y: 0.5, mediaTime: 1, touch: false });
     expect(lastShown()).toBeNull();
     session.fromContent({ kind: "pointer", x: 0.25, y: 0.5, mediaTime: 1, touch: false });
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
   });
 
   it("does not repeat an unchanged answer", () => {
@@ -175,12 +175,12 @@ describe("HostSession", () => {
     ready();
     analyzeAt(0.2, 0.5, 1);
     session.fromContent({ kind: "presented", mediaTime: 2.9 });
-    expect(session.fresh()?.cardId).toBe("OP01-001");
+    expect(session.fresh()?.cardId).toBe("89631139");
     session.fromContent({ kind: "presented", mediaTime: 3.1 });
     // The result is too old to name anything itself; the shown card is held until the next
     // analysis, at most HOLD_MAX_MS.
     expect(session.fresh()).toBeNull();
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     clock += HOLD_MAX_MS;
     session.fromContent({ kind: "presented", mediaTime: 3.2 });
     expect(lastShown()).toBeNull();
@@ -255,7 +255,7 @@ describe("HostSession", () => {
     const capture = captures().at(-1)!;
     session.fromContent({ kind: "frame", requestId: capture.requestId, bitmap: bitmap(), mediaTime: 1 });
     session.fromWorker(reply(toWorker.at(-1)!.request));
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
   });
 
   it("does not retry a refusal that is not about the picture", () => {
@@ -352,10 +352,10 @@ describe("HostSession hysteresis (a live stream)", () => {
   it("does not hide on a single analysis with nothing there; hides after HOLD_MISSES in a row", () => {
     ready();
     analyzeAt(0.2, 0.5, 1);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     scene.card = null;
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     for (let i = 1; i < HOLD_MISSES; i += 1) analyzeAgain(1.3 + i * 0.3);
     expect(lastShown()).toBeNull();
   });
@@ -365,7 +365,7 @@ describe("HostSession hysteresis (a live stream)", () => {
     analyzeAt(0.2, 0.5, 1);
     scene.card = null;
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     clock += HOLD_MAX_MS;
     session.tick();
     expect(lastShown()).toBeNull();
@@ -376,19 +376,19 @@ describe("HostSession hysteresis (a live stream)", () => {
     analyzeAt(0.2, 0.5, 1);
     const before = shownMessages().length;
     for (let i = 0; i < 10; i += 1) {
-      scene.card = i % 2 ? { cardId: "OP01-001", name: "Monkey.D.Luffy" } : null;
+      scene.card = i % 2 ? { cardId: "89631139", name: "Dark Magician" } : null;
       analyzeAgain(1.3 + i * 0.3);
     }
     expect(shownMessages().slice(before).filter((m) => m.card === null)).toEqual([]);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
   });
 
   it("replaces the card at once when another one is accepted there", () => {
     ready();
     analyzeAt(0.2, 0.5, 1);
-    scene.card = { cardId: "OP02-002", name: "Nami" };
+    scene.card = { cardId: "83764718", name: "Red-Eyes Black Dragon" };
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP02-002");
+    expect(lastShown()?.cardId).toBe("83764718");
   });
 
   it("ends at once when the pointer leaves the shown card's box", () => {
@@ -396,7 +396,7 @@ describe("HostSession hysteresis (a live stream)", () => {
     analyzeAt(0.2, 0.5, 1);
     scene.card = null;
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     session.fromContent({ kind: "pointer", x: 0.8, y: 0.5, mediaTime: 1.3, touch: false });
     expect(lastShown()).toBeNull();
   });
@@ -416,7 +416,7 @@ describe("HostSession hysteresis (a live stream)", () => {
     scene.card = null;
     detected.box = "none";
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
     for (let i = 1; i < HOLD_MISSES; i += 1) analyzeAgain(1.3 + i * 0.3);
     expect(lastShown()).toBeNull();
   });
@@ -427,7 +427,7 @@ describe("HostSession hysteresis (a live stream)", () => {
     scene.card = null;
     detected.box = "card";
     analyzeAgain(1.3);
-    expect(lastShown()?.cardId).toBe("OP01-001");
+    expect(lastShown()?.cardId).toBe("89631139");
   });
 
   it("ends at once on a seek", () => {

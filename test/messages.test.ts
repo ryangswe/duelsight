@@ -31,7 +31,7 @@ describe("message checks", () => {
   });
 
   it("checks the compute frame's replies", () => {
-    const shown = { kind: "shown", card: { cardId: "OP01-001", name: "Luffy", box: { x: 0.1, y: 0.2, width: 0.2, height: 0.3 } } };
+    const shown = { kind: "shown", card: { cardId: "89631139", name: "Dark Magician", box: { x: 0.1, y: 0.2, width: 0.2, height: 0.3 } } };
     expect(parseComputeOut(tag(shown))).toEqual({ kind: "shown", card: { ...shown.card, others: [] } });
     const withOthers = { kind: "shown", card: { ...shown.card, others: [{ x: 0.5, y: 0.5, width: 0.1, height: 0.1 }, { x: 0, y: 0, width: 0, height: 1 }] } };
     expect(parseComputeOut(tag(withOthers))).toEqual({ kind: "shown", card: { ...shown.card, others: [{ x: 0.5, y: 0.5, width: 0.1, height: 0.1 }] } });
@@ -49,20 +49,20 @@ describe("message checks", () => {
   });
 
   it("checks the tooltip messages", () => {
-    expect(parseTooltipIn(tag({ kind: "card", cardId: "OP01-001", name: "Luffy" }))).toEqual({ kind: "card", cardId: "OP01-001", name: "Luffy" });
-    expect(parseTooltipIn(tag({ kind: "card", cardId: "x".repeat(500), name: "Luffy" }))).toBeNull();
+    expect(parseTooltipIn(tag({ kind: "card", cardId: "89631139", name: "Dark Magician" }))).toEqual({ kind: "card", cardId: "89631139", name: "Dark Magician" });
+    expect(parseTooltipIn(tag({ kind: "card", cardId: "x".repeat(500), name: "Dark Magician" }))).toBeNull();
     expect(parseTooltipIn(tag({ kind: "clear" }))).toEqual({ kind: "clear" });
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card" }))).toEqual({ kind: "size", width: 320, height: 448, shape: "card" });
     expect(parseTooltipOut(tag({ kind: "size", width: 120, height: 32, shape: "pill" }))).toEqual({ kind: "size", width: 120, height: 32, shape: "pill" });
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448 }))).toBeNull();
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "panel" }))).toBeNull();
     expect(parseTooltipOut(tag({ kind: "size", width: 280, height: 1e6, shape: "card" }))).toBeNull();
-    expect(parseTooltipIn(tag({ kind: "card", cardId: "OP01-001", name: "x", seq: 7 }))).toEqual({ kind: "card", cardId: "OP01-001", name: "x", seq: 7 });
-    expect(parseTooltipIn(tag({ kind: "card", cardId: "OP01-001", name: "x", seq: -1 }))).toBeNull();
+    expect(parseTooltipIn(tag({ kind: "card", cardId: "89631139", name: "x", seq: 7 }))).toEqual({ kind: "card", cardId: "89631139", name: "x", seq: 7 });
+    expect(parseTooltipIn(tag({ kind: "card", cardId: "89631139", name: "x", seq: -1 }))).toBeNull();
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", seq: 3 }))).toEqual({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", seq: 3 });
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", seq: 1.5 }))).toBeNull();
     // The tooltip has no link any more: such a message is not one of its messages.
-    expect(parseTooltipOut(tag({ kind: "link", href: "https://en.onepiece-cardgame.com/cardlist/?freewords=OP01-001" }))).toBeNull();
+    expect(parseTooltipOut(tag({ kind: "link", href: "https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=2&cid=4007" }))).toBeNull();
   });
 
   it("accepts the video sites as parents, and the local test page only in a dev build", () => {

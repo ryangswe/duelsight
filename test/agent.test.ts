@@ -160,7 +160,7 @@ describe("Agent", () => {
     vi.useFakeTimers();
     agent = await startAgent();
     move(100, 100);
-    const card = { cardId: "OP01-001", name: "Roronoa Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    const card = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
     showCard(card);
     expect(tooltip()!.style.visibility).toBe("visible");
     fromFrame(compute(), { kind: "shown", card: null });
@@ -180,7 +180,7 @@ describe("Agent", () => {
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
     fromFrame(compute(), { kind: "ready" });
-    showCard({ cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(document.querySelector("[data-duelsight=link]")).toBeNull();
     expect(document.querySelectorAll("a")).toHaveLength(0);
@@ -202,7 +202,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    const card = { cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    const card = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
     showCard(card);
     fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card" });
     expect([tooltip()!.style.width, tooltip()!.style.height, tooltip()!.style.borderRadius]).toEqual(["320px", "448px", "14px"]);
@@ -217,7 +217,7 @@ describe("Agent", () => {
       agent = await startAgent();
       move(100, 100);
       fromFrame(tooltip(), { kind: "ready" });
-      showCard({ cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.7, width: 0.1, height: 0.2 } });
+      showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.7, width: 0.1, height: 0.2 } });
       fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card" });
       // 360 - 8 - 8 = 344 tall: 320 x 448 becomes 245 x 343 (rounded down, never over).
       expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["245px", "343px"]);
@@ -247,7 +247,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    showCard({ cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const before = tooltip()!.style.cssText;
     fromFrame(tooltip(), { kind: "link", href: "https://example.org/" });
     fromFrame(compute(), { kind: "size", width: 900, height: 900, shape: "card" });
@@ -411,7 +411,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    const card = { cardId: "OP01-001", name: "Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    const card = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
     showCard(card);
     move(200, 200);
     move(240, 240);
@@ -427,7 +427,7 @@ describe("Agent", () => {
     vi.useFakeTimers();
     agent = await startAgent();
     move(100, 100);
-    const card = { cardId: "OP01-001", name: "Roronoa Zoro", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    const card = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
     showCard(card);
     const el = outline()!;
     expect(el.style.display).toBe("block");
@@ -435,7 +435,7 @@ describe("Agent", () => {
     // The 960 x 540 video shows its 1920 x 1080 picture whole: the box in page pixels.
     expect([el.style.left, el.style.top, el.style.width, el.style.height].map(parseFloat)).toEqual([96, 54, 96, 108]);
     // Another card: the outline moves with the tooltip.
-    showCard({ ...card, cardId: "OP01-002", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
+    showCard({ ...card, cardId: "46986414", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
     expect([el.style.left, el.style.top].map(parseFloat)).toEqual([480, 270]);
     // Gone: both stay for the quick hide, then go together.
     fromFrame(compute(), { kind: "shown", card: null });
@@ -449,7 +449,7 @@ describe("Agent", () => {
     vi.useFakeTimers();
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(outline()!.style.display).toBe("block");
     move(2000, 2000);
     // The compute frame answers a leave with no card.
@@ -463,7 +463,7 @@ describe("Agent", () => {
     agent = await startAgent();
     Object.assign(media, { paused: true, readyState: 1 });
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(outline()!.style.display).toBe("block");
   });
@@ -471,7 +471,7 @@ describe("Agent", () => {
   it("draws no outline for a box off the picture, while the tooltip still shows", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 1.2, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 1.2, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(outline()!.style.display).toBe("none");
   });
@@ -480,7 +480,7 @@ describe("Agent", () => {
     const storage = memoryStorage();
     agent = await startAgent(true, storage);
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(outline()).not.toBeNull();
     agent.onStorageChanged({ "channel:local:/": { newValue: undefined } });
     expect(outline()).toBeNull();
@@ -495,7 +495,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const rect = () => ["left", "top", "width", "height"].map((k) => Number.parseFloat(outline()!.style[k as "left"]));
     expect(rect()).toEqual([96, 54, 96, 108]);
     const tooltipLeft = tooltip()!.style.left;
@@ -521,7 +521,7 @@ describe("Agent", () => {
     expect(frames).toHaveLength(0);
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 0));
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     vi.stubGlobal("requestAnimationFrame", queue);
     for (let i = 0; i < 5; i += 1) window.dispatchEvent(new Event("resize"));
     expect(frames).toHaveLength(1);
@@ -530,7 +530,7 @@ describe("Agent", () => {
   it("re-mounts the tooltip and the outline inside the full-screen element, and places them there", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const player = document.createElement("div");
     document.body.appendChild(player);
     player.appendChild(video);
@@ -541,7 +541,7 @@ describe("Agent", () => {
       expect(outline()!.parentElement).toBe(player);
       expect(document.querySelectorAll("[data-duelsight=outline]")).toHaveLength(1);
       fromFrame(tooltip(), { kind: "ready" });
-      showCard({ cardId: "OP01-002", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
+      showCard({ cardId: "46986414", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
       expect(tooltip()!.style.visibility).toBe("visible");
       expect([outline()!.style.left, outline()!.style.top].map(parseFloat)).toEqual([480, 270]);
     } finally {
@@ -554,7 +554,7 @@ describe("Agent", () => {
     agent = await startAgent(true, memoryStorage({ "channel:local:/": 1, "channel:local:/other": 1 }));
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const before = { compute: compute(), tooltip: tooltip() };
     vi.stubGlobal("location", new URL("http://127.0.0.1:8770/other"));
     window.dispatchEvent(new Event("popstate"));
@@ -567,7 +567,7 @@ describe("Agent", () => {
     expect(tooltip()!.style.visibility).toBe("hidden");
     expect(outline()!.style.display).toBe("none");
     move(300, 300);
-    showCard({ cardId: "OP01-002", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "46986414", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect([outline()!.style.left, outline()!.style.top].map(parseFloat)).toEqual([480, 270]);
   });
@@ -576,19 +576,19 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    fromFrame(compute(), { kind: "shown", card: { cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } } });
+    fromFrame(compute(), { kind: "shown", card: { cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } } });
     expect(tooltip()!.style.visibility).toBe("hidden");
     expect(outline()!.style.display).toBe("none");
-    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-001" });
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "89631139" });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(outline()!.style.display).toBe("block");
     // Another card: hidden until its own size comes; a late size for the old card changes nothing.
-    fromFrame(compute(), { kind: "shown", card: { cardId: "OP01-002", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } } });
+    fromFrame(compute(), { kind: "shown", card: { cardId: "46986414", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } } });
     expect(tooltip()!.style.visibility).toBe("hidden");
     expect(outline()!.style.display).toBe("none");
-    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "OP01-001" });
+    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "89631139" });
     expect(tooltip()!.style.visibility).toBe("hidden");
-    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-002" });
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "46986414" });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(tooltip()!.style.width).toBe("320px");
   });
@@ -596,18 +596,18 @@ describe("Agent", () => {
   it("does not breathe: a size a few pixels off the shown one keeps the shown one", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "448px"]);
-    fromFrame(tooltip(), { kind: "size", width: 323, height: 452, shape: "card", cardId: "OP01-001" });
+    fromFrame(tooltip(), { kind: "size", width: 323, height: 452, shape: "card", cardId: "89631139" });
     expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "448px"]);
-    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "OP01-001" });
+    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "89631139" });
     expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["448px", "320px"]);
   });
 
   it("moves the tooltip by the card's own displacement when the page moves (no lag, no jump)", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const before = { left: Number.parseFloat(tooltip()!.style.left), top: Number.parseFloat(tooltip()!.style.top) };
     // The page scrolls by 30 px: the video, the card and the tooltip all go up by 30.
     video.getBoundingClientRect = () => ({ left: 0, top: -30, width: 960, height: 540, right: 960, bottom: 510, x: 0, y: -30, toJSON() {} }) as DOMRect;
@@ -621,7 +621,7 @@ describe("Agent", () => {
     const frames: Array<() => void> = [];
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (frames.push(() => cb(0)), frames.length));
     const chat = document.createElement("div");
     document.body.appendChild(chat);
@@ -650,7 +650,7 @@ describe("Agent", () => {
   it("keeps the shown size against breathing only while it still fits beside the card", async () => {
     agent = await startAgent();
     move(100, 100);
-    const card = { cardId: "OP01-001", name: "x", box: { x: 0.3, y: 0.1, width: 0.05, height: 0.2 } };
+    const card = { cardId: "89631139", name: "x", box: { x: 0.3, y: 0.1, width: 0.05, height: 0.2 } };
     withWindow(1024, 768, () => showCard(card));
     expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "448px"]);
     // A narrower, shorter window: beside the card there is room for 316 x 442 only (4 and 6 px
@@ -666,12 +666,12 @@ describe("Agent", () => {
     const onLeft = { x: 0.1, y: 0.4, width: 0.1, height: 0.2 };
     const onRight = { x: 0.6, y: 0.4, width: 0.12, height: 0.2 };
     // At first only the left spot is taken: the tooltip goes right.
-    showCard({ cardId: "OP01-001", name: "x", box, others: [onLeft] } as never);
+    showCard({ cardId: "89631139", name: "x", box, others: [onLeft] } as never);
     const right = Number.parseFloat(tooltip()!.style.left);
     expect(right).toBeGreaterThan(384 + 77);
     // Now both spots are taken, the right one a little more: left is best, but not clearly, so
     // it stays right.
-    showCard({ cardId: "OP01-001", name: "x", box, others: [onLeft, onRight] } as never);
+    showCard({ cardId: "89631139", name: "x", box, others: [onLeft, onRight] } as never);
     expect(Number.parseFloat(tooltip()!.style.left)).toBe(right);
     // The page scrolls 40 px (more than STICKY_PX): it moves with the card and stays right.
     const top = Number.parseFloat(tooltip()!.style.top);
@@ -684,10 +684,10 @@ describe("Agent", () => {
   it("ignores a late size for the previous card that arrives after the new card's own", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
-    fromFrame(compute(), { kind: "shown", card: { cardId: "OP01-002", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } } });
-    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-002" });
-    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "OP01-001" });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    fromFrame(compute(), { kind: "shown", card: { cardId: "46986414", name: "y", box: { x: 0.5, y: 0.5, width: 0.1, height: 0.2 } } });
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "46986414" });
+    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "89631139" });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "448px"]);
   });
@@ -697,19 +697,19 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    const card = { cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    const card = { cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
     const sent = spyOn(tooltip());
     fromFrame(compute(), { kind: "shown", card });
     const first = sent.filter((m) => m.kind === "card").at(-1)!.seq as number;
-    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-001", seq: first });
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "89631139", seq: first });
     fromFrame(compute(), { kind: "shown", card: null });
     vi.advanceTimersByTime(HIDE_DELAY_MS + 1);
     fromFrame(compute(), { kind: "shown", card });
     const second = sent.filter((m) => m.kind === "card").at(-1)!.seq as number;
     expect(second).not.toBe(first);
-    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "OP01-001", seq: first });
+    fromFrame(tooltip(), { kind: "size", width: 448, height: 320, shape: "card", cardId: "89631139", seq: first });
     expect(tooltip()!.style.visibility).toBe("hidden");
-    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-001", seq: second });
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: "89631139", seq: second });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(tooltip()!.style.width).toBe("320px");
   });
@@ -717,7 +717,7 @@ describe("Agent", () => {
   it("shows a held card again in the new frame after a full-screen change, without a new card", async () => {
     agent = await startAgent();
     move(100, 100);
-    showCard({ cardId: "OP01-001", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const player = document.createElement("div");
     document.body.appendChild(player);
     player.appendChild(video);
@@ -728,9 +728,9 @@ describe("Agent", () => {
       expect(fresh.parentElement).toBe(player);
       fromFrame(fresh, { kind: "ready" });
       // The new frame is asked for the same card at once...
-      expect(spyOn(fresh).filter((m) => m.kind === "card").at(-1)).toMatchObject({ cardId: "OP01-001" });
+      expect(spyOn(fresh).filter((m) => m.kind === "card").at(-1)).toMatchObject({ cardId: "89631139" });
       // ...and shows it, outline too, once it has sized itself: no new pointer move needed.
-      fromFrame(fresh, { kind: "size", width: 320, height: 448, shape: "card", cardId: "OP01-001" });
+      fromFrame(fresh, { kind: "size", width: 320, height: 448, shape: "card", cardId: "89631139" });
       expect(fresh.style.visibility).toBe("visible");
       expect(outline()!.style.display).toBe("block");
     } finally {
