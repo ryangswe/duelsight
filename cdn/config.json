@@ -3,5 +3,6 @@
   "updatedAt": "2026-10-18T00:00:00Z",
   "namesOnly": false,
   "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
-  "fallbacks": []
+  "fallbacks": [],
+  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28df1108e6f624fe36cd0f0ca69f9b34965169d06215a5dcf348beaa3d5" }
 }

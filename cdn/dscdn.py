@@ -5,8 +5,9 @@ Runs on the maintainer's machine, where the mirrored images live; nothing image-
 committed. Uploads to a Cloudflare R2 bucket in the project's own account, never another
 project's. See README.md (setup, usage) and SETTINGS.md (the config.json contract).
 
-  dscdn.py plan    --catalog C --images DIR [--config F] [--offline]
-  dscdn.py publish --catalog C --images DIR [--config F] [--dry-run]
+  dscdn.py plan    --catalog C --images DIR [--details F] [--config F] [--offline]
+  dscdn.py publish --catalog C --images DIR [--details F] [--config F] [--dry-run]
+  dscdn.py publish --details F --config F     # the card details file, then config.json
   dscdn.py publish --config F                 # config.json only
   dscdn.py verify  [--samples N]
   dscdn.py selftest
@@ -40,6 +41,12 @@ CONFIG_KEY = "config.json"
 ART_CACHE = "public, max-age=86400"
 CONFIG_CACHE = "public, max-age=300"
 INDEX_CACHE = "no-cache"
+# The card details file (scripts/card-details.mjs): a versioned name, so it never changes in place.
+DATA_PREFIX = "data/"
+DETAILS_CACHE = "public, max-age=31536000, immutable"
+DETAILS_NAME = re.compile(r"^details-([0-9a-f]{8})\.json$")
+DETAILS_PATH = re.compile(r"^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.json$")
+MAX_DETAILS_BYTES = 32 * 1024 * 1024
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 PLACEHOLDERS = ("{art}", "{file}", "{cardId}", "{printedId}")
@@ -278,7 +285,60 @@ def validate_config(cfg: object, public_base: Optional[str]) -> list[str]:
     else:
         for i, src in enumerate(fallbacks):
             check_source(f"fallbacks[{i}]", src)
+    details = cfg.get("details")
+    if details is not None:
+        # The extension ignores a malformed one; refused here so that it is never published.
+        if not isinstance(details, dict) or not isinstance(details.get("path"), str) or not isinstance(details.get("sha256"), str):
+            errs.append("config: details must be {path, sha256} or absent")
+        else:
+            path = details["path"]
+            if not DETAILS_PATH.match(path) or any(part in (".", "..") for part in path.split("/")):
+                errs.append(f"config: details.path {path!r} is not a clean relative path to a .json file")
+            if not re.fullmatch(r"[0-9a-f]{64}", details["sha256"]):
+                errs.append("config: details.sha256 must be 64 lowercase hex digits")
     return errs
+
+
+# ---------------------------------------------------------------------------- the card details file
+
+@dataclass
+class DetailsFile:
+    key: str        # data/details-<sha8>.json
+    data: bytes
+    sha256: str
+    cards: int
+
+
+def load_details(path: Path) -> DetailsFile:
+    """The card details file as scripts/card-details.mjs wrote it: a versioned name that is the
+    start of its own SHA-256, and a JSON object of schema version 1 with a `cards` object."""
+    m = DETAILS_NAME.match(path.name)
+    if not m:
+        raise Refused(f"details: {path.name} is not named details-<8 hex digits>.json (scripts/card-details.mjs)")
+    data = path.read_bytes()
+    if len(data) > MAX_DETAILS_BYTES:
+        raise Refused(f"details: {len(data)} bytes, over {MAX_DETAILS_BYTES}")
+    sha = hashlib.sha256(data).hexdigest()
+    if not sha.startswith(m.group(1)):
+        raise Refused(f"details: {path.name} does not match its contents (sha256 starts {sha[:8]}); rebuild it")
+    try:
+        doc = json.loads(data)
+    except json.JSONDecodeError as e:
+        raise Refused(f"details: not JSON ({e})")
+    if not isinstance(doc, dict) or doc.get("schemaVersion") != 1 or isinstance(doc.get("schemaVersion"), bool) or not isinstance(doc.get("cards"), dict):
+        raise Refused("details: expected {schemaVersion: 1, cards: {...}}")
+    return DetailsFile(DATA_PREFIX + path.name, data, sha, len(doc["cards"]))
+
+
+def details_config_problem(cfg_bytes: Optional[bytes], details: Optional[DetailsFile]) -> Optional[str]:
+    """A config.json published with a details file must name that file, path and sha256."""
+    if cfg_bytes is None or details is None:
+        return None
+    named = json.loads(cfg_bytes).get("details")
+    want = {"path": details.key, "sha256": details.sha256}
+    if named != want:
+        return f"config: details must be {json.dumps(want)} for the file being published (it is {json.dumps(named)})"
+    return None
 
 
 def load_config(path: Path, public_base: Optional[str]) -> bytes:
@@ -331,7 +391,7 @@ def make_plan(files: list[LocalFile], live_index: dict, artless: int, cards: int
     return Plan(new, changed, unchanged, len(set(live) - local_paths), artless, cards, index, mismatched)
 
 
-def print_plan(plan: Plan, config: Optional[bytes]) -> None:
+def print_plan(plan: Plan, config: Optional[bytes], details: Optional[DetailsFile] = None) -> None:
     mb = sum(f.bytes for f in plan.new + plan.changed) / 1e6
     print(f"catalog: {plan.cards} cards with art, {plan.artless} without (nothing to host)")
     print(f"images: {len(plan.new)} new, {len(plan.changed)} changed, {plan.unchanged} unchanged ({mb:.1f} MB to upload)")
@@ -345,6 +405,8 @@ def print_plan(plan: Plan, config: Optional[bytes]) -> None:
         print(f"note: file name and bytes disagree for {sum(plan.mismatched.values())} image(s) ({kinds});"
               " served with the type of the bytes")
     print(f"index: {INDEX_KEY} ({len(plan.index['files'])} paths)")
+    if details is not None:
+        print(f"details: {details.key} ({details.cards} cards, {len(details.data) / 1e6:.1f} MB), after the index")
     print(f"config: {'config.json, uploaded last' if config is not None else 'not uploaded (no --config)'}")
 
 
@@ -381,9 +443,9 @@ def read_live_index(s3, bucket: str) -> dict:
 
 
 def execute(s3, bucket: str, plan: Optional[Plan], config: Optional[bytes], workers: int = 8,
-            log: Callable[[str], None] = print) -> int:
-    """Images, then the index (of what actually landed), then config.json. Returns failures.
-    `plan` None publishes config.json alone."""
+            log: Callable[[str], None] = print, details: Optional[DetailsFile] = None) -> int:
+    """Images, then the index (of what actually landed), then the card details file, then
+    config.json. Returns failures. `plan` None publishes the details file and config.json alone."""
     if plan is None:
         plan = Plan([], [], 0, 0, 0, 0, {})
     todo = plan.new + plan.changed
@@ -413,6 +475,14 @@ def execute(s3, bucket: str, plan: Optional[Plan], config: Optional[bytes], work
     if failed:
         log(f"{len(failed)} upload(s) failed; config.json NOT written. Re-run to retry.")
         return len(failed)
+    if details is not None:
+        try:
+            s3.put_object(Bucket=bucket, Key=details.key, Body=details.data,
+                          ContentType="application/json", CacheControl=DETAILS_CACHE)
+        except Exception as e:
+            log(f"FAILED {details.key}: {e}; config.json NOT written. Re-run to retry.")
+            return 1
+        log(f"details: {details.key} written")
     if config is not None:
         s3.put_object(Bucket=bucket, Key=CONFIG_KEY, Body=config,
                       ContentType="application/json", CacheControl=CONFIG_CACHE)
@@ -513,6 +583,21 @@ def verify(public_base: str, samples: int, get=http_get) -> int:
         if not errs:
             cfg = json.loads(body)
             print(f"ok   config.json: namesOnly={cfg['namesOnly']}, primary={'on' if cfg['primary'] else 'off'}, {len(cfg['fallbacks'])} fallback(s)")
+            named = cfg.get("details")
+            if named:
+                d_status, d_h, d_body = get(f"{public_base}/{named['path']}?{bust}")
+                if d_status != 200:
+                    fail(f"{named['path']}: HTTP {d_status} (config.json names it: publish it with --details)")
+                elif hashlib.sha256(d_body).hexdigest() != named["sha256"]:
+                    fail(f"{named['path']}: sha256 differs from config.json's details.sha256")
+                elif "application/json" not in d_h.get("content-type", ""):
+                    fail(f"{named['path']}: content-type {d_h.get('content-type')!r}")
+                elif d_h.get("cache-control") != DETAILS_CACHE:
+                    fail(f"{named['path']}: cache-control {d_h.get('cache-control')!r}, want {DETAILS_CACHE!r}")
+                elif nel_problem(d_h):
+                    fail(f"{named['path']}: {nel_problem(d_h)}")
+                else:
+                    print(f"ok   {named['path']}: {len(d_body)} bytes, sha256 as config.json names it")
 
     status, _, body = get(f"{public_base}/{INDEX_KEY}?{bust}")
     if status != 200:
@@ -542,15 +627,22 @@ def verify(public_base: str, samples: int, get=http_get) -> int:
 
 # ---------------------------------------------------------------------------- CLI
 
-def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, Optional[bytes]]:
+def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, Optional[bytes], Optional[DetailsFile]]:
     config = load_config(Path(args.config), public_base) if args.config else None
+    details = load_details(Path(args.details)) if args.details else None
+    problem = details_config_problem(config, details)
+    if problem:
+        raise Refused(problem)
+    if config is not None and details is None and json.loads(config).get("details"):
+        print(f"note: config.json names {json.loads(config)['details']['path']}; it must already be on the CDN "
+              "(publish it with --details; verify checks it)")
     if not args.catalog:
-        return [], 0, 0, config
+        return [], 0, 0, config, details
     if not args.images:
         raise Refused("--catalog needs --images")
     paths, artless = catalog_art_paths(json.loads(Path(args.catalog).read_text()))
     files = scan_images(paths, Path(args.images))
-    return files, artless, sum(len(v) for v in paths.values()), config
+    return files, artless, sum(len(v) for v in paths.values()), config, details
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -559,6 +651,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--catalog", help="catalog JSON (entries with an id and an `art` path or null)")
     ap.add_argument("--images", help="directory the `art` paths are relative to")
     ap.add_argument("--config", help="config.json to publish (SETTINGS.md); uploaded last")
+    ap.add_argument("--details", help="the card details file to publish (data/details-<sha8>.json from scripts/card-details.mjs)")
     ap.add_argument("--env-file", help="read DSCDN_* entries from this file")
     ap.add_argument("--offline", action="store_true", help="plan: no credentials, treat the CDN as empty")
     ap.add_argument("--dry-run", action="store_true", help="publish: read the live index, print the plan, upload nothing")
@@ -574,24 +667,26 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 1 if verify(target_from_env(need_secrets=False).public_base, args.samples) else 0
         if args.command == "plan" and args.offline:
             base = os.environ.get("DSCDN_PUBLIC_BASE")
-            files, artless, cards, config = build(args, base.rstrip("/") if base else None)
-            print_plan(make_plan(files, {}, artless, cards), config)
+            files, artless, cards, config, details = build(args, base.rstrip("/") if base else None)
+            print_plan(make_plan(files, {}, artless, cards), config, details)
             return 0
-        if not args.catalog and not args.config:
-            raise Refused("nothing to do: give --catalog/--images and/or --config")
+        if not args.catalog and not args.config and not args.details:
+            raise Refused("nothing to do: give --catalog/--images, --details and/or --config")
         t = target_from_env()
-        files, artless, cards, config = build(args, t.public_base)
+        files, artless, cards, config, details = build(args, t.public_base)
         s3 = r2_client(t)
         live = read_live_index(s3, t.bucket)
         plan = make_plan(files, live, artless, cards) if args.catalog else None
         print(f"target: bucket {t.bucket}, served at {t.public_base}")
         if plan:
-            print_plan(plan, config)
+            print_plan(plan, config, details)
         else:
-            print("config: config.json only")
+            if details is not None:
+                print(f"details: {details.key} ({details.cards} cards, {len(details.data) / 1e6:.1f} MB)")
+            print("config: config.json" + (", uploaded last" if config is not None else " not uploaded (no --config)"))
         if args.command == "plan" or args.dry_run:
             return 0
-        return 1 if execute(s3, t.bucket, plan, config) else 0
+        return 1 if execute(s3, t.bucket, plan, config, details=details) else 0
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 3
@@ -778,6 +873,71 @@ def selftest() -> int:
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
+
+    # the card details file: name, contents, config consistency, order, verify
+    with tempfile.TemporaryDirectory() as tmp:
+        doc = json.dumps({"schemaVersion": 1, "cards": {"1": ["spell", "Invented text.", "Normal Spell"]}}).encode()
+        sha = hashlib.sha256(doc).hexdigest()
+        good = Path(tmp) / f"details-{sha[:8]}.json"
+        good.write_bytes(doc)
+        d = load_details(good)
+        assert (d.key, d.sha256, d.cards) == (f"data/details-{sha[:8]}.json", sha, 1)
+        wrong_name = Path(tmp) / "details-00000000.json"
+        wrong_name.write_bytes(doc)
+        assert refused(lambda: load_details(wrong_name)), "name must match the contents"
+        assert refused(lambda: load_details(Path(tmp) / "details.json")), "versioned name required"
+        bad_doc = b'{"schemaVersion": 2, "cards": {}}'
+        bad = Path(tmp) / f"details-{hashlib.sha256(bad_doc).hexdigest()[:8]}.json"
+        bad.write_bytes(bad_doc)
+        assert refused(lambda: load_details(bad)), "schema version 1"
+
+        named = good_cfg_here | {"details": {"path": d.key, "sha256": sha}}
+        assert validate_config(named, base) == []
+        for wrong in ({"path": "../x.json", "sha256": sha}, {"path": "/data/x.json", "sha256": sha},
+                      {"path": "data/x.json", "sha256": "ABC"}, {"path": "data/x.js", "sha256": sha}, "data/x.json"):
+            assert validate_config(good_cfg_here | {"details": wrong}, base), wrong
+        assert details_config_problem(json.dumps(named).encode(), d) is None
+        assert details_config_problem(json.dumps(good_cfg_here).encode(), d), "config must name the file"
+        assert details_config_problem(json.dumps(good_cfg_here | {"details": {"path": d.key, "sha256": "0" * 64}}).encode(), d)
+
+        class Rec2:
+            def __init__(self, fail_keys=()):
+                self.puts, self.fail_keys = [], set(fail_keys)
+
+            def put_object(self, *, Bucket, Key, Body, ContentType, CacheControl):
+                if Key in self.fail_keys:
+                    raise RuntimeError("boom")
+                self.puts.append((Key, ContentType, CacheControl))
+
+        cfg_named = json.dumps(named).encode()
+        s3d = Rec2()
+        assert execute(s3d, "b", None, cfg_named, log=lambda _: None, details=d) == 0
+        assert [p[0] for p in s3d.puts] == [d.key, CONFIG_KEY], "details before config"
+        assert s3d.puts[0][1:] == ("application/json", DETAILS_CACHE)
+        s3d = Rec2(fail_keys={d.key})
+        assert execute(s3d, "b", None, cfg_named, log=lambda _: None, details=d) == 1
+        assert CONFIG_KEY not in [p[0] for p in s3d.puts], "no config after a failed details upload"
+
+        cfg_head = {"content-type": "application/json", "cache-control": CONFIG_CACHE, "access-control-allow-origin": "*"}
+        idx = json.dumps({"schemaVersion": 1, "files": {}}).encode()
+        store2 = {CONFIG_KEY: (200, cfg_head, cfg_named), INDEX_KEY: (200, {"content-type": "application/json"}, idx),
+                  d.key: (200, {"content-type": "application/json", "cache-control": DETAILS_CACHE}, doc)}
+
+        def get2(url, origin=None):
+            key = urllib.parse.unquote(url[len(base) + 1:].split("?")[0])
+            return store2.get(key, (404, {}, b""))
+
+        quiet = open(os.devnull, "w")
+        stdout, sys.stdout = sys.stdout, quiet
+        try:
+            assert verify(base, 0, get=get2) == 0
+            store2[d.key] = (200, {"content-type": "application/json", "cache-control": DETAILS_CACHE}, doc + b" ")
+            assert verify(base, 0, get=get2) == 1, "details sha mismatch"
+            del store2[d.key]
+            assert verify(base, 0, get=get2) == 1, "details named but missing"
+        finally:
+            sys.stdout = stdout
+            quiet.close()
 
     print("selftest: ok")
     return 0

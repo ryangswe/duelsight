@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import DEFAULT_CONFIG from "../cdn/config.json";
 import { UPDATE_URL_PREFIX } from "../src/constants.js";
-import { validateSettings as validateWithHosts } from "../src/settings/schema.js";
+import { detailsUrl, validateSettings as validateWithHosts } from "../src/settings/schema.js";
 import { FIXTURE_CDN as CDN, IS_DUELSIGHT } from "./helpers/fork.js";
 
 /** A settings file (a fixture, not the build's own), and the hosts these tests allow. */
@@ -38,7 +38,10 @@ describe("validateSettings", () => {
       primary: { id: "cdn", template: `${CDN}/art/{art}` },
       fallbacks: [],
       update: null,
+      details: { path: expect.stringMatching(/^data\/details-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
     });
+    // The versioned name is the start of the file's SHA-256.
+    expect(settings!.details!.sha256.startsWith(settings!.details!.path.slice("data/details-".length, -".json".length))).toBe(true);
   });
 
   it("ignores unknown extra fields", () => {
@@ -159,6 +162,38 @@ describe("validateSettings", () => {
       expect(settings).not.toBeNull();
       expect(settings?.update).toBeNull();
       expect(problems.some((p) => p.startsWith("update: ignored"))).toBe(true);
+    });
+  });
+  describe("the optional details field", () => {
+    const sha = "0123456789abcdef".repeat(4);
+    it("is absent (null) in a file that does not have it", () => {
+      expect(validateSettings(base()).settings?.details).toBeNull();
+      expect(validateSettings({ ...base(), details: null }).settings?.details).toBeNull();
+    });
+
+    it("reads a path on the settings host and the file's SHA-256", () => {
+      const { settings, problems } = validateSettings({ ...base(), details: { path: "data/details-01234567.json", sha256: sha } });
+      expect(problems).toEqual([]);
+      expect(settings?.details).toEqual({ path: "data/details-01234567.json", sha256: sha });
+      expect(detailsUrl(settings!.details!, `${CDN}/config.json`)).toBe(`${CDN}/data/details-01234567.json`);
+      expect(detailsUrl(settings!.details!, null)).toBeNull();
+    });
+
+    it.each([
+      [{ path: "../details.json", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "/data/details.json", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "data/./details.json", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "https://evil.example/details.json", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "//evil.example/details.json", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "data/details.js", sha256: "0123456789abcdef".repeat(4) }],
+      [{ path: "data/details.json", sha256: "ABCDEF" }],
+      [{ path: "data/details.json" }],
+      ["data/details.json"],
+    ])("ignores a malformed one without refusing the file: %j", (details) => {
+      const { settings, problems } = validateSettings({ ...base(), details });
+      expect(settings).not.toBeNull();
+      expect(settings?.details).toBeNull();
+      expect(problems.some((p) => p.startsWith("details: ignored"))).toBe(true);
     });
   });
 });

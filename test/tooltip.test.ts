@@ -20,6 +20,7 @@ const defaultSettings = (): Settings => ({
   primary: { id: "art", template: "https://art.example/art/{art}" },
   fallbacks: [],
   update: null,
+  details: null,
 });
 
 const table = {

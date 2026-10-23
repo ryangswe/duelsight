@@ -1,7 +1,7 @@
 # Settings file contract (`config.json`), schema version 1
 
 The DuelSight extension reads one small JSON file from the project's CDN domain to decide where
-card images come from. Changing this file, not shipping an extension release, is how images are
+card images come from, and which card details file the tooltip's details panel uses. Changing this file, not shipping an extension release, is how images are
 turned off or moved between paths on the host the extension already has permission for. A new
 image host needs an extension release (see "Image hosts").
 
@@ -22,7 +22,8 @@ file that `dscdn.py` accepts can still have parts the extension drops.
   "updatedAt": "2026-10-16T00:00:00Z",
   "namesOnly": false,
   "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
-  "fallbacks": []
+  "fallbacks": [],
+  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" }
 }
 ```
 
@@ -33,6 +34,7 @@ file that `dscdn.py` accepts can still have parts the extension drops.
 | `namesOnly` | boolean | **Kill switch.** `true`: show no image from any source, only the card's name. Wins over every other field. |
 | `primary` | source object or `null` | Our own CDN. **Required** (`null` is a value). `null` skips it (e.g. after a complaint), leaving the fallbacks. |
 | `fallbacks` | array of source objects | Tried in order after `primary` fails or is `null`. May be empty. |
+| `details` | object, optional | The card details file for the tooltip's details panel (see "The card details file"). `{ "path": "data/details-<sha8>.json", "sha256": "<64 hex digits>" }`: `path` is relative to this file's address (so on the same host), a clean relative path to a `.json` file (no leading `/`, no `.` or `..` segment); `sha256` is the file's SHA-256 in lowercase hex. Absent or `null`: no details panel, pictures alone, and a copy the extension kept is deleted. Malformed: ignored, the rest of the file still used. It does not bump `schemaVersion`; an older extension ignores it. |
 | `update` | object, optional | For installs that never update by themselves (an unpacked folder from a release zip). `{ "latest": "x.y.z", "url": "https://…" }`: when the running extension's version is lower than `latest`, the popup shows one dismissible "New version available" line linking to `url`. Dismissed per version; a later `latest` shows it again. `latest` must be three dot-separated integers, and `url` must be the project's releases page or an address below it (`https://github.com/ryangswe/duelsight/releases`, `…/releases/…`). Absent, `null` or malformed: the field is ignored and the rest of the file is still used. It does not bump `schemaVersion`. |
 
 A **source object** is `{ "id": string, "template": string }`, `id` not empty. An object of
@@ -105,6 +107,28 @@ re-try it after a fresh `config.json` read.
   is ignored; so are the retired `cardLink` and `geometric` fields, whatever they hold.
 - **Image requests** carry no cookies and no referrer. An image counts as loaded only once the
   browser has decoded its bytes; its type is never taken from the file name.
+
+## The card details file
+
+Each card's type line, attribute, level, rank or link rating, ATK and DEF, and text, for the
+tooltip's details panel (the format is in `src/details/details.ts`). Card text is the rights
+holder's, like the art: the file is never committed or put in the extension's package.
+
+- **Made by:** `node scripts/card-details.mjs --cards <cardinfo JSON> --catalog <the release's
+  catalog.json> --out <folder outside the repository>`, which writes `data/details-<sha8>.json`
+  (`sha8`: the leading 8 hex digits of its SHA-256) and prints the `details` entry for this file.
+- **Key:** `data/details-<sha8>.json`, a new name for every change: a file is never replaced in
+  place. **Served with** `Content-Type: application/json`, `Cache-Control: public,
+  max-age=31536000, immutable`.
+- **Written by:** `dscdn.py publish --details <file> --config <file>`: the details file before
+  `config.json`, and `config.json` when it names that file (path and SHA-256), else nothing.
+- **The extension** fetches it while its details panel is on (never when it is off), from the settings file's own
+  host, with no cookies and no referrer, once: it keeps the file in its own Cache Storage, keyed
+  by its address, and uses it when its bytes match `sha256` (never otherwise) (checked on every read). A new
+  `details` entry replaces the kept copy; until a file is loaded, and for a card it does not
+  list, the tooltip shows the picture alone.
+- **Switching it off:** remove `details` (or set it to `null`) and publish `config.json`.
+  Installed extensions stop showing details and delete their copy within about an hour.
 
 ## Images on our CDN
 

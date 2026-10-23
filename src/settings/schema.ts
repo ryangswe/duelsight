@@ -10,7 +10,8 @@
 //   - a template whose host is not one the extension may request images from (IMAGE_HOSTS);
 // Unknown extra fields are ignored, among them the obsolete `cardLink` (the tooltip no longer
 // has a link; files may still carry it, of any type). The optional `update` field (an addition proposed for
-// unpacked installs) is read when it is well formed and ignored otherwise.
+// unpacked installs) and the optional `details` field (the card details file) are read when they
+// are well formed and ignored otherwise.
 
 import { IMAGE_HOSTS, UPDATE_URL_PREFIX } from "../constants.js";
 import { templateProblem } from "./templates.js";
@@ -27,6 +28,13 @@ export interface UpdateNotice {
   url: string;
 }
 
+/** The card details file (src/details/): a path on the settings file's own host, and the
+ *  file's SHA-256. */
+export interface DetailsSource {
+  path: string;
+  sha256: string;
+}
+
 export interface Settings {
   schemaVersion: 1;
   updatedAt: string;
@@ -34,6 +42,7 @@ export interface Settings {
   primary: ImageSource | null;
   fallbacks: ImageSource[];
   update: UpdateNotice | null;
+  details: DetailsSource | null;
 }
 
 export interface Validation {
@@ -101,6 +110,37 @@ function updateField(value: unknown, problems: string[]): UpdateNotice | null {
   return { latest: value.latest, url: url.href };
 }
 
+/** A clean relative path to a .json file: segments of letters, digits, ".", "_" and "-", none
+ *  of them "." or "..", no leading slash. */
+const DETAILS_PATH = /^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.json$/;
+const SHA256 = /^[0-9a-f]{64}$/;
+
+function detailsField(value: unknown, problems: string[]): DetailsSource | null {
+  if (value === undefined || value === null) return null;
+  if (!isObject(value) || typeof value.path !== "string" || typeof value.sha256 !== "string") {
+    problems.push("details: ignored (not { path, sha256 })");
+    return null;
+  }
+  if (value.path.length > 200 || !DETAILS_PATH.test(value.path) || value.path.split("/").some((part) => part === "." || part === "..")) {
+    problems.push("details: ignored (path is not a clean relative path to a .json file)");
+    return null;
+  }
+  if (!SHA256.test(value.sha256)) {
+    problems.push("details: ignored (sha256 is not 64 lowercase hex digits)");
+    return null;
+  }
+  return { path: value.path, sha256: value.sha256 };
+}
+
+/** The details file's address: its path on the settings file's own host. Null without a settings
+ *  address (a build that never fetches), or when it would leave that host. */
+export function detailsUrl(details: DetailsSource, settingsUrl: string | null): string | null {
+  if (settingsUrl === null) return null;
+  const base = new URL(settingsUrl);
+  const url = new URL(details.path, base);
+  return url.origin === base.origin ? url.href : null;
+}
+
 /** Validate a parsed settings file. */
 export function validateSettings(raw: unknown, allowedHosts: readonly string[] = IMAGE_HOSTS): Validation {
   const fail = (problem: string): Validation => ({ settings: null, problems: [problem] });
@@ -144,6 +184,7 @@ export function validateSettings(raw: unknown, allowedHosts: readonly string[] =
       primary,
       fallbacks: kept,
       update: updateField(raw.update, problems),
+      details: detailsField(raw.details, problems),
     },
     problems,
   };

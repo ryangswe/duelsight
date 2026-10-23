@@ -2,15 +2,15 @@
 
 Serves Yu-Gi-Oh! card images for the DuelSight extension from the project's own Cloudflare
 account and domain (the host in `cdnBase` of `duelsight.config.json`,
-`cdn.duelsight.com`), plus the small settings file
+`cdn.duelsight.com`), the card details file for the tooltip's details panel, and the small settings file
 (`config.json`, contract in [SETTINGS.md](SETTINGS.md)) that tells the extension where images
-come from.
+and details come from.
 
 - **Why a separate account and domain:** a complaint from a rights holder reaches only this
   project's service, and the whole thing can be handed to a maintainer (account, domain,
   settings file).
-- **What this folder never holds:** images. They stay on the maintainer's machine and go from
-  there straight to R2. No repository carries them.
+- **What this folder never holds:** images or card text. They stay on the maintainer's machine
+  and go from there straight to R2. No repository carries them.
 - **Who may publish:** the owner. A publish needs the account's R2 token; nothing here runs in CI.
 
 ## Layout on the CDN
@@ -19,10 +19,11 @@ come from.
 |---|---|---|
 | `art/<art path>` | the image, original bytes, path = the catalog's `art` value (e.g. `89631139.jpg`) | `public, max-age=86400` |
 | `art/index.json` | every uploaded path with sha256 and size: the tool's record of what is live | `no-cache` |
+| `data/details-<sha8>.json` | the card details file (type, stats, text), from `scripts/card-details.mjs` | `public, max-age=31536000, immutable` |
 | `config.json` | the extension's settings ([SETTINGS.md](SETTINGS.md)) | `public, max-age=300` |
 
-Uploads are additive: the tool never deletes. Order is images → `art/index.json` →
-`config.json` (only with `--config`, and only if every image landed).
+Uploads are additive: the tool never deletes. Order is images → `art/index.json` → the details
+file (with `--details`) → `config.json` (with `--config`, and if everything before it landed).
 
 ## One-time setup (maintainer, about 30 minutes)
 
@@ -82,7 +83,18 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
 ```
 
 - **A new set:** once the catalog refresh has added the images, re-run steps 2–4.
-  Only new or changed files are uploaded.
+  Only new or changed files are uploaded. Then rebuild the card details file (below).
+- **The card details file:** build it outside the repository, from the one-time card list and the
+  release's catalog, then publish it with `config.json` naming it:
+  ```bash
+  node ../scripts/card-details.mjs --cards <cardinfo JSON> --catalog $CATALOG --out <folder outside the repository>
+  # prints the file's path, size and the "details" entry: put that entry in config.json
+  .venv/bin/python dscdn.py publish --env-file .env --details <out>/data/details-<sha8>.json --config config.json --dry-run
+  .venv/bin/python dscdn.py publish --env-file .env --details <out>/data/details-<sha8>.json --config config.json
+  .venv/bin/python dscdn.py verify --env-file .env
+  ```
+  `publish` refuses a `config.json` that does not name the file being published. Removing
+  `details` from `config.json` and publishing it turns the details panel off for everyone.
 - **Switching images off or over:** edit `config.json` (`namesOnly: true` shows names without pictures; `primary: null`
   with no `fallbacks` stops images entirely), then `publish --env-file .env --config config.json`
   (config only) and `verify`. Installed extensions follow within about an hour.
@@ -100,6 +112,8 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
   (no `..`, no symlink escapes), at most 5 MB, whose bytes match its type.
 - `config.json` must pass the SETTINGS.md schema; its `primary` must be on `DSCDN_PUBLIC_BASE`;
   no template may point at those other projects.
+- A details file must be named `details-<sha8>.json` after its own SHA-256 and be a schema 1
+  details file; a `config.json` published with it must name it (path and SHA-256).
 - A failed image upload leaves it out of `art/index.json` (a re-run retries it) and blocks
   `config.json`.
 

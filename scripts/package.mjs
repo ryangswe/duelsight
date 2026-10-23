@@ -35,6 +35,12 @@ if (stray.length > 0) {
   console.error(`dist/ holds files of the geometric stage, which this build does not ship: ${stray.join(", ")}`);
   process.exit(1);
 }
+// Card text is never in the package: the details file is fetched from the CDN (src/details/).
+const text = readdirSync(dist, { recursive: true }).filter((f) => /(^|[\\/])details-[^\\/]*\.json$/i.test(String(f)));
+if (text.length > 0) {
+  console.error(`dist/ holds a card details file, which is never packaged (it is served from the CDN): ${text.join(", ")}`);
+  process.exit(1);
+}
 // A zip for a release page is loaded unpacked and carries the key; a Web Store build has none.
 const name = manifest.key ? `${config.packageName}-${manifest.version}` : `${config.packageName}-${manifest.version}-store`;
 const zip = join(root, `${name}.zip`);
