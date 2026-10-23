@@ -1,14 +1,40 @@
-# Provenance of the models (PLACEHOLDER: toy release, a dev fixture)
-
-This is a placeholder for the DuelSight release's provenance. Replace it, with NOTICE and LICENSE,
-when the DuelSight models exist.
+# Provenance of the Yu-Gi-Oh! models (early preview release T)
 
 | | |
 | --- | --- |
-| Release | the cardvision toolkit's toy release, release document id `ea81a9255663b61c`, game `toy`, 20 cards |
-| License | Apache-2.0 (LICENSE beside this file) |
-| Built by | the open-source cardvision toolkit, https://github.com/ryangswe/riftsight-vision |
-| Data | synthetic shapes only; no card game, no card art, no video |
+| Release | T, release document id `6666477f410559ac`, game `yugioh`, 14,636 entries in the bank, 14,639 in the catalog |
+| Status | Early preview. A newer release is in preparation. |
+| License | Apache-2.0 (LICENSE beside this file); NOTICE says what it does not cover |
+| Trained by | the DuelSight project, with the open-source cardvision toolkit 0.2.0rc4 (https://github.com/ryangswe/riftsight-vision) |
+| Published at | inside this extension package |
 
-The DuelSight release's provenance will state what its detector and recognizer started from, what
-they were trained on, and where they are published.
+## Detector (`detector.onnx`)
+
+- Starts from the detector of the Kenbunshoku One Piece Card Game release B2.1
+  (https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece), itself fine-tuned from
+  YOLOX-Nano pretrained on COCO by Megvii (Apache-2.0 repository).
+- Two classes, card face and card back. Fine-tuned on frames of public Yu-Gi-Oh! videos (Master
+  Duel, Dueling Book and paper tables) labeled by the project, synthetic composites made from
+  official card art, and card-free table scans as negatives.
+
+## Recognizer (`recognizer.onnx`)
+
+- Starts from the Kenbunshoku release B2.1 recognizer (MobileNetV3-Small, from torchvision's
+  ImageNet-1k weights), with a 128-value projection.
+- Trained in two rounds on crops of official card art, synthetic composites and labeled frames of
+  public videos.
+
+## Bank (`bank.json`, `identity-groups.json`) and catalog (`catalog.json`)
+
+- The bank holds one vector per entry: numerical embeddings computed by the recognizer from card
+  pictures, not the picture files. The pictures are the card images listed by YGOPRODeck; for 86
+  Master Duel alternate artworks (82 cards), the vectors were computed from a card picture with
+  the alternate artwork from Yugipedia placed over the card's own art.
+- `identity-groups.json` says which catalog entries count as one card: a card and its other
+  printings and artworks (the entries whose `printingOf` names it) are one identity.
+- The catalog lists card ids, names, kinds and set facts, and the file name of each card's
+  picture. It holds no card text.
+
+## Not included
+
+No card art, no video frames, no labels. The card art and the videos belong to their owners.

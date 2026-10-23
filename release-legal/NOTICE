@@ -1,29 +1,40 @@
-PLACEHOLDER: dev fixture standing in for the DuelSight models (id ea81a9255663b61c)
+DuelSight Yu-Gi-Oh! models, early preview release T (id 6666477f410559ac)
 Copyright 2026 The DuelSight authors and the cardvision authors
 
-This file is a placeholder. Until the DuelSight release exists, builds are tested against the
-cardvision toolkit's 20-card toy release. A package built against it is a development build, not a
-DuelSight release: replace this file, LICENSE and PROVENANCE.md with the DuelSight models' own
-(first line: "... (id <the release id>)") before any store or release upload. The build refuses a
-release whose id this first line does not name.
-
 The files in the release folder (release.json, detector.onnx, recognizer.onnx, bank.json,
-bank.identity-groups.json, catalog.json) are licensed under the Apache License, Version 2.0.
+identity-groups.json, catalog.json) are licensed under the Apache License, Version 2.0.
 The full text is in the file LICENSE beside this one.
+
+This is an early preview of DuelSight's models. A newer release is in preparation.
 
 ------------------------------------------------------------------------------
 What the models are
 ------------------------------------------------------------------------------
 
-The toy release is built by the open-source cardvision toolkit from synthetic shapes
-(https://github.com/ryangswe/riftsight-vision). It contains no card art, video frame or label of
-any card game.
+  * detector.onnx: a card detector derived from YOLOX. It was fine-tuned from the detector of
+    the Kenbunshoku One Piece Card Game release B2.1
+    (https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece, Apache-2.0), which was itself
+    fine-tuned from the COCO-pretrained YOLOX-Nano weights published by Megvii
+    (https://github.com/Megvii-BaseDetection/YOLOX, Apache-2.0).
+  * recognizer.onnx: the cardvision recognizer (MobileNetV3-Small), trained to output one
+    128-value vector per card picture. It was fine-tuned from the Kenbunshoku release B2.1
+    recognizer, which started from torchvision's ImageNet-pretrained weights (BSD-3-Clause code).
+  * bank.json: one vector per known card, computed by the recognizer from card pictures. It
+    does not contain the pictures.
+
+Both models were trained with the open-source cardvision toolkit
+(https://github.com/ryangswe/riftsight-vision) on labels made on frames of public videos, plus
+synthetic composites made from official card art. No card art, video frame or label is included
+here. PROVENANCE.md says more.
 
 ------------------------------------------------------------------------------
 Not covered
 ------------------------------------------------------------------------------
 
-The license grant covers the project's own work. It does not cover material that belongs to
-others: card games, their card names and their art belong to their owners.
+The license grant covers the project's own work. It does not cover, and cannot grant rights in,
+material that belongs to others: Yu-Gi-Oh!, its card names and its card art belong to their
+owners; the videos the labels were made on belong to whoever holds their rights; the pretrained
+starting points carry their publishers' terms, and the images they were trained on (COCO,
+ImageNet) carry their own.
 
 DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.

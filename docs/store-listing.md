@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# Store listing draft (not submitted)
+# Store listing draft (early preview, release T; to be submitted as Unlisted)
 
 Drafts for the Chrome Web Store. Nothing here has been through a store review. Read the store's
 current policies before submitting.
@@ -18,6 +18,9 @@ DuelSight is an unofficial fan project, not affiliated with or endorsed by Konam
 
 Hover a card in a Yu-Gi-Oh! video on YouTube or Twitch, and a larger picture of it appears beside
 it, with its name, type, stats and text.
+
+Early preview: card recognition is still being improved, most of all on paper tables. An update
+is on its way.
 
 - Aimed at Master Duel, Dueling Book and paper tables with the camera above the table. Results
   vary by video, and it can miss a card or show a wrong one.
