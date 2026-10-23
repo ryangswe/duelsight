@@ -210,6 +210,39 @@ describe("Agent", () => {
     expect([tooltip()!.style.width, tooltip()!.style.height, tooltip()!.style.borderRadius]).toEqual(["130px", "33px", "17px"]);
   });
 
+  it("follows the card-size dial at once: the card on show is fitted again at the new size", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    fromFrame(tooltip(), { kind: "ready" });
+    showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "448px"]);
+    agent.setCardSize(130);
+    expect([tooltip()!.style.width, tooltip()!.style.height, tooltip()!.style.borderRadius]).toEqual(["416px", "582px", "19px"]);
+    agent.setCardSize(70);
+    expect([tooltip()!.style.width, tooltip()!.style.height, tooltip()!.style.borderRadius]).toEqual(["224px", "314px", "10px"]);
+    // A name pill is never scaled.
+    fromFrame(tooltip(), { kind: "size", width: 130, height: 33, shape: "pill", cardId: "89631139" });
+    expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["130px", "33px"]);
+  });
+
+  it("keeps a larger card inside a short window", async () => {
+    const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 360 });
+    try {
+      agent = await startAgent();
+      agent.setCardSize(130);
+      move(100, 100);
+      fromFrame(tooltip(), { kind: "ready" });
+      showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.7, width: 0.1, height: 0.2 } });
+      // The same room as at 100 %: 344 tall, so 416 x 582 becomes 245 x 342 (rounded down).
+      expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["245px", "342px"]);
+      const top = Number.parseFloat(tooltip()!.style.top);
+      expect(top + 342).toBeLessThanOrEqual(360 - 8);
+    } finally {
+      if (height) Object.defineProperty(window, "innerHeight", height);
+    }
+  });
+
   it("scales the picture down, keeping its shape, when the window is short, and keeps it inside", async () => {
     const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 360 });

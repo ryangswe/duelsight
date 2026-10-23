@@ -69,6 +69,7 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
 
 - **In `chrome.storage.local`** (settings):
   - whether it is switched on;
+  - the card size you set in the popup (70% to 130%);
   - the channels you turned card hovers on for (their YouTube handle or id, Twitch name, or
     video id), each with the time you turned it on, and that you have seen the button's
     intro label;

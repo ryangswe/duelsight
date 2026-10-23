@@ -60,6 +60,12 @@ body { width: 280px; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto
   .switch, .knob, .switch[data-ready], .switch[data-ready] .knob { transition: none; }
 }
 
+.dial { display: grid; gap: 6px; }
+.value { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slider { width: 100%; margin: 0; accent-color: var(--track-on); cursor: pointer; }
+.slider:disabled { cursor: default; }
+.slider:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
 .update {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--notice-bg); font-size: 13px;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 
-import { analysisSize, CARD_PAD, clearlyBetter, fitBesideCard, fitTooltipSize, fractionIn, MIN_ART_WIDTH, pictureRect, tooltipRadius, placeTooltip, placeTooltipAvoiding, TOOLTIP_GAP, VIEWPORT_MARGIN } from "../src/content/geometry.js";
+import { analysisSize, CARD_PAD, clearlyBetter, fitBesideCard, fitTooltipSize, fractionIn, MIN_ART_WIDTH, pictureRect, tooltipRadius, placeTooltip, placeTooltipAvoiding, scaleTooltipSize, TOOLTIP_GAP, VIEWPORT_MARGIN } from "../src/content/geometry.js";
 import { isActivePage } from "../src/content/site.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
@@ -226,5 +226,51 @@ describe("fitTooltipSize", () => {
     expect(tooltipRadius({ width: 320, height: 448 }, "card")).toBe(14);
     expect(tooltipRadius({ width: 200, height: 280 }, "card")).toBe(9);
     expect(tooltipRadius({ width: 140, height: 32 }, "pill")).toBe(16);
+  });
+});
+
+describe("scaleTooltipSize (the card-size dial)", () => {
+  const card = { width: 320, height: 448, shape: "card" as const };
+  it("scales a card picture, keeping its shape, and leaves a pill (the name) as it is", () => {
+    expect(scaleTooltipSize(card, 1.3)).toEqual({ width: 416, height: 582, shape: "card" });
+    expect(scaleTooltipSize(card, 0.7)).toEqual({ width: 224, height: 314, shape: "card" });
+    expect(scaleTooltipSize(card, 1)).toBe(card);
+    const pill = { width: 130, height: 33, shape: "pill" as const };
+    expect(scaleTooltipSize(pill, 1.3)).toBe(pill);
+  });
+
+  it("keeps the other fields of the size", () => {
+    expect(scaleTooltipSize({ ...card, cardId: "a", seq: 3 }, 1.1)).toEqual({ width: 352, height: 493, shape: "card", cardId: "a", seq: 3 });
+  });
+
+  it("ignores a factor that is not a positive number", () => {
+    for (const bad of [0, -1, Number.NaN]) expect(scaleTooltipSize(card, bad)).toBe(card);
+  });
+
+  it("is fitted after scaling: a larger card still stays inside the viewport", () => {
+    const big = scaleTooltipSize(card, 1.3);
+    expect(fitTooltipSize(big, { width: 1280, height: 720 }, 56)).toEqual({ width: 416, height: 582 });
+    // 500 - 8 - 8 = 484 tall: 416 x 582 becomes 345 x 482, its shape kept.
+    expect(fitTooltipSize(big, { width: 1280, height: 500 })).toEqual({ width: 345, height: 482 });
+  });
+
+  it("is fitted after scaling: a larger card still stays off the card", () => {
+    const viewport = { width: 900, height: 720 };
+    const hovered = { left: 400, top: 200, width: 80, height: 116 };
+    const fitted = fitBesideCard(hovered, fitTooltipSize(scaleTooltipSize(card, 1.3), viewport, 56), viewport, 56);
+    expect(fitted.width).toBeLessThan(416);
+    expect(Math.abs(fitted.height / fitted.width - 582 / 416)).toBeLessThan(0.01);
+    const at = placeTooltipAvoiding(hovered, fitted, viewport, [], 56);
+    const r = { left: at.left, top: at.top, width: fitted.width, height: fitted.height };
+    const apart = r.left >= hovered.left + hovered.width || r.left + r.width <= hovered.left || r.top >= hovered.top + hovered.height || r.top + r.height <= hovered.top;
+    expect(apart).toBe(true);
+    expect(r.left).toBeGreaterThanOrEqual(VIEWPORT_MARGIN);
+    expect(r.left + r.width).toBeLessThanOrEqual(viewport.width - VIEWPORT_MARGIN);
+  });
+
+  it("a smaller card is shown smaller where the full size would fit", () => {
+    const small = scaleTooltipSize(card, 0.7);
+    const viewport = { width: 1000, height: 720 };
+    expect(fitBesideCard({ left: 500, top: 200, width: 80, height: 116 }, fitTooltipSize(small, viewport, 56), viewport, 56)).toEqual({ width: 224, height: 314 });
   });
 });

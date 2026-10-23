@@ -24,7 +24,7 @@ import { CONFIG } from "../config.js";
 import { MIN_VIDEO_WIDTH } from "../constants.js";
 import { type ComputeIn, parseComputeOut, parseTooltipOut, type ShownCard, tag, type TooltipIn, type TooltipSize } from "../shared/messages.js";
 import { captureAllowed } from "./gate.js";
-import { analysisSize, availableSpace, fitBesideCard, fitTooltipSize, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, tooltipRadius } from "./geometry.js";
+import { analysisSize, availableSpace, fitBesideCard, fitTooltipSize, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
 import { isActivePage } from "./site.js";
 import { channelKey, ownerHrefOf } from "./channel.js";
 import { PlayerButton } from "./player-button.js";
@@ -94,6 +94,8 @@ export class Agent {
   private tooltipSize: TooltipSize = { width: 320, height: 448, shape: "card" };
   /** The size it is shown at. */
   private shownSize = { width: 320, height: 448 };
+  /** The viewer's card size (the popup's dial), as a factor of the tooltip's own size. */
+  private cardScale = 1;
   private pendingTooltip: TooltipIn | null = null;
 
   private inside = false;
@@ -296,6 +298,15 @@ export class Agent {
     }
     if (!this.button.host.isConnected) this.mountHost().appendChild(this.button.host);
     return this.button;
+  }
+
+  /** The popup's card size changed (a percentage, already clamped): a card on show is fitted
+   *  again at once. */
+  setCardSize(percent: number): void {
+    const scale = percent / 100;
+    if (!(scale > 0) || scale === this.cardScale) return;
+    this.cardScale = scale;
+    this.onLayout();
   }
 
   setEnabled(enabled: boolean): void {
@@ -691,7 +702,9 @@ export class Agent {
     const playerTop = video.getBoundingClientRect().top;
     // Its own size, scaled down (shape kept) when the page has no room for it.
     const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const fitted = fitTooltipSize(this.tooltipSize, viewport, playerTop);
+    // At the viewer's card size first; the fitting then keeps it inside and off the card.
+    const requested = scaleTooltipSize(this.tooltipSize, this.cardScale);
+    const fitted = fitTooltipSize(requested, viewport, playerTop);
     // A picture with no room beside the card is made smaller rather than laid over it.
     let size = this.tooltipSize.shape === "card" ? fitBesideCard(cardRect, fitted, viewport, playerTop) : fitted;
     // No breathing: a size within a few pixels of the shown one keeps the shown one while it still

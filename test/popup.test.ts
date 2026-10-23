@@ -11,6 +11,7 @@ import { initPopup } from "../src/popup/view.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const HTML = `<span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
+<input id="card-size" type="range" disabled><output id="card-size-value"></output>
 <p id="update" hidden><a id="update-link"></a><button id="update-dismiss"></button></p>
 <a id="project"></a><a id="runtime"></a>`;
 
@@ -114,6 +115,67 @@ describe("popup", () => {
     listeners[0]!({ enabled: { newValue: false } }, "local");
     await settle();
     expect(document.getElementById("enabled")!.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("shows the stored card size on its dial, 70 % to 130 % in steps of 10 %, 100 % by default", async () => {
+    initPopup({ doc: document, local: memoryStorage(), onChanged: listenersOf().onChanged, version: "0.1.0" });
+    const slider = document.getElementById("card-size") as HTMLInputElement;
+    expect([slider.min, slider.max, slider.step]).toEqual(["70", "130", "10"]);
+    await settle();
+    expect(slider.disabled).toBe(false);
+    expect(slider.value).toBe("100");
+    expect(document.getElementById("card-size-value")!.textContent).toBe("100%");
+    expect(slider.getAttribute("aria-valuetext")).toBe("100%");
+
+    document.body.innerHTML = HTML;
+    initPopup({ doc: document, local: memoryStorage({ cardSize: 120 }), onChanged: listenersOf().onChanged, version: "0.1.0" });
+    await settle();
+    expect((document.getElementById("card-size") as HTMLInputElement).value).toBe("120");
+    expect(document.getElementById("card-size-value")!.textContent).toBe("120%");
+
+    // A stored value out of range or between steps is shown clamped and stepped.
+    document.body.innerHTML = HTML;
+    initPopup({ doc: document, local: memoryStorage({ cardSize: 500 }), onChanged: listenersOf().onChanged, version: "0.1.0" });
+    await settle();
+    expect(document.getElementById("card-size-value")!.textContent).toBe("130%");
+  });
+
+  it("stores each step of the dial at once, and follows a change made elsewhere", async () => {
+    const local = memoryStorage();
+    const { listeners, onChanged } = listenersOf();
+    initPopup({ doc: document, local, onChanged, version: "0.1.0" });
+    await settle();
+    const slider = document.getElementById("card-size") as HTMLInputElement;
+    slider.value = "80";
+    slider.dispatchEvent(new Event("input"));
+    await settle();
+    expect(local.data.cardSize).toBe(80);
+    expect(document.getElementById("card-size-value")!.textContent).toBe("80%");
+    local.data.cardSize = 110;
+    listeners[0]!({ cardSize: { newValue: 110 } }, "local");
+    await settle();
+    expect(slider.value).toBe("110");
+    expect(document.getElementById("card-size-value")!.textContent).toBe("110%");
+    expect(listeners).toHaveLength(1);
+  });
+
+  it("keeps the dial still until the stored size is read", async () => {
+    const local = memoryStorage({ cardSize: 120 });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    const slow = { ...local, get: async (k: string | string[] | null) => (await gate, local.get(k)), set: local.set };
+    initPopup({ doc: document, local: slow, onChanged: listenersOf().onChanged, version: "0.1.0" });
+    const slider = document.getElementById("card-size") as HTMLInputElement;
+    expect(slider.disabled).toBe(true);
+    slider.value = "70";
+    slider.dispatchEvent(new Event("input"));
+    await settle();
+    expect(local.data.cardSize).toBe(120);
+    release();
+    await settle();
+    await settle();
+    expect(slider.disabled).toBe(false);
+    expect(slider.value).toBe("120");
   });
 
   it("names the extension as the config does", () => {

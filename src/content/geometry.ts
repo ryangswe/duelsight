@@ -153,6 +153,16 @@ export function placeTooltipAvoiding(
   return best;
 }
 
+/**
+ * The size asked for at the viewer's card size (the popup's dial, as a factor: 0.7 to 1.3). A card
+ * picture is scaled, keeping its shape; a pill (the name) is not. The fitting below comes after,
+ * so a larger picture is still kept inside the viewport and off the card.
+ */
+export function scaleTooltipSize<T extends { width: number; height: number; shape: "card" | "pill" }>(size: T, scale: number): T {
+  if (size.shape === "pill" || !(scale > 0) || scale === 1) return size;
+  return { ...size, width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) };
+}
+
 /** A card picture is never scaled below this width. */
 export const MIN_ART_WIDTH = 200;
 /** The picture's corner radius, as a share of its width (a printed card's corners). */

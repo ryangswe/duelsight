@@ -20,6 +20,13 @@
       <span class="knob" aria-hidden="true"></span>
     </button>
   </div>
+  <div class="dial">
+    <div class="row">
+      <label for="card-size" class="label">Card size</label>
+      <output id="card-size-value" for="card-size" class="value">100%</output>
+    </div>
+    <input id="card-size" class="slider" type="range" min="70" max="130" step="10" value="100" disabled>
+  </div>
   <p id="update" class="update" hidden>
     <a id="update-link" target="_blank" rel="noopener noreferrer"></a>
     <button id="update-dismiss" class="dismiss" type="button" aria-label="Dismiss">&times;</button>

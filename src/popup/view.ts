@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-// The popup: one switch (the master on/off), a "New version available" line only when the
-// settings file names a newer version (installs that never update by themselves), and two links
-// (the project page, and the open-source toolkit it is built on). The logic is
-// apart from the browser globals so that it can be tested.
+// The popup: one switch (the master on/off), the card-size dial (card-size-control.ts), a "New
+// version available" line only when the settings file names a newer version (installs that never
+// update by themselves), and two links (the project page, and the open-source toolkit it is built
+// on). The logic is apart from the browser globals so that it can be tested.
 
 import { CONFIG } from "../config.js";
 import { PROJECT_URL, RUNTIME_URL } from "../constants.js";
 import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
 import { DISMISSED_UPDATE_KEY, updateNotice } from "../settings/update.js";
 import { ENABLED_KEY, readEnabled } from "../shared/enabled.js";
+import { CARD_SIZE_KEY } from "../shared/card-size.js";
+import { initCardSize } from "./card-size-control.js";
 
 interface Area {
   get(keys: string | string[] | null): Promise<Record<string, unknown>>;
@@ -77,10 +79,12 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
 
   void renderSwitch();
   void renderUpdate();
+  const cardSize = initCardSize(env.doc, env.local);
   env.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (LAST_GOOD_KEY in changes || DISMISSED_UPDATE_KEY in changes) void renderUpdate();
     if (ENABLED_KEY in changes) void renderSwitch();
+    if (CARD_SIZE_KEY in changes) void cardSize.render();
   });
   return { renderUpdate, renderSwitch };
 }

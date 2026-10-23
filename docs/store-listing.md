@@ -34,7 +34,8 @@ Yu-Gi-Oh!, its card names and its card art belong to their owners.
 - YouTube and Twitch pages: to show the in-player button and read the picture of the video around
   your pointer, on channels you turned card hovers on for.
 - DuelSight's card CDN: to load a small settings file and card pictures.
-- Storage: to keep your on/off switch and the channels you turned on, on your computer.
+- Storage: to keep your on/off switch, your card size and the channels you turned on, on your
+  computer.
 
 ## Privacy practices
 
