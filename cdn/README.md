@@ -21,9 +21,11 @@ and details come from.
 | `art/index.json` | every uploaded path with sha256 and size: the tool's record of what is live | `no-cache` |
 | `data/details-<sha8>.json` | the card details file (type, stats, text), from `scripts/card-details.mjs` | `public, max-age=31536000, immutable` |
 | `config.json` | the extension's settings ([SETTINGS.md](SETTINGS.md)) | `public, max-age=300` |
+| `privacy.html` | the privacy policy as a page (PRIVACY.md, from `scripts/privacy-page.mjs`): the store listing's privacy-policy link | `public, max-age=3600` |
 
 Uploads are additive: the tool never deletes. Order is images → `art/index.json` → the details
-file (with `--details`) → `config.json` (with `--config`, and if everything before it landed).
+file (with `--details`) → the page (with `--page`) → `config.json` (with `--config`, and if
+everything before it landed).
 
 ## One-time setup (maintainer, about 30 minutes)
 
@@ -95,6 +97,14 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
   ```
   `publish` refuses a `config.json` that does not name the file being published. Removing
   `details` from `config.json` and publishing it turns the details panel off for everyone.
+- **The privacy page** (after any change to PRIVACY.md, and before a store submission): write it
+  outside the repository and publish it on its own; `verify` checks it is served as HTML.
+  ```bash
+  node ../scripts/privacy-page.mjs --out <folder outside the repository>
+  .venv/bin/python dscdn.py publish --env-file .env --page <out>/privacy.html --dry-run
+  .venv/bin/python dscdn.py publish --env-file .env --page <out>/privacy.html
+  .venv/bin/python dscdn.py verify --env-file .env
+  ```
 - **Switching images off or over:** edit `config.json` (`namesOnly: true` shows names without pictures; `primary: null`
   with no `fallbacks` stops images entirely), then `publish --env-file .env --config config.json`
   (config only) and `verify`. Installed extensions follow within about an hour.
@@ -114,6 +124,8 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
   no template may point at those other projects.
 - A details file must be named `details-<sha8>.json` after its own SHA-256 and be a schema 1
   details file; a `config.json` published with it must name it (path and SHA-256).
+- A page must be one of the names the tool serves (`privacy.html`), an HTML document, with no
+  script, event handler or `javascript:` link.
 - A failed image upload leaves it out of `art/index.json` (a re-run retries it) and blocks
   `config.json`.
 

@@ -25,9 +25,24 @@ depends on sits in accounts of its own, so a new maintainer can take it over.
 5. **Extension release.** Put the new release folder through `npm run build -- --release <folder>`
    (the build checks it), update `release-legal/` (`NOTICE`'s opening line names the release id),
    bump `version` in `package.json`, `npm test`, `npm run build -- --store --release <folder>`,
-   `npm run package`, and upload `duelsight-<version>-store.zip` (manifest at its top level) to the
-   Chrome Web Store. Cards in the catalog but not in
-   an installed copy's release are not recognized until the release is installed.
+   `npm run package`, and submit `duelsight-<version>-store.zip` (manifest at its top level) to the
+   Chrome Web Store as [docs/store-listing.md](docs/store-listing.md) lays out, updating its
+   version table. Cards in the catalog but not in an installed copy's release are not recognized
+   until the release is installed.
+
+## Store submission
+
+[docs/store-listing.md](docs/store-listing.md) holds every field of the Chrome Web Store dashboard,
+paste-ready, and how to make what it uploads:
+
+- the package (`npm run package` on a `--store` build);
+- the privacy page at `<cdnBase>/privacy.html`, generated from PRIVACY.md by
+  `scripts/privacy-page.mjs` and published with `cdn/dscdn.py publish --page` (republish it
+  whenever PRIVACY.md changes: the listing links to it);
+- the screenshots, taken from the real extension by `scripts/store-screenshots.mjs`, written
+  outside the repository (they hold card art and frames of others' videos).
+
+Submitting, and every declaration in the dashboard, is the owner's.
 
 ## A core-model refresh
 
@@ -46,8 +61,8 @@ When the cardvision toolkit publishes a better detector or recognizer, or a new 
 
 Each is separate from every other project's, so it can change hands whole:
 
-- **Domain** (the CDN host in `cdnBase` of `duelsight.config.json`, once decided; a placeholder
-  until then).
+- **Domain** (`duelsight.com`; the CDN host `cdn.duelsight.com` is `cdnBase` in
+  `duelsight.config.json`).
 - **Cloudflare account** (R2 bucket, custom domain, CORS policy; the settings file `config.json`
   lives there, so whoever owns it controls where images come from).
 - **GitHub repository** (this code, issues, releases; `updateUrlPrefix` and `projectUrl` in the

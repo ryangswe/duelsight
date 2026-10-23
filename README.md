@@ -40,6 +40,7 @@ Details: [PRIVACY.md](PRIVACY.md) and [docs/permissions.md](docs/permissions.md)
 | Understand how it and its settings file work | [docs/how-it-works.md](docs/how-it-works.md) |
 | Build it, update the runtime, test on a local video | [docs/development.md](docs/development.md) |
 | Keep it up to date, or hand it over | [MAINTAINING.md](MAINTAINING.md) |
+| Submit it to the Chrome Web Store (every field, the privacy page, the screenshots) | [docs/store-listing.md](docs/store-listing.md) |
 | Make the same extension for another card game | [docs/make-it-yours.md](docs/make-it-yours.md) |
 
 ## Built on cardvision

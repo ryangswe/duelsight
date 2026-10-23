@@ -9,6 +9,7 @@ project's. See README.md (setup, usage) and SETTINGS.md (the config.json contrac
   dscdn.py publish --catalog C --images DIR [--details F] [--config F] [--dry-run]
   dscdn.py publish --details F --config F     # the card details file, then config.json
   dscdn.py publish --config F                 # config.json only
+  dscdn.py publish --page F                   # a page, e.g. privacy.html (scripts/privacy-page.mjs)
   dscdn.py verify  [--samples N]
   dscdn.py selftest
 
@@ -47,6 +48,11 @@ DETAILS_CACHE = "public, max-age=31536000, immutable"
 DETAILS_NAME = re.compile(r"^details-([0-9a-f]{8})\.json$")
 DETAILS_PATH = re.compile(r"^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.json$")
 MAX_DETAILS_BYTES = 32 * 1024 * 1024
+# Pages served from the CDN's root (the privacy policy the store listing links to): a fixed list of
+# names, plain self-contained HTML, no script.
+PAGE_NAMES = ("privacy.html",)
+PAGE_CACHE = "public, max-age=3600"
+MAX_PAGE_BYTES = 1024 * 1024
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 PLACEHOLDERS = ("{art}", "{file}", "{cardId}", "{printedId}")
@@ -330,6 +336,28 @@ def load_details(path: Path) -> DetailsFile:
     return DetailsFile(DATA_PREFIX + path.name, data, sha, len(doc["cards"]))
 
 
+@dataclass
+class PageFile:
+    key: str        # privacy.html
+    data: bytes
+    sha256: str
+
+
+def load_page(path: Path) -> PageFile:
+    """A page for the CDN's root, as scripts/privacy-page.mjs writes it: one of PAGE_NAMES, an HTML
+    document with no script."""
+    if path.name not in PAGE_NAMES:
+        raise Refused(f"page: {path.name} is not a page this CDN serves ({', '.join(PAGE_NAMES)})")
+    data = path.read_bytes()
+    if len(data) > MAX_PAGE_BYTES:
+        raise Refused(f"page: {len(data)} bytes, over {MAX_PAGE_BYTES}")
+    if not data.lstrip().lower().startswith(b"<!doctype html>"):
+        raise Refused(f"page: {path.name} is not an HTML document")
+    if re.search(rb"<script|\son[a-z]+\s*=|javascript:", data, re.I):
+        raise Refused(f"page: {path.name} holds a script; the CDN's pages are plain HTML")
+    return PageFile(path.name, data, hashlib.sha256(data).hexdigest())
+
+
 def details_config_problem(cfg_bytes: Optional[bytes], details: Optional[DetailsFile]) -> Optional[str]:
     """A config.json published with a details file must name that file, path and sha256."""
     if cfg_bytes is None or details is None:
@@ -443,7 +471,8 @@ def read_live_index(s3, bucket: str) -> dict:
 
 
 def execute(s3, bucket: str, plan: Optional[Plan], config: Optional[bytes], workers: int = 8,
-            log: Callable[[str], None] = print, details: Optional[DetailsFile] = None) -> int:
+            log: Callable[[str], None] = print, details: Optional[DetailsFile] = None,
+            page: Optional[PageFile] = None) -> int:
     """Images, then the index (of what actually landed), then the card details file, then
     config.json. Returns failures. `plan` None publishes the details file and config.json alone."""
     if plan is None:
@@ -483,6 +512,14 @@ def execute(s3, bucket: str, plan: Optional[Plan], config: Optional[bytes], work
             log(f"FAILED {details.key}: {e}; config.json NOT written. Re-run to retry.")
             return 1
         log(f"details: {details.key} written")
+    if page is not None:
+        try:
+            s3.put_object(Bucket=bucket, Key=page.key, Body=page.data,
+                          ContentType="text/html; charset=utf-8", CacheControl=PAGE_CACHE)
+        except Exception as e:
+            log(f"FAILED {page.key}: {e}; config.json NOT written. Re-run to retry.")
+            return 1
+        log(f"page: {page.key} written")
     if config is not None:
         s3.put_object(Bucket=bucket, Key=CONFIG_KEY, Body=config,
                       ContentType="application/json", CacheControl=CONFIG_CACHE)
@@ -599,6 +636,21 @@ def verify(public_base: str, samples: int, get=http_get) -> int:
                 else:
                     print(f"ok   {named['path']}: {len(d_body)} bytes, sha256 as config.json names it")
 
+    for name in PAGE_NAMES:
+        p_status, p_h, p_body = get(f"{public_base}/{name}?{bust}")
+        if p_status == 404:
+            print(f"note {name}: not on the CDN (publish it with --page; docs/store-listing.md)")
+        elif p_status != 200:
+            fail(f"{name}: HTTP {p_status}")
+        elif not p_h.get("content-type", "").startswith("text/html"):
+            fail(f"{name}: content-type {p_h.get('content-type')!r}")
+        elif p_h.get("cache-control") != PAGE_CACHE:
+            fail(f"{name}: cache-control {p_h.get('cache-control')!r}, want {PAGE_CACHE!r}")
+        elif nel_problem(p_h):
+            fail(f"{name}: {nel_problem(p_h)}")
+        else:
+            print(f"ok   {name}: {len(p_body)} bytes")
+
     status, _, body = get(f"{public_base}/{INDEX_KEY}?{bust}")
     if status != 200:
         fail(f"{INDEX_KEY}: HTTP {status}")
@@ -652,6 +704,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--images", help="directory the `art` paths are relative to")
     ap.add_argument("--config", help="config.json to publish (SETTINGS.md); uploaded last")
     ap.add_argument("--details", help="the card details file to publish (data/details-<sha8>.json from scripts/card-details.mjs)")
+    ap.add_argument("--page", help="a page to publish at the CDN's root: privacy.html from scripts/privacy-page.mjs")
     ap.add_argument("--env-file", help="read DSCDN_* entries from this file")
     ap.add_argument("--offline", action="store_true", help="plan: no credentials, treat the CDN as empty")
     ap.add_argument("--dry-run", action="store_true", help="publish: read the live index, print the plan, upload nothing")
@@ -668,10 +721,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.command == "plan" and args.offline:
             base = os.environ.get("DSCDN_PUBLIC_BASE")
             files, artless, cards, config, details = build(args, base.rstrip("/") if base else None)
+            if args.page:
+                print(f"page: {load_page(Path(args.page)).key} (checked)")
             print_plan(make_plan(files, {}, artless, cards), config, details)
             return 0
-        if not args.catalog and not args.config and not args.details:
-            raise Refused("nothing to do: give --catalog/--images, --details and/or --config")
+        page = load_page(Path(args.page)) if args.page else None
+        if not args.catalog and not args.config and not args.details and page is None:
+            raise Refused("nothing to do: give --catalog/--images, --details, --page and/or --config")
         t = target_from_env()
         files, artless, cards, config, details = build(args, t.public_base)
         s3 = r2_client(t)
@@ -683,10 +739,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         else:
             if details is not None:
                 print(f"details: {details.key} ({details.cards} cards, {len(details.data) / 1e6:.1f} MB)")
+            if page is not None:
+                print(f"page: {page.key} ({len(page.data)} bytes, sha256 {page.sha256[:16]})")
             print("config: config.json" + (", uploaded last" if config is not None else " not uploaded (no --config)"))
         if args.command == "plan" or args.dry_run:
             return 0
-        return 1 if execute(s3, t.bucket, plan, config, details=details) else 0
+        return 1 if execute(s3, t.bucket, plan, config, details=details, page=page) else 0
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 3
@@ -938,6 +996,42 @@ def selftest() -> int:
         finally:
             sys.stdout = stdout
             quiet.close()
+
+    # pages (privacy.html): fixed names, plain HTML, published before config.json
+    with tempfile.TemporaryDirectory() as tmp:
+        good_html = b"<!doctype html>\n<html><body><h1>Privacy</h1></body></html>\n"
+        pg = Path(tmp) / "privacy.html"
+        pg.write_bytes(good_html)
+        page = load_page(pg)
+        assert (page.key, page.sha256) == ("privacy.html", hashlib.sha256(good_html).hexdigest())
+        other = Path(tmp) / "index.html"
+        other.write_bytes(good_html)
+        assert refused(lambda: load_page(other)), "only the listed page names"
+        for bad_html in (b"<!doctype html><script>x()</script>", b"<!doctype html><a href='javascript:x()'>a</a>",
+                         b"<!doctype html><body onload=x()>", b"{\"not\": \"html\"}"):
+            pg.write_bytes(bad_html)
+            assert refused(lambda: load_page(pg)), bad_html
+
+        class Rec3:
+            def __init__(self, fail_keys=()):
+                self.puts, self.fail_keys = [], set(fail_keys)
+
+            def put_object(self, *, Bucket, Key, Body, ContentType, CacheControl):
+                if Key in self.fail_keys:
+                    raise RuntimeError("boom")
+                self.puts.append((Key, ContentType, CacheControl))
+
+        s3p = Rec3()
+        cfg_bytes = json.dumps(good_cfg).encode()
+        assert execute(s3p, "b", None, cfg_bytes, log=lambda _: None, page=page) == 0
+        assert [p[0] for p in s3p.puts] == ["privacy.html", CONFIG_KEY], "page before config"
+        assert s3p.puts[0][1:] == ("text/html; charset=utf-8", PAGE_CACHE)
+        s3p = Rec3(fail_keys={"privacy.html"})
+        assert execute(s3p, "b", None, cfg_bytes, log=lambda _: None, page=page) == 1
+        assert CONFIG_KEY not in [p[0] for p in s3p.puts], "no config after a failed page upload"
+        s3p = Rec3()
+        assert execute(s3p, "b", None, None, log=lambda _: None, page=page) == 0
+        assert [p[0] for p in s3p.puts] == ["privacy.html"], "a page alone"
 
     print("selftest: ok")
     return 0
