@@ -73,6 +73,27 @@ export interface TooltipSize {
   cardId?: string;
   /** The `seq` of the card message it answers. */
   seq?: number;
+  /** With a card picture: the card's details panel, as the heights its whole text needs at a few
+   *  widths ([width, height] pairs). The content script then sizes the frame for the picture and
+   *  the panel together (panel-layout.ts); `width` and `height` stay the picture's own. */
+  panel?: Array<[number, number]>;
+}
+
+/** The most [width, height] pairs a panel may carry, and the largest height (a taller text is
+ *  sent as this: it is clamped anyway). */
+export const MAX_PANEL_PAIRS = 12;
+export const MAX_PANEL_HEIGHT = 4000;
+
+function parsePanel(v: unknown): Array<[number, number]> | null {
+  if (!Array.isArray(v) || v.length === 0 || v.length > MAX_PANEL_PAIRS) return null;
+  const out: Array<[number, number]> = [];
+  for (const pair of v) {
+    if (!Array.isArray(pair) || pair.length !== 2) return null;
+    const [w, h] = pair as unknown[];
+    if (!isNum(w) || !isNum(h) || w <= 0 || w >= 2000 || h <= 0 || h > MAX_PANEL_HEIGHT) return null;
+    out.push([w, h]);
+  }
+  return out;
 }
 
 export type Tagged<T> = T & { [TAG]: 1 };
@@ -192,7 +213,18 @@ export function parseTooltipOut(data: unknown): TooltipOut | null {
   if (m.kind === "size" && isNum(m.width) && isNum(m.height) && m.width > 0 && m.height > 0 && m.width < 2000 && m.height < 2000 && (m.shape === "card" || m.shape === "pill")) {
     if (m.cardId !== undefined && (typeof m.cardId !== "string" || m.cardId.length === 0 || m.cardId.length > 200)) return null;
     if (m.seq !== undefined && !isSeq(m.seq)) return null;
-    return { kind: "size", width: m.width, height: m.height, shape: m.shape, ...(typeof m.cardId === "string" ? { cardId: m.cardId } : {}), ...(isSeq(m.seq) ? { seq: m.seq } : {}) };
+    // A panel goes with a card picture only.
+    const panel = m.panel === undefined ? undefined : m.shape === "card" ? parsePanel(m.panel) : null;
+    if (panel === null) return null;
+    return {
+      kind: "size",
+      width: m.width,
+      height: m.height,
+      shape: m.shape,
+      ...(typeof m.cardId === "string" ? { cardId: m.cardId } : {}),
+      ...(isSeq(m.seq) ? { seq: m.seq } : {}),
+      ...(panel ? { panel } : {}),
+    };
   }
   return null;
 }

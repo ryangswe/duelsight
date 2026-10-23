@@ -11,6 +11,7 @@ import { initPopup } from "../src/popup/view.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const HTML = `<span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
+<button id="details" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <input id="card-size" type="range" disabled><output id="card-size-value"></output>
 <p id="update" hidden><a id="update-link"></a><button id="update-dismiss"></button></p>
 <a id="project"></a><a id="runtime"></a>`;
@@ -97,10 +98,13 @@ describe("popup", () => {
       const toggle = document.getElementById("enabled")!;
       expect(toggle.getAttribute("aria-checked")).toBe("true");
       expect(toggle.hasAttribute("data-ready")).toBe(false);
-      frames.shift()!();
+      // One animation frame at a time (each switch waits two of them).
+      const nextFrame = () => frames.splice(0).forEach((f) => f());
+      nextFrame();
       expect(toggle.hasAttribute("data-ready")).toBe(false);
-      frames.shift()!();
+      nextFrame();
       expect(toggle.hasAttribute("data-ready")).toBe(true);
+      expect(document.getElementById("details")!.hasAttribute("data-ready")).toBe(true);
     } finally {
       win.requestAnimationFrame = original;
     }
@@ -176,6 +180,38 @@ describe("popup", () => {
     await settle();
     expect(slider.disabled).toBe(false);
     expect(slider.value).toBe("120");
+  });
+
+  it("shows the card details switch, on by default, and turns it off and on", async () => {
+    const local = memoryStorage();
+    initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0" });
+    const toggle = document.getElementById("details") as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    await settle();
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    toggle.click();
+    await settle();
+    expect(local.data.details).toBe(false);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    // The main switch is apart from it.
+    expect(local.data.enabled).toBeUndefined();
+    toggle.click();
+    await settle();
+    expect(local.data.details).toBe(true);
+  });
+
+  it("shows the details switch off when it was switched off, and follows a change made elsewhere", async () => {
+    const local = memoryStorage({ details: false });
+    const { listeners, onChanged } = listenersOf();
+    initPopup({ doc: document, local, onChanged, version: "0.1.0" });
+    await settle();
+    const toggle = document.getElementById("details")!;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    local.data.details = true;
+    listeners[0]!({ details: { newValue: true } }, "local");
+    await settle();
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 
   it("names the extension as the config does", () => {

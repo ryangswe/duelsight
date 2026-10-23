@@ -61,6 +61,13 @@ describe("message checks", () => {
     expect(parseTooltipIn(tag({ kind: "card", cardId: "89631139", name: "x", seq: -1 }))).toBeNull();
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", seq: 3 }))).toEqual({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", seq: 3 });
     expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", seq: 1.5 }))).toBeNull();
+    // A card picture may carry its details panel's measured heights.
+    const panel = [[220, 400], [260, 330]];
+    expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", panel }))).toEqual({ kind: "size", width: 320, height: 448, shape: "card", cardId: "A", panel });
+    for (const bad of [[], "x", [[220]], [[220, 0]], [[0, 100]], [[220, Number.NaN]], [[220, 5000]], [["220", 100]], Array(13).fill([220, 100])]) {
+      expect(parseTooltipOut(tag({ kind: "size", width: 320, height: 448, shape: "card", panel: bad }))).toBeNull();
+    }
+    expect(parseTooltipOut(tag({ kind: "size", width: 120, height: 32, shape: "pill", panel }))).toBeNull();
     // The tooltip has no link any more: such a message is not one of its messages.
     expect(parseTooltipOut(tag({ kind: "link", href: "https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=2&cid=4007" }))).toBeNull();
   });

@@ -64,4 +64,22 @@ describe("frameHasShape", () => {
     expect(done).toBe(true);
     expect(win.listeners.size).toBe(0);
   });
+
+  it("with a panel, waits for the picture and its panel together (side by side or stacked)", async () => {
+    vi.useFakeTimers();
+    const win = fakeWindow(320, 466);
+    let done = false;
+    void frameHasShape({ width: 320, height: 466 }, win, true).then(() => (done = true));
+    await Promise.resolve();
+    // The picture's own shape is not the combined one.
+    expect(done).toBe(false);
+    win.resize(620, 466);
+    await Promise.resolve();
+    expect(done).toBe(true);
+    expect(win.listeners.size).toBe(0);
+    let stacked = false;
+    void frameHasShape({ width: 320, height: 466 }, fakeWindow(300, 700), true).then(() => (stacked = true));
+    await Promise.resolve();
+    expect(stacked).toBe(true);
+  });
 });

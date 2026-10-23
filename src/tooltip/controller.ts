@@ -7,11 +7,18 @@
 //     know (which only a page posting to the frame itself could send) shows nothing.
 //   - Each newly shown card asks the background for a settings refresh. The background fetches
 //     at most once an hour, so a long-open tab still picks up `namesOnly` within the hour.
+//   - With the details panel on and the card's details loaded (src/details/), the picture comes
+//     with a text panel: its text is set with textContent only, measured at a few widths and sent
+//     with the picture's size, and the frame lays both out in the size it is given
+//     (panel-layout.ts). No details for the card (the file not loaded yet, or the card not in it)
+//     is the picture alone, as with the panel off; names only and the name pill never have one.
 
 import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
 import { allowedParentOrigin, parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
 import type { CardFacts, CardTable } from "./card-data.js";
+import { type DetailsTable, detailLines, detailsFor } from "../details/details.js";
+import { arrange } from "../shared/panel-layout.js";
 
 /** Pictures kept for cards shown in this page, oldest dropped first. */
 export const CACHE_LIMIT = 60;
@@ -37,6 +44,17 @@ export interface TooltipElements {
   placeholder: HTMLElement;
   /** The name alone, when there is no picture (names only, or none could be loaded). */
   pill: HTMLElement;
+  /** The details panel beside or under the picture. */
+  panel: PanelElements;
+}
+
+export interface PanelElements {
+  root: HTMLElement;
+  name: HTMLElement;
+  type: HTMLElement;
+  stats: HTMLElement;
+  power: HTMLElement;
+  text: HTMLElement;
 }
 
 export interface TooltipDeps {
@@ -51,8 +69,15 @@ export interface TooltipDeps {
   /** The tooltip's size and shape for the card it shows: the content script sizes the frame. */
   onSize?(size: TooltipSize): void;
   /** Resolves once the frame has the picture's shape (the content script sized it), so the
-   *  picture is never drawn stretched into the placeholder's shape. Absent: at once. */
-  frameFits?(size: { width: number; height: number }): Promise<void>;
+   *  picture is never drawn stretched into the placeholder's shape; with `panel`, the shape of
+   *  the picture and its panel together. Absent: at once. */
+  frameFits?(size: { width: number; height: number }, panel: boolean): Promise<void>;
+  /** The heights the panel's content (as filled now) needs at the panel widths. Absent: no panel. */
+  measurePanel?(): Array<[number, number]>;
+  /** The frame's own size now. */
+  frameSize?(): { width: number; height: number };
+  /** Clamp the panel's text to the panel's box as laid out now (an ellipsis when it is too long). */
+  fitText?(): void;
   createObjectURL(blob: Blob): string;
   revokeObjectURL(url: string): void;
 }
@@ -74,6 +99,10 @@ export class TooltipController {
   current: string | null = null;
   /** The content script's number for the card shown (echoed in sizes). */
   currentSeq: number | undefined = undefined;
+  private details: DetailsTable | null = null;
+  private detailsOn = true;
+  /** The picture on show (decoded and shown): its card, size and whether a panel goes with it. */
+  private picture: { cardId: string; width: number; height: number; panel: boolean } | null = null;
 
   constructor(private readonly deps: TooltipDeps) {}
 
@@ -84,6 +113,20 @@ export class TooltipController {
     this.cache.clear();
     for (const url of this.objectUrls.values()) this.deps.revokeObjectURL(url);
     this.objectUrls.clear();
+  }
+
+  /** The details file, once loaded (null: none). A card on show gets its panel at once. */
+  setDetails(details: DetailsTable | null): void {
+    if (details === this.details) return;
+    this.details = details;
+    this.refreshPanel();
+  }
+
+  /** The popup's details switch. A card on show gains or loses its panel at once. */
+  setDetailsOn(on: boolean): void {
+    if (on === this.detailsOn) return;
+    this.detailsOn = on;
+    this.refreshPanel();
   }
 
   /** Show a card: its picture alone, or its name. False (and nothing shown) for an id the
@@ -101,6 +144,8 @@ export class TooltipController {
     const seq = ++this.seq;
     const settings = this.settings;
     const live = (): boolean => this.seq === seq && this.current === card.id && this.settings === settings;
+    this.picture = null;
+    this.layout();
     e.img.alt = card.name;
     e.placeholder.textContent = card.name;
     e.pill.textContent = card.name;
@@ -137,13 +182,17 @@ export class TooltipController {
         // superseded chain from acting on that.
         await e.img.decode?.();
         if (!live()) return;
-        // The frame takes the picture's shape first, then the picture replaces the placeholder.
-        this.deps.onSize?.({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}) });
-        await this.deps.frameFits?.(size);
+        // The frame takes the picture's shape first (with its panel, both together), then the
+        // picture replaces the placeholder.
+        const panel = this.fillPanel(card);
+        this.deps.onSize?.({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(panel ? { panel } : {}) });
+        await this.deps.frameFits?.(size, panel !== null);
         if (!live()) return;
         e.pill.hidden = true;
         e.art.hidden = false;
         e.art.classList.remove("loading");
+        this.picture = { cardId: card.id, ...size, panel: panel !== null };
+        this.layout();
       })
       .catch(() => {
         if (live()) this.showPill(card.id, messageSeq);
@@ -154,12 +203,74 @@ export class TooltipController {
   clear(): void {
     this.seq += 1;
     this.current = null;
+    this.picture = null;
     this.deps.elements.root.hidden = true;
+  }
+
+  /**
+   * Lay the picture and its panel out in the frame's size now (panel-layout.ts `arrange`): side
+   * by side, stacked, or the picture alone filling the frame (as without details). The frame
+   * calls it on every resize; the text is then clamped to the panel.
+   */
+  layout(): void {
+    const e = this.deps.elements;
+    const picture = this.picture;
+    const frame = this.deps.frameSize?.();
+    const plan = picture?.panel && frame ? arrange(frame, picture) : null;
+    if (!plan || !plan.panel) {
+      e.art.removeAttribute("style");
+      e.panel.root.hidden = true;
+      return;
+    }
+    const place = (el: HTMLElement, b: { left: number; top: number; width: number; height: number }): void => {
+      el.style.cssText = `position:absolute;left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;`;
+    };
+    place(e.art, plan.art);
+    place(e.panel.root, plan.panel);
+    e.panel.root.hidden = false;
+    this.deps.fitText?.();
+  }
+
+  /** Fill the panel with the card's details and measure it; null (and the panel emptied) when the
+   *  card has none to show. */
+  private fillPanel(card: CardFacts): Array<[number, number]> | null {
+    const p = this.deps.elements.panel;
+    const details = this.detailsOn && this.deps.measurePanel ? detailsFor(this.details, card.id) : null;
+    p.root.hidden = true;
+    if (!details) {
+      for (const el of [p.name, p.type, p.stats, p.power, p.text]) el.textContent = "";
+      return null;
+    }
+    const lines = detailLines(details);
+    // Text only: nothing in a card's details is ever read as markup.
+    p.name.textContent = card.name;
+    p.type.textContent = lines.type;
+    p.stats.textContent = lines.stats ?? "";
+    p.power.textContent = lines.power ?? "";
+    p.text.textContent = lines.text;
+    const heights = this.deps.measurePanel!();
+    return heights.length > 0 ? heights : null;
+  }
+
+  /** The details switch or file changed: the picture on show is sent again with its panel, or
+   *  without it. Its picture stays; the frame follows the size the content script gives it. */
+  private refreshPanel(): void {
+    const picture = this.picture;
+    if (!picture || picture.cardId !== this.current) return;
+    const card = knownCard(this.deps.table, picture.cardId);
+    if (!card) return;
+    const panel = this.fillPanel(card);
+    this.picture = { ...picture, panel: panel !== null };
+    const seq = this.currentSeq;
+    this.deps.onSize?.({ width: picture.width, height: picture.height, shape: "card", cardId: card.id, ...(seq !== undefined ? { seq } : {}), ...(panel ? { panel } : {}) });
+    this.layout();
   }
 
   /** The name alone, in a small pill sized to it. */
   private showPill(cardId: string, messageSeq?: number): void {
     const e = this.deps.elements;
+    this.picture = null;
+    this.layout();
     e.art.hidden = true;
     e.art.classList.remove("loading");
     e.pill.hidden = false;

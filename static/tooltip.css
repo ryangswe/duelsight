@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* The tooltip is the card's picture alone, filling this frame; the content script sizes the
    frame, rounds its corners and gives it its shadow. Without a picture it is a small pill with
-   the card's name. */
+   the card's name. With the card's details, the picture and a text panel share the frame, side by
+   side or stacked: the frame places both (src/shared/panel-layout.ts), and the text keeps its size
+   whatever the frame's, ending in an ellipsis when the panel is too small for all of it. */
 :root { color-scheme: normal; }
 html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; width: 100%; height: 100%; }
 body { font: 600 14px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #f2f2f4; }
@@ -20,3 +22,16 @@ body { font: 600 14px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-ser
   position: absolute; left: 0; top: 0; box-sizing: border-box; width: max-content; max-width: 320px;
   padding: 7px 14px; background: #17171c; border-radius: 999px; overflow-wrap: anywhere;
 }
+.card[hidden] .panel, .panel[hidden], .panel-line:empty, .panel-text[hidden] { display: none; }
+.panel {
+  position: absolute; box-sizing: border-box; overflow: hidden; padding: 10px 12px 12px;
+  background: #17171c; color: #e6e6ec; overflow-wrap: anywhere;
+}
+.panel-name { font: 700 14px/18px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #f6f6f8; margin-bottom: 4px; }
+.panel-line { font: 600 12px/16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #b9b9c6; }
+.panel-text {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid #2c2c36;
+  font: 400 12px/16px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #e6e6ec; white-space: pre-line;
+}
+/* Too long for the panel: as many whole lines as fit, the last one ending in an ellipsis. */
+.panel-text.clamped { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }

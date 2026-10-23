@@ -8,7 +8,9 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Settings } from "../src/settings/schema.js";
-import { artSize, connectTooltipFrame, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipElements } from "../src/tooltip/controller.js";
+import { artSize, connectTooltipFrame, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
+import { parseDetailsFile } from "../src/details/details.js";
+import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
 import { tag, type TooltipSize } from "../src/shared/messages.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 
@@ -27,7 +29,12 @@ const table = {
   "89631139": ["Blue-Eyes White Dragon", "LOB", "89631139.jpg"],
   token_1: ["Sample Token", "Token", "token_1.png"],
   wide: ["A Wide Card", "X", "wide.png"],
+  // Made-up cards of the made-up details file.
+  "10000001": ["Test Robot", "TST", "10000001.jpg"],
+  "10000004": ["Test Pendulum Robot", "TST", "10000004.jpg"],
+  "10000007": ["Test Markup Spell", "TST", "10000007.jpg"],
 } as const;
+const DETAILS = parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FIXTURE)));
 
 /** The real markup of the tooltip page. */
 const PAGE = /<body>([\s\S]*)<\/body>/.exec(readFileSync(resolve(process.cwd(), "static/tooltip.html"), "utf-8"))![1]!;
@@ -42,10 +49,17 @@ let failing: Set<string>;
 let release: (() => void) | null;
 let controller: TooltipController;
 
-function build(): TooltipController {
+function build(extra: Partial<TooltipDeps> = {}): TooltipController {
   document.body.innerHTML = PAGE;
   const $ = (id: string) => document.getElementById(id)!;
-  elements = { root: $("card"), art: $("art"), img: $("img") as HTMLImageElement, placeholder: $("placeholder"), pill: $("pill") };
+  elements = {
+    root: $("card"),
+    art: $("art"),
+    img: $("img") as HTMLImageElement,
+    placeholder: $("placeholder"),
+    pill: $("pill"),
+    panel: { root: $("panel"), name: $("panel-name"), type: $("panel-type"), stats: $("panel-stats"), power: $("panel-power"), text: $("panel-text") },
+  };
   refreshes = 0;
   loads = [];
   sizes = [];
@@ -66,6 +80,7 @@ function build(): TooltipController {
     onSize: (size) => void sizes.push(size),
     createObjectURL: () => "blob:fake",
     revokeObjectURL: () => undefined,
+    ...extra,
   });
 }
 
@@ -101,11 +116,15 @@ describe("TooltipController", () => {
     expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "89631139" });
   });
 
-  it("has no name, number, set or link row, and nothing that can be clicked or focused", () => {
+  it("has no number, set or link row, and nothing that can be clicked or focused; its name is in the details panel only", async () => {
     controller.show("89631139");
     const page = document.body;
     expect(page.querySelectorAll("a, button, input, select, textarea, [tabindex], [href], [onclick]")).toHaveLength(0);
     for (const id of ["name", "number", "set", "link"]) expect(document.getElementById(id)).toBeNull();
+    // Without details (none loaded here), the panel with the name stays hidden: the picture alone.
+    await tick();
+    expect(document.getElementById("panel")!.hidden).toBe(true);
+    expect(document.getElementById("panel-name")!.textContent).toBe("");
   });
 
   it("shows a dark card with the name while the picture loads, in the card's shape", async () => {
@@ -265,6 +284,134 @@ describe("TooltipController", () => {
     await tick();
     expect(elements.img.alt).toBe("Sample Token");
     expect(loads.at(-1)).toBe("https://art.example/art/token_1.png");
+  });
+});
+
+describe("the details panel", () => {
+  /** The frame's size, as the content script would set it. */
+  let frame = { width: 320, height: 466 };
+  let fits: boolean[];
+  let measured: number;
+  let fitted: number;
+  const withPanel = () => {
+    frame = { width: 320, height: 466 };
+    fits = [];
+    measured = 0;
+    fitted = 0;
+    const c = build({
+      measurePanel: () => (measured += 1, [[220, 300], [260, 260], [300, 230]]),
+      frameSize: () => frame,
+      fitText: () => void (fitted += 1),
+      frameFits: async (_size, panel) => void fits.push(panel),
+    });
+    c.setSettings(defaultSettings());
+    c.setDetails(DETAILS);
+    pixels["https://art.example/art/10000001.jpg"] = { width: 640, height: 932 };
+    return c;
+  };
+
+  it("sends the picture's size with the panel's measured heights, and waits for the combined shape", async () => {
+    controller = withPanel();
+    controller.show("10000001", 4);
+    await tick();
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 466, shape: "card", cardId: "10000001", seq: 4, panel: [[220, 300], [260, 260], [300, 230]] });
+    expect(fits).toEqual([true]);
+    const p = elements.panel;
+    expect(p.name.textContent).toBe("Test Robot");
+    expect(p.type.textContent).toBe("Robot / Effect");
+    expect(p.stats.textContent).toBe("LIGHT · Level 4");
+    expect(p.power.textContent).toBe("ATK 1800 / DEF 1000");
+    expect(p.text.textContent).toBe("When this test card is summoned, nothing happens.\nIt is only a fixture.");
+  });
+
+  it("lays the picture and the panel out in the frame's size: side by side, stacked, or the picture alone", async () => {
+    controller = withPanel();
+    controller.show("10000001");
+    await tick();
+    // Still the picture's own shape: the picture alone fills the frame.
+    expect(elements.panel.root.hidden).toBe(true);
+    expect(elements.art.getAttribute("style")).toBeNull();
+    frame = { width: 580, height: 466 };
+    controller.layout();
+    expect(elements.panel.root.hidden).toBe(false);
+    expect(elements.art.style.width).toBe("320px");
+    expect([elements.panel.root.style.left, elements.panel.root.style.width, elements.panel.root.style.height]).toEqual(["320px", "260px", "466px"]);
+    expect(fitted).toBe(1);
+    frame = { width: 300, height: 720 };
+    controller.layout();
+    expect([elements.art.style.width, elements.art.style.height]).toEqual(["300px", "437px"]);
+    expect([elements.panel.root.style.top, elements.panel.root.style.height]).toEqual(["437px", "283px"]);
+  });
+
+  it("sets the card's text as text only, never as markup", async () => {
+    controller = withPanel();
+    controller.show("10000007");
+    await tick();
+    expect(elements.panel.text.textContent).toBe("<b>not markup</b> & <img src=x onerror=alert(1)>");
+    expect(elements.panel.root.querySelectorAll("b, img")).toHaveLength(0);
+  });
+
+  it("is the picture alone, silently, for a card the file does not have, or before the file is loaded", async () => {
+    controller = withPanel();
+    controller.show("89631139");
+    await tick();
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 447, shape: "card", cardId: "89631139" });
+    expect(fits).toEqual([false]);
+    expect(elements.panel.root.hidden).toBe(true);
+    controller = withPanel();
+    controller.setDetails(null);
+    controller.show("10000001");
+    await tick();
+    expect(sizes.at(-1)).not.toHaveProperty("panel");
+    expect(measured).toBe(0);
+  });
+
+  it("is the picture alone with the details switch off, exactly as before", async () => {
+    controller = withPanel();
+    controller.setDetailsOn(false);
+    controller.show("10000001");
+    await tick();
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 466, shape: "card", cardId: "10000001" });
+    expect(elements.panel.root.hidden).toBe(true);
+    expect(measured).toBe(0);
+  });
+
+  it("never comes with the name pill or names only", async () => {
+    controller = withPanel();
+    controller.setSettings({ ...defaultSettings(), namesOnly: true });
+    controller.setDetails(DETAILS);
+    controller.show("10000001");
+    await tick();
+    expect(sizes.at(-1)).toMatchObject({ shape: "pill" });
+    expect(sizes.at(-1)).not.toHaveProperty("panel");
+    expect(elements.panel.root.hidden).toBe(true);
+    controller = withPanel();
+    failing.add("https://art.example/art/10000001.jpg");
+    controller.show("10000001");
+    await tick();
+    expect(sizes.at(-1)).toMatchObject({ shape: "pill" });
+    expect(elements.panel.root.hidden).toBe(true);
+  });
+
+  it("follows the switch and the file for the card on show: the size is sent again, with or without the panel", async () => {
+    controller = withPanel();
+    controller.setDetails(null);
+    controller.show("10000001", 2);
+    await tick();
+    expect(sizes.at(-1)).not.toHaveProperty("panel");
+    controller.setDetails(DETAILS);
+    expect(sizes.at(-1)).toMatchObject({ width: 320, height: 466, cardId: "10000001", seq: 2, panel: [[220, 300], [260, 260], [300, 230]] });
+    frame = { width: 580, height: 466 };
+    controller.layout();
+    expect(elements.panel.root.hidden).toBe(false);
+    controller.setDetailsOn(false);
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 466, shape: "card", cardId: "10000001", seq: 2 });
+    expect(elements.panel.root.hidden).toBe(true);
+    // Nothing on show: nothing is sent.
+    controller.clear();
+    const count = sizes.length;
+    controller.setDetailsOn(true);
+    expect(sizes).toHaveLength(count);
   });
 });
 

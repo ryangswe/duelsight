@@ -20,6 +20,13 @@
       <span class="knob" aria-hidden="true"></span>
     </button>
   </div>
+  <div class="row">
+    <span id="details-label" class="label">Card details</span>
+    <button id="details" class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="details-label" aria-describedby="details-hint" aria-busy="true" disabled>
+      <span class="knob" aria-hidden="true"></span>
+    </button>
+  </div>
+  <p id="details-hint" class="hint">Type, stats and card text beside the picture.</p>
   <div class="dial">
     <div class="row">
       <label for="card-size" class="label">Card size</label>
@@ -31,7 +38,9 @@
     <a id="update-link" target="_blank" rel="noopener noreferrer"></a>
     <button id="update-dismiss" class="dismiss" type="button" aria-label="Dismiss">&times;</button>
   </p>
-  <p class="disclaimer">{{name}} is an unofficial fan project, not affiliated with or endorsed by Konami.</p>
+  <p class="disclaimer">{{name}} is an unofficial fan project, not affiliated with or endorsed by Konami.
+    Card text and images are copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment.
+    Card data from YGOPRODeck.</p>
   <footer class="foot">
     <a id="project" target="_blank" rel="noopener noreferrer">Project page</a>
     <a id="runtime" target="_blank" rel="noopener noreferrer">Built on cardvision</a>

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// The popup: the master switch, the card-size dial, and a "New version available" line when there
-// is one (view.ts).
+// The popup: the master switch, the card details switch, the card-size dial, and a "New version
+// available" line when there is one (view.ts).
 
 import { initPopup } from "./view.js";
 

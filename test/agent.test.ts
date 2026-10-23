@@ -243,6 +243,26 @@ describe("Agent", () => {
     }
   });
 
+  it("sizes the frame for the picture and its details panel together, side by side beside the card", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    fromFrame(tooltip(), { kind: "ready" });
+    const card = { cardId: "10000001", name: "Test Robot", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    fromFrame(compute(), { kind: "shown", card });
+    // Short text: 230 px tall in a 260 px panel, so the whole picture and all the text fit.
+    const panel = [[220, 300], [260, 230], [300, 200], [340, 180], [380, 170], [420, 160]];
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 466, shape: "card", cardId: "10000001", panel });
+    expect([tooltip()!.style.width, tooltip()!.style.height, tooltip()!.style.borderRadius]).toEqual(["580px", "466px", "14px"]);
+    expect(tooltip()!.style.visibility).toBe("visible");
+    // The panel off (or no details for the card): the picture alone again.
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 466, shape: "card", cardId: "10000001" });
+    expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual(["320px", "466px"]);
+    // The card-size dial scales the picture, never the text's panel.
+    agent.setCardSize(70);
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 466, shape: "card", cardId: "10000001", panel });
+    expect([tooltip()!.style.width, tooltip()!.style.height]).toEqual([`${224 + 260}px`, "326px"]);
+  });
+
   it("scales the picture down, keeping its shape, when the window is short, and keeps it inside", async () => {
     const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 360 });

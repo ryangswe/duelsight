@@ -2,6 +2,8 @@
 // Page geometry of the content script: where the picture sits inside a <video> element, the size
 // a picture is analyzed at, and where the tooltip goes beside a card. Pure functions.
 
+import { DETAILS_MIN_ART_WIDTH, PANEL_MIN_HEIGHT, PANEL_MIN_WIDTH, PANEL_PREFERRED_WIDTH, PANEL_WIDTHS, type PanelHeights, panelHeightAt } from "../shared/panel-layout.js";
+
 export interface Rect {
   left: number;
   top: number;
@@ -219,4 +221,113 @@ export function tooltipRadius(size: { width: number; height: number }, shape: "c
  *  when that is lower than the viewport's own top margin. */
 export function availableSpace(viewport: { width: number; height: number }, minTop = 0): { width: number; height: number } {
   return { width: viewport.width - 2 * VIEWPORT_MARGIN, height: viewport.height - VIEWPORT_MARGIN - Math.max(VIEWPORT_MARGIN, minTop) };
+}
+
+// ------------------------------------------------------------------ the details panel
+
+/** Whether `size` fits on one side of the hovered card (right, left, below or above it), inside
+ *  the viewport and below `minTop`: then it covers nothing of the card. */
+export function fitsBesideCard(card: Rect, size: { width: number; height: number }, viewport: { width: number; height: number }, minTop = 0): boolean {
+  return sidesOf(card, viewport, minTop).some((s) => size.width <= s.width && size.height <= s.height);
+}
+
+function sidesOf(card: Rect, viewport: { width: number; height: number }, minTop: number): Array<{ width: number; height: number }> {
+  const top = Math.max(VIEWPORT_MARGIN, minTop);
+  const bottom = viewport.height - VIEWPORT_MARGIN;
+  const fullWidth = viewport.width - 2 * VIEWPORT_MARGIN;
+  return [
+    { width: viewport.width - VIEWPORT_MARGIN - (card.left + card.width + TOOLTIP_GAP), height: bottom - top },
+    { width: card.left - TOOLTIP_GAP - VIEWPORT_MARGIN, height: bottom - top },
+    { width: fullWidth, height: bottom - (card.top + card.height + TOOLTIP_GAP) },
+    { width: fullWidth, height: card.top - TOOLTIP_GAP - top },
+  ];
+}
+
+/** A size for the tooltip with its details panel, and how much of the text it holds. */
+export interface PanelFit {
+  width: number;
+  height: number;
+  kind: "side" | "stacked";
+  /** Whether all the text fits (as measured); otherwise the frame ends it in an ellipsis. */
+  full: boolean;
+}
+
+interface Candidate extends PanelFit {
+  artWidth: number;
+  /** The share of the text's height the panel holds (1 when it all fits). */
+  shown: number;
+  preferred: boolean;
+}
+
+/** The candidates in a room of `room` size: side by side at each panel width, and stacked at a
+ *  few picture sizes. */
+function panelCandidates(room: { width: number; height: number }, art: { width: number; height: number }, heights: PanelHeights): Candidate[] {
+  const out: Candidate[] = [];
+  if (!(room.width > 0 && room.height > 0)) return out;
+  const minArt = Math.min(DETAILS_MIN_ART_WIDTH, art.width);
+  // Side by side: the panel as tall as the picture.
+  for (const w of PANEL_WIDTHS) {
+    const scale = Math.min(1, room.height / art.height, (room.width - w) / art.width);
+    const artWidth = Math.floor(art.width * scale);
+    if (artWidth < minArt) continue;
+    const artHeight = Math.floor((artWidth * art.height) / art.width);
+    if (artHeight < PANEL_MIN_HEIGHT) continue;
+    const need = panelHeightAt(heights, w);
+    out.push({ width: artWidth + w, height: artHeight, kind: "side", full: need <= artHeight, artWidth, shown: Math.min(1, artHeight / need), preferred: w >= PANEL_PREFERRED_WIDTH });
+  }
+  // Stacked: the panel as wide as the picture, under it.
+  const top = Math.min(1, room.width / art.width);
+  for (let step = 0; step <= 20; step += 1) {
+    const scale = top * (1 - step / 25);
+    const artWidth = Math.floor(art.width * scale);
+    if (artWidth < Math.max(minArt, PANEL_MIN_WIDTH)) break;
+    const artHeight = Math.floor((artWidth * art.height) / art.width);
+    const need = panelHeightAt(heights, artWidth);
+    const panel = Math.min(need, room.height - artHeight);
+    if (panel < Math.min(need, PANEL_MIN_HEIGHT)) continue;
+    out.push({ width: artWidth, height: artHeight + Math.ceil(panel), kind: "stacked", full: need <= panel, artWidth, shown: Math.min(1, panel / need), preferred: artWidth >= PANEL_PREFERRED_WIDTH });
+  }
+  return out;
+}
+
+/** Better first: all the text, then more of it, then a larger picture, then a panel of the
+ *  preferred width, then side by side, then the smaller frame. */
+function better(a: Candidate, b: Candidate): boolean {
+  if (a.full !== b.full) return a.full;
+  const shown = Math.round(a.shown * 100) - Math.round(b.shown * 100);
+  if (shown !== 0) return shown > 0;
+  if (a.artWidth !== b.artWidth) return a.artWidth > b.artWidth;
+  if (a.preferred !== b.preferred) return a.preferred;
+  if (a.kind !== b.kind) return a.kind === "side";
+  return a.width * a.height < b.width * b.height;
+}
+
+/**
+ * The size of a tooltip with its details panel for a picture of `art` size (already at the
+ * viewer's card size) and text of measured `heights`. Side by side or stacked, the picture made
+ * smaller (not below DETAILS_MIN_ART_WIDTH) where the text needs the room, the text never: a
+ * panel too small for all of it is clamped by the frame. Sized to go beside the card (off it)
+ * when all the text fits there, or when it fits nowhere else either; sized for the whole viewport
+ * (placement then covers as little of the card as it can) when only that holds all the text, or
+ * when no side of the card has room for a panel at all. Null when even the whole viewport has
+ * no room for one (the picture alone is shown then).
+ */
+export function fitWithPanel(
+  card: Rect,
+  art: { width: number; height: number },
+  heights: PanelHeights,
+  viewport: { width: number; height: number },
+  minTop = 0,
+): PanelFit | null {
+  const pick = (rooms: Array<{ width: number; height: number }>): Candidate | null => {
+    let best: Candidate | null = null;
+    for (const room of rooms) for (const c of panelCandidates(room, art, heights)) if (!best || better(c, best)) best = c;
+    return best;
+  };
+  // Beside the card when all the text fits there; else over it only if all the text fits that
+  // way; else beside it, the text cut.
+  const beside = pick(sidesOf(card, viewport, minTop));
+  const anywhere = beside?.full ? null : pick([availableSpace(viewport, minTop)]);
+  const best = beside && (beside.full || !anywhere?.full) ? beside : anywhere;
+  return best ? { width: best.width, height: best.height, kind: best.kind, full: best.full } : null;
 }

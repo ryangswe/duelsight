@@ -24,7 +24,8 @@ import { CONFIG } from "../config.js";
 import { MIN_VIDEO_WIDTH } from "../constants.js";
 import { type ComputeIn, parseComputeOut, parseTooltipOut, type ShownCard, tag, type TooltipIn, type TooltipSize } from "../shared/messages.js";
 import { captureAllowed } from "./gate.js";
-import { analysisSize, availableSpace, fitBesideCard, fitTooltipSize, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
+import { analysisSize, availableSpace, CARD_CORNER, fitBesideCard, fitsBesideCard, fitTooltipSize, fitWithPanel, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
+import { arrange } from "../shared/panel-layout.js";
 import { isActivePage } from "./site.js";
 import { channelKey, ownerHrefOf } from "./channel.js";
 import { PlayerButton } from "./player-button.js";
@@ -651,7 +652,7 @@ export class Agent {
         if (message.cardId !== undefined && message.cardId !== this.displayedCardId) return;
         // A size from an earlier showing of the same card (hidden and shown again) is stale too.
         if (message.seq !== undefined && message.seq !== this.cardSeq) return;
-        this.tooltipSize = { width: Math.ceil(message.width), height: Math.ceil(message.height), shape: message.shape };
+        this.tooltipSize = { width: Math.ceil(message.width), height: Math.ceil(message.height), shape: message.shape, ...(message.panel ? { panel: message.panel } : {}) };
         if (message.cardId !== undefined) this.sizedCardId = message.cardId;
         this.updateTooltip();
       }
@@ -707,6 +708,11 @@ export class Agent {
     const fitted = fitTooltipSize(requested, viewport, playerTop);
     // A picture with no room beside the card is made smaller rather than laid over it.
     let size = this.tooltipSize.shape === "card" ? fitBesideCard(cardRect, fitted, viewport, playerTop) : fitted;
+    // With the card's details: the picture and its text panel together, the text never scaled
+    // (panel-layout.ts). No room for a panel at all: the picture alone, as above.
+    const panel = this.tooltipSize.shape === "card" && this.tooltipSize.panel ? fitWithPanel(cardRect, requested, this.tooltipSize.panel, viewport, playerTop) : null;
+    if (panel) size = { width: panel.width, height: panel.height };
+    const layout = panel ? "details" : this.tooltipSize.shape;
     // No breathing: a size within a few pixels of the shown one keeps the shown one while it still
     // fits: in the room, and (a picture) beside the card, as fitBesideCard would leave it, so the
     // space kept around the card is never eaten into.
@@ -715,21 +721,23 @@ export class Agent {
     const stillFits =
       shown.width <= room.width &&
       shown.height <= room.height &&
-      (this.tooltipSize.shape !== "card" || sameSize(fitBesideCard(cardRect, shown, viewport, playerTop), shown));
+      (this.tooltipSize.shape !== "card" ||
+        (panel ? fitsBesideCard(cardRect, shown, viewport, playerTop) || !fitsBesideCard(cardRect, size, viewport, playerTop) : sameSize(fitBesideCard(cardRect, shown, viewport, playerTop), shown)));
     if (
-      frame.dataset.shape === this.tooltipSize.shape &&
+      frame.dataset.shape === layout &&
       Math.abs(size.width - shown.width) < SIZE_HYSTERESIS_PX &&
       Math.abs(size.height - shown.height) < SIZE_HYSTERESIS_PX &&
       stillFits
     ) {
       size = shown;
     }
-    if (size.width !== this.shownSize.width || size.height !== this.shownSize.height || frame.dataset.shape !== this.tooltipSize.shape) {
+    if (size.width !== this.shownSize.width || size.height !== this.shownSize.height || frame.dataset.shape !== layout) {
       this.shownSize = size;
-      frame.dataset.shape = this.tooltipSize.shape;
+      frame.dataset.shape = layout;
       frame.style.width = `${size.width}px`;
       frame.style.height = `${size.height}px`;
-      frame.style.borderRadius = `${tooltipRadius(size, this.tooltipSize.shape)}px`;
+      // With a panel, the picture's own corners (the frame lays itself out the same way).
+      frame.style.borderRadius = `${panel ? Math.round(arrange(size, requested).art.width * CARD_CORNER) : tooltipRadius(size, this.tooltipSize.shape)}px`;
     }
     // Stay where it is unless another place covers clearly less (no jumping between equals).
     let current = frame.style.visibility === "visible" ? { left: Number.parseFloat(frame.style.left), top: Number.parseFloat(frame.style.top) } : null;
