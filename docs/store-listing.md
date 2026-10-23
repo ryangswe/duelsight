@@ -28,7 +28,8 @@ Update this table with each submission (date submitted, date approved, store ite
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
    then `cdn/dscdn.py publish --page <that folder>/privacy.html` and `verify` (owner's step:
    [cdn/README.md](../cdn/README.md)).
-3. **The screenshots**, made as in [Screenshots](#screenshots) below, outside the repository.
+3. **The images** (five screenshots, two promo tiles), made as in [Store images](#store-images)
+   below, outside the repository.
 4. **Links resolve.** The description, the privacy page and the URL fields link to the project's
    GitHub repository; a reviewer who clicks a dead link may reject the item. If the repository is
    not public yet, leave the URL fields empty and replace those links before submitting.
@@ -74,13 +75,16 @@ that it can miss a card or show a wrong one; no keyword lists (the store rejects
 
 **Store icon:** `icons/icon-128.png` (128×128).
 
-**Screenshots:** 1280×800, in listing order (see [Screenshots](#screenshots)):
-1. a hover on a Master Duel card;
-2. a hover on a card on a paper table;
-3. the same paper hover with the toolbar popup open.
+**Screenshots:** five, 1280×800, in listing order (see [Store images](#store-images)):
+1. `1-hover`: a hover on a Master Duel card, with the card details beside it;
+2. `2-button`: the DuelSight button at the top right of the video, Off and then On after one
+   click, which turns card hovers on for that channel;
+3. `3-paper`: a hover on a card on a paper table;
+4. `4-card-alone`: the same hover with card details switched off: the enlarged card on its own;
+5. `5-popup`: the toolbar popup (on/off, card details, card size).
 
-**Promotional tiles, marquee, video:** none so far. If the dashboard requires one, make it from the
-screenshots' material at the size it names, outside the repository.
+**Small promo tile:** `promo-small-440x280.jpg`. **Marquee promo tile:** `promo-marquee-1400x560.jpg`.
+**Video:** none.
 
 **Homepage URL / Support URL** (once the repository is public):
 
@@ -144,38 +148,43 @@ is done before launch. The launch release goes Public as an update. **Regions:**
 No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Click the DuelSight button in the top-right of the player to turn card hovers on for that channel, then rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size and turns the card details on or off.
 ```
 
-## Screenshots
+## Store images
 
-The screenshots are the real extension (a dev build) hovering a card on a clip, taken by
-`scripts/store-screenshots.mjs`. They hold card art and frames of other people's videos, so they
+The five screenshots and the two promo tiles are made by `scripts/store-assets.mjs` from the real
+extension: a dev build in Chrome for Testing hovers a card on two clips (one Master Duel, one paper
+table) on a bare local page, and `scripts/store-templates.mjs` lays the captures out with the
+headlines, in the store's sizes (1280×800, 440×280, 1400×560), as JPEG (the store takes JPEG, or
+PNG without alpha). The headlines and their order are in `SCREENSHOTS` in store-templates.mjs;
+change them there, under the description's rules above. Every image carries the
+unofficial-fan-project line. The images hold card art and frames of other people's videos, so they
 are **never committed**: the script writes them outside the repository, and the owner uploads them.
 
-1. **Pick frames** from official publisher broadcasts (for example Konami's own tournament
-   streams), not from other creators' videos, with a card shown clearly.
+1. **Pick two frames** from official publisher broadcasts (for example Konami's own tournament
+   streams), not from other creators' videos: one Master Duel, one paper table, each with a card
+   shown clearly.
 2. **Make one clip per frame, cropped to the game**: no players' faces, no other people's
    overlays. `ffmpeg` (crop is `width:height:x:y` in the frame's pixels):
    ```bash
    ffmpeg -loop 1 -i frame.png -vf "crop=1346:758:290:130" -t 12 -r 10 -c:v libvpx-vp9 -crf 18 -b:v 0 -pix_fmt yuv420p md.webm
    ```
-   Use WebM: Chrome for Testing plays it, not every build plays H.264.
-3. **Find a card the model names confidently** and its centre in the clip's pixels:
+   Use WebM: Chrome for Testing plays it, not every build plays H.264. A 16:9 Master Duel clip suits
+   the button screenshot well.
+3. **Find a card the model names confidently** in each, and its centre in the clip's pixels:
    `cardvision infer <the cropped frame> --release <release.json> --prefill-out boxes.jsonl`
    (a named box's `box` is x, y, width, height).
-4. **List the shots** in a `shots.json` outside the repository:
+4. **Name them** in a `clips.json` outside the repository:
    ```json
-   [{ "name": "1-master-duel", "video": "/clips/md.webm", "hover": [793, 351] },
-    { "name": "2-paper", "video": "/clips/paper.webm", "hover": [576, 493] },
-    { "name": "3-popup", "video": "/clips/paper.webm", "hover": [576, 493], "popup": true }]
+   { "master-duel": { "video": "/clips/md.webm", "card": [793, 351] },
+     "paper": { "video": "/clips/paper.webm", "card": [576, 493] } }
    ```
-5. **Take them** (a dev build of the release you submit; `puppeteer-core` and Chrome for Testing as
-   for [the smoke check](development.md#manual-check-on-a-local-video)):
+5. **Make the images** (a dev build of the release you submit; `puppeteer-core` and Chrome for
+   Testing as for [the smoke check](development.md#manual-check-on-a-local-video)):
    ```bash
    npm run build -- --dev --release <release folder>
    npm install --no-save puppeteer-core
-   node scripts/store-screenshots.mjs --chrome "<Chrome for Testing>" --shots shots.json --out <folder outside the repository>
+   node scripts/store-assets.mjs --chrome "<Chrome for Testing>" --clips clips.json --out <folder outside the repository>
    ```
-   Each shot waits for the tooltip, then 4 seconds for its picture and details from the CDN, and
-   writes `<name>.jpg` at 1280×800 (JPEG: the store takes JPEG or PNG without alpha). Look at every
-   one: check the named card is the card under the pointer.
+   Each hover waits for the tooltip, then 4 seconds for its picture and details from the CDN. Look
+   at every image: check the named card is the card under the pointer.
 
 Rebuild with `--store` afterwards: the dev build is not the one you upload.
