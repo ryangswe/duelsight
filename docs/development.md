@@ -33,8 +33,11 @@ The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as
 - The models' license, notice and provenance (`release-legal/`) are copied beside them into
   `dist/release/`; the build fails without them.
 
-`npm run package` zips a release build into `duelsight-<version>.zip` for a release page. It refuses a
-build that holds OpenCV.js or geometric-stage files (this build ships none).
+`npm run package` zips a release build. A build with the key becomes `duelsight-<version>.zip` for a
+release page, with every file inside one `duelsight-<version>/` folder (the folder a user selects in
+"Load unpacked"). A `--store` build becomes `duelsight-<version>-store.zip` with `manifest.json` at the
+zip's top level, as the Chrome Web Store requires. It refuses a dev build, and a build that holds
+OpenCV.js, geometric-stage files (this build ships none) or a card details file.
 
 ## The runtime
 

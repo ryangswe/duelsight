@@ -25,7 +25,8 @@ depends on sits in accounts of its own, so a new maintainer can take it over.
 5. **Extension release.** Put the new release folder through `npm run build -- --release <folder>`
    (the build checks it), update `release-legal/` (`NOTICE`'s opening line names the release id),
    bump `version` in `package.json`, `npm test`, `npm run build -- --store --release <folder>`,
-   `npm run package`, and upload the zip to the Chrome Web Store. Cards in the catalog but not in
+   `npm run package`, and upload `duelsight-<version>-store.zip` (manifest at its top level) to the
+   Chrome Web Store. Cards in the catalog but not in
    an installed copy's release are not recognized until the release is installed.
 
 ## A core-model refresh

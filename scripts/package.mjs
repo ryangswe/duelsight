@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-// Zip the built extension for a release: <packageName>-<version>.zip (packageName from
-// duelsight.config.json), holding one folder of the same name, which is what a user selects
-// in Chrome's "Load unpacked".
+// Zip the built extension (scripts/package-zip.mjs has the two layouts):
+//   - a release build: <packageName>-<version>.zip (packageName from duelsight.config.json),
+//     holding one folder of the same name, which is what a user selects in Chrome's "Load unpacked";
+//   - a Web Store build (--store, no key): <packageName>-<version>-store.zip with manifest.json at
+//     the top level, as the Chrome Web Store requires.
 //
-//   npm run build -- --release <release folder> --images-index <images.jsonl>
+//   npm run build -- --release <release folder> [--store]
 //   npm run package
 //
 // It refuses a dev build. It uploads nothing: publishing the zip is a person's decision.
 
-import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadForkConfig } from "./fork-config.mjs";
+import { writeZip, zipLayout } from "./package-zip.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const dist = join(root, "dist");
@@ -42,14 +43,6 @@ if (text.length > 0) {
   process.exit(1);
 }
 // A zip for a release page is loaded unpacked and carries the key; a Web Store build has none.
-const name = manifest.key ? `${config.packageName}-${manifest.version}` : `${config.packageName}-${manifest.version}-store`;
-const zip = join(root, `${name}.zip`);
-const work = mkdtempSync(join(tmpdir(), `${config.packageName}-package-`));
-try {
-  cpSync(dist, join(work, name), { recursive: true });
-  rmSync(zip, { force: true });
-  execFileSync("zip", ["-r", "-X", "-q", zip, name], { cwd: work, stdio: "inherit" });
-} finally {
-  rmSync(work, { recursive: true, force: true });
-}
-console.log(`wrote ${name}.zip`);
+const layout = zipLayout(config.packageName, manifest);
+writeZip(dist, join(root, layout.file), layout.folder);
+console.log(`wrote ${layout.file}${layout.store ? " (Chrome Web Store: manifest.json at the top level)" : ` (one folder, ${layout.folder}/, for Load unpacked)`}`);
