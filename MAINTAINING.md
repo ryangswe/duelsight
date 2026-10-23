@@ -14,10 +14,15 @@ depends on sits in accounts of its own, so a new maintainer can take it over.
    rows to the bank and the identity groups (toolkit: `build-release`; then `verify-release`,
    which prints the 16-hex-digit release id). Replay the toolkit's held-out check: rows for
    existing cards should not change the result.
-3. **CDN publish, by the owner.** Publish the new art, then the new release, with
-   `cdn/dscdn.py` (`plan`, `publish --dry-run`, `publish`, `verify`; see [cdn/README.md](cdn/README.md)).
-   Publishing is the owner's step: it needs the CDN account's token.
-4. **Extension release.** Put the new release folder through `npm run build -- --release <folder>`
+3. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
+   folder outside the repository: `node scripts/card-details.mjs --cards <cardinfo JSON>
+   --catalog <release folder>/catalog.json --out <folder>`. It prints the file's new versioned
+   name and the `details` entry for `cdn/config.json`; put that entry there. Card text is the
+   rights holder's: the file is never committed or packaged.
+4. **CDN publish, by the owner.** Publish the new art, the details file (`--details`) and
+   `config.json` with `cdn/dscdn.py` (`plan`, `publish --dry-run`, `publish`, `verify`; see
+   [cdn/README.md](cdn/README.md)). Publishing is the owner's step: it needs the CDN account's token.
+5. **Extension release.** Put the new release folder through `npm run build -- --release <folder>`
    (the build checks it), update `release-legal/` (`NOTICE`'s opening line names the release id),
    bump `version` in `package.json`, `npm test`, `npm run build -- --store --release <folder>`,
    `npm run package`, and upload the zip to the Chrome Web Store. Cards in the catalog but not in
@@ -56,6 +61,7 @@ in the store listing.
 
 ## Safe by default
 
-If a complaint arrives, the settings file can turn pictures off at once (`namesOnly: true`) or
-drop the CDN source (`primary: null`) without an extension release; installed copies follow within
-about an hour. See [cdn/SETTINGS.md](cdn/SETTINGS.md).
+If a complaint arrives, the settings file can turn pictures off at once (`namesOnly: true`),
+drop the CDN source (`primary: null`) or stop naming the card details file (remove `details`;
+installed copies then delete their copy) without an extension release; installed copies follow
+within about an hour. See [cdn/SETTINGS.md](cdn/SETTINGS.md).

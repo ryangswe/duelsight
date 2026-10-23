@@ -2,10 +2,12 @@
 # DuelSight
 
 A Chrome extension for watching Yu-Gi-Oh! videos and streams. Hover a card in a YouTube or
-Twitch video and a larger picture of it appears, with its name.
+Twitch video and a larger picture of it appears, with its name, type, stats and text.
 
 **DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.**
-Yu-Gi-Oh!, its card names and its card art belong to their owners.
+Yu-Gi-Oh!, its card names and its card art belong to their owners. Card text and images are
+copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment. Card data from
+YGOPRODeck.
 
 It is aimed at Master Duel, Dueling Book and paper tables, with the camera above the table.
 Results vary by video; see [docs/accuracy.md](docs/accuracy.md).
@@ -22,8 +24,9 @@ and rest the pointer on a card.
 - No accounts, analytics, telemetry or advertising.
 - Video frames are never uploaded. They are analyzed inside your browser, in memory, and not
   saved.
-- The extension requests one host, DuelSight's card CDN, for a small settings file and card
-  pictures, without cookies, an account ID or the address of the page you watch.
+- The extension requests one host, DuelSight's card CDN, for a small settings file, card
+  pictures and a card details file, without cookies, an account ID or the address of the page
+  you watch.
 
 Details: [PRIVACY.md](PRIVACY.md) and [docs/permissions.md](docs/permissions.md).
 

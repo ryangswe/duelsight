@@ -61,6 +61,7 @@ flowchart TD
     POP -- "refresh request" --> BG
     BG -- "config.json: install, update,<br/>browser start, then at most hourly" --> CDN
     TT -- "card picture,<br/>when not loaded yet" --> CDN
+    TT -- "card details file,<br/>once, then cached" --> CDN
 ```
 
 **How to read it.** An arrow into the card CDN is a request, with its contents and its timing as
@@ -75,6 +76,14 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   vendored runtime on the release bundled in the extension. Nothing in it goes to the network.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box.
+- **The details panel:** with card details on, the tooltip frame also loads the card details file
+  the settings file names (`src/details/`), once, and keeps it in the extension's Cache Storage.
+  For a card it lists, the frame fills a text panel (as plain text, never markup), measures it at a
+  few widths and sends those heights with the picture's size. The content script sizes the frame
+  for both (`fitWithPanel` in `src/content/geometry.ts`): side by side, or stacked in a narrow
+  window, the picture made smaller where the text needs room, the text never. The frame lays both
+  out from its own size (`src/shared/panel-layout.ts`) and ends text that does not fit in an
+  ellipsis. The popup's card-size dial scales the picture before this fitting.
 - **The background** fetches the settings file. The popup and the tooltip frame ask it for a
   refresh, which it makes at most once an hour.
 
@@ -90,6 +99,8 @@ another source, or off, without a new extension release:
   tooltip shows the card's name.
 - Card ids are Yu-Gi-Oh! passcodes (digits, up to 8). One card name with several artworks is one
   identity in the release's groups.
+- `details` names the card details file (a path on the same host and its SHA-256); without it,
+  the tooltip shows pictures alone. See [cdn/SETTINGS.md](../cdn/SETTINGS.md).
 - `cardLink` and `geometric` are retired fields: a file may still carry them; they are ignored.
 - The tooltip's link to Konami's official card database is built by `src/tooltip/card-link.ts` as
   an address (a card page when the catalog row has a `konamiId`, else a name search). It is

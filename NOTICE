@@ -19,7 +19,11 @@ Not affiliated
 ------------------------------------------------------------------------------
 
 DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami. Yu-Gi-Oh!,
-its card names and its card art belong to their owners. This repository contains no card images.
+its card names and its card art belong to their owners. This repository and the extension's
+package contain no card images and no card text: both are served from DuelSight's card CDN.
+
+Card text and images are copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment.
+Card data from YGOPRODeck.
 
 ------------------------------------------------------------------------------
 cardvision-browser (vendored in vendor/cardvision-browser/)

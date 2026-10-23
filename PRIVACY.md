@@ -10,7 +10,8 @@ what it sends, and what it keeps.
 - No accounts, no analytics, no telemetry, no advertising.
 - Video frames are processed temporarily in memory, inside your browser. They are not saved to
   storage and never uploaded.
-- The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a settings file and card pictures.
+- The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a
+  settings file, card pictures and a card details file.
 
 ## What it reads
 
@@ -45,15 +46,13 @@ storage, uploaded or shared.
 | --- | --- | --- | --- |
 | The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
+| The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover) |
 
 These requests carry no cookies, no account ID or per-user tracking identifier, and not the
-address of the page you watch. Settings and picture requests carry no `Referer` at all. Like any
+address of the page you watch. Settings, picture and details requests carry no `Referer` at all. Like any
 web request, they show the host your IP address, which file was asked for, and the headers your
 browser adds to every request. The extension sends nothing else to anyone, and it does not send
 the channels you turned on.
-
-The tooltip may offer a link to Konami's official card database. That link is an address your
-browser opens when you click it; the extension never requests it for you.
 
 The CDN is run by the maintainer on Cloudflare (R2 storage). No request logging is set up for it:
 the maintainer can see Cloudflare's aggregate traffic statistics, not a record of individual
@@ -61,7 +60,9 @@ requests or IP addresses. Cloudflare handles the requests under its own
 [privacy policy](https://www.cloudflare.com/privacypolicy/).
 
 The settings file can turn card pictures off (`namesOnly`); the extension then requests no
-pictures at all.
+pictures at all. It can also stop naming a card details file; the extension then requests none and
+deletes the copy it kept. With card details switched off in the popup, the details file is not
+requested.
 
 ## What it keeps on your computer
 
@@ -70,11 +71,15 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
 - **In `chrome.storage.local`** (settings):
   - whether it is switched on;
   - the card size you set in the popup (70% to 130%);
+  - whether card details are switched on in the popup;
   - the channels you turned card hovers on for (their YouTube handle or id, Twitch name, or
     video id), each with the time you turned it on, and that you have seen the button's
     intro label;
   - the last settings file it fetched, and when;
   - the version of a "New version available" notice you dismissed.
+- **In the extension's own Cache Storage:** one copy of the card details file from the CDN (the
+  same file for everyone; it says nothing about you or what you watched). A newer version
+  replaces it.
 
 Card pictures are kept in memory while the tab is open, and in your browser's ordinary cache.
 

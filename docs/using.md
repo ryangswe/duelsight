@@ -36,13 +36,22 @@ Rest the pointer on a face-up card. After a moment a thin outline marks the card
 and its picture appears beside it, placed off the cards around it where it can (smaller when the
 window is short). Move to another card to see that one, even one under the picture shown: the
 pointer passes through it, and nothing on it can be clicked. When there is no picture, the
-card's name shows instead. Pausing works too, on recorded videos and on live streams.
+card's name shows instead.
+
+With **Card details** on (the default), the picture comes with a panel of the card's name,
+type, attribute, level, rank or link rating, ATK and DEF, and its text: beside the picture where
+there is room, under it in a narrow window. The text keeps a readable size; when a small player
+has no room for all of a long text, it ends in "…". On a new install, the details take a moment to
+load, and pictures show alone until then. Pausing works too, on recorded videos and on live streams.
 
 ## The toolbar popup
 
 DuelSight's toolbar popup has the main on/off switch: turned off, it shows no button in the
 player and analyzes no video, on any page, until you turn it back on. It does not stop the
 settings check above.
+
+**Card details** shows the card's type, stats and text beside its picture (on unless you turn it
+off). Off, the tooltip is the picture alone.
 
 **Card size** sets how large the card's picture is shown, from 70% to 130% of its usual size
 (100% unless you change it). A card on show changes size at once. The picture still stays inside
@@ -86,6 +95,6 @@ your existing DuelSight folder with the contents of the new one, then click the 
 DuelSight's popup says "New version available" with a link.
 
 **To remove it**, click **Remove** on its card in `chrome://extensions`. Removing the extension
-deletes its saved settings (the on/off switch, the card size and the channels you turned card
-hovers on for);
+deletes its saved settings (the on/off switch, the card size, the card details choice, the
+channels you turned card hovers on for and its copy of the card details file);
 installing it again starts fresh.
