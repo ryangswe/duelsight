@@ -66,6 +66,16 @@ export interface ReleaseStatus {
         art: string | null;
     }>;
 }
+/**
+ * The address under which a release given as files is read (the load request's `files`). A
+ * file's address is this base and its path relative to the release document's folder; it is only
+ * ever looked up among the files given, never fetched. A `file:` base, since every browser
+ * resolves a relative path against it the same way.
+ */
+export declare const RELEASE_FILES_BASE = "file:///";
+/** The key of a file among a release's files: its path relative to the release document's folder,
+ *  resolved as the loader resolves it (a `./` segment dropped, as the URL parser does). */
+export declare function releaseFileKey(path: string): string;
 export type WorkerRequest = {
     kind: "ping";
 }
@@ -74,17 +84,30 @@ export type WorkerRequest = {
  *  execution providers. A second load is ignored. */
  | {
     kind: "load";
+    /** The release document's address; with `files`, its path among them (`release.json`). */
     releaseUrl: string;
+    /** The release's files, by path relative to the release document's folder
+     *  (`releaseFileKey`), when they come from the page and not from a server: a folder the
+     *  visitor chose. Nothing is then fetched for the release; each file is checked against the
+     *  size and SHA-256 the document pins, as a fetched one is. */
+    files?: Record<string, Blob>;
     wasmPaths?: string;
     providers?: ExecutionProvider[];
     /** The geometric stage's settings document (it names the packed index). When given, the
      *  stage loads after the release and joins between frames; until then, and whenever it
      *  cannot run, frames are analyzed without it. */
     geometricUrl?: string;
+    /** Ask the geometric stage for its debug record of every crop (geometric/debug.ts), which
+     *  each verified face then carries in `geometric.debug`. For a scoring run; it decides
+     *  nothing. */
+    geometricDebug?: boolean;
     /** The SHA-256 the packed index's manifest.json must have. When given, a manifest with
      *  other bytes is refused and the stage is off: the manifest, and through it every shard,
      *  is pinned. */
     geometricManifestSha256?: string;
+    /** False turns the geometric watchdog off (default: on). For a scoring run, which measures
+     *  the stage on every frame and times it separately; a session that shows cards keeps it. */
+    geometricWatchdog?: boolean;
 } | {
     kind: "frame";
     /** The picture, already at analysis size (capture.ts). The worker closes it. */
@@ -124,6 +147,14 @@ export interface GeometricStatus {
     bytes: number | null;
     note?: string | null;
 }
+/** Where the load of the release is, sent while it loads (`LoadProgress` in load.ts): downloading
+ *  the files it pins (`bytes`: their sum, null until the release document is read), or preparing
+ *  the models. A release-status reply ends it. */
+export interface ReleaseProgress {
+    kind: "release-progress";
+    phase: "downloading" | "preparing";
+    bytes: number | null;
+}
 export type WorkerReply = {
     kind: "pong";
-} | ReleaseStatus | FrameResult | GeometricStatus;
+} | ReleaseStatus | ReleaseProgress | FrameResult | GeometricStatus;

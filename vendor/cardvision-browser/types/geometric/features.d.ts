@@ -70,3 +70,6 @@ export declare function strongestFirst(responses: ArrayLike<number>, max: number
  * `extract` for `orb` with no mask).
  */
 export declare function extractOrb(cv: Cv, rgba: Uint8Array | Uint8ClampedArray, width: number, height: number, longSide: number, maxFeatures: number, params: Readonly<Record<string, number>>): CropFeatures;
+/** `extractOrb` from the scaled grey image itself (`scaledGrey`'s output, which the caller
+ *  still owns and deletes) (Python: `extract_grey`). */
+export declare function orbOfGrey(cv: Cv, grey: CvMat, maxFeatures: number, params: Readonly<Record<string, number>>): CropFeatures;

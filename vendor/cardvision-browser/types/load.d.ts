@@ -17,7 +17,25 @@ export interface LoadOptions {
     providers?: readonly ExecutionProvider[];
     /** How bytes are fetched and hashed, in place of `fetch` and the Web Crypto API. */
     deps?: Partial<ReleaseDeps>;
+    /** The release's files, by path relative to the release document's folder, in place of a
+     *  server: `releaseUrl` is then the document's path among them (`release.json`), and nothing is
+     *  fetched (`filesFetch`). Each file is checked against the size and SHA-256 the document pins,
+     *  as a fetched one is. */
+    files?: Record<string, Blob>;
+    /** Told where the load is: downloading the files the release pins (`bytes`, their sum, once the
+     *  release document is read), then preparing the models (starting the ONNX Runtime sessions).
+     *  Advisory: what it throws is ignored, and the load goes on. A load that fails before the
+     *  models are prepared says no "preparing". */
+    onProgress?: (progress: LoadProgress) => void;
 }
+/** Where a load is, for a caller that shows it: downloading the release's files, whose sizes
+ *  add up to `bytes` (null until the release document is read), or preparing the models. */
+export type LoadProgress = {
+    phase: "downloading";
+    bytes: number | null;
+} | {
+    phase: "preparing";
+};
 /** A release that loaded whole: its document, its catalog and a pipeline ready for frames. */
 export interface LoadedRelease {
     release: VisionRelease;
@@ -41,10 +59,18 @@ export interface LoadedRelease {
     dispose(): Promise<void>;
 }
 /**
+ * A `fetchFn` that answers from a release's files and never from a network: an address under
+ * `RELEASE_FILES_BASE` gets the bytes of the file at that path relative to the release document's
+ * folder, and any other address, or a path that is not among the files, is refused with the path
+ * in words. What it answers is then checked like anything fetched.
+ */
+export declare function filesFetch(files: Record<string, Blob>): ReleaseDeps["fetchFn"];
+/**
  * Load the release whose document is at `releaseUrl`: fetch it and every file it pins, check
  * each against its size and SHA-256 and against the others, and start both models. The
- * document's paths are relative to it. All-or-nothing: any failure rejects with a
- * `ReleaseError` and nothing stays loaded.
+ * document's paths are relative to it. With `options.files` the same is read from those files
+ * instead, and nothing is fetched. All-or-nothing: any failure rejects with a `ReleaseError` and
+ * nothing stays loaded.
  */
 export declare function loadRelease(releaseUrl: string | URL, options?: LoadOptions): Promise<LoadedRelease>;
 /**

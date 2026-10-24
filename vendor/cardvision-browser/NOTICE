@@ -18,6 +18,10 @@ What the license grant covers
 
 The Apache-2.0 grant covers this project's own work: the code, the
 documentation, and what this project's training added to the model weights.
+The same grant covers this project's own work in the other release assets it
+computes, the embedding bank and the identity groups, and its own selection and
+arrangement in the catalog. The card names, ids and other card data in the
+catalog belong to Riot Games and are not licensed here.
 
 It does not cover, and cannot grant rights in, material that belongs to others:
 

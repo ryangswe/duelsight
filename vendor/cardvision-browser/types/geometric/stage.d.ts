@@ -57,6 +57,9 @@ export declare class GeometricStage {
     /** Each index card's identity and image, by position, for the vote's ratio test. */
     private readonly identity;
     private readonly image;
+    /** With debug on, each result carries the stage's record of its crop (debug.ts). It decides
+     *  nothing: a scoring run asks for it, a session never does. */
+    debug: boolean;
     /**
      * `identities` maps card id to identity key, as Python's `Catalog.identities()` with the
      * release's identity groups over it (`voteIdentities`); a card it lacks is its own identity.
@@ -85,6 +88,11 @@ export declare class GeometricStage {
      * `ranked` lacks takes the lowest cosine given.
      */
     verifyBatch(items: readonly VerifyItem[], known?: ReadonlySet<string>): Promise<StageResult[]>;
+    /** The crop's keypoints as `cropFeatures` takes them, from a grey image whose hash and size
+     *  are handed to `seen` before it is freed. */
+    private debugFeatures;
+    /** The debug record of one crop (Python: `debug_record`). */
+    private debugRecord;
     private finish;
 }
 /** Python's `fnmatch.fnmatchcase`: `*`, `?`, `[seq]` and `[!seq]`, case-sensitive. */

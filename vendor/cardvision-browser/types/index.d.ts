@@ -1,4 +1,4 @@
-export { analyzeFrame, type LoadedRelease, type LoadOptions, loadRelease, ReleaseError } from "./load.js";
+export { analyzeFrame, type LoadedRelease, type LoadOptions, type LoadProgress, loadRelease, ReleaseError } from "./load.js";
 export { type ClientBox, createSession, type Session, type SessionOptions, type SessionStatus, type Shown } from "./session.js";
 export { type BoxResult, type FaceResult, type FrameAnalysis, hoverAt, hoverCardsOf, Pipeline, type PipelineOptions } from "./pipeline.js";
 export { type AABB, type Candidate, iou, nonMaxSuppression, type Rect } from "./boxes.js";
@@ -13,7 +13,7 @@ export { type AnalysisState, FrameScheduler, HOVER_MAX_AGE_MS, replyRejection } 
 export { computeCardQuad, type LayerCard, type NormalizedBounds, pointInConvexQuad, resolveHoveredCard } from "./hover-geometry.js";
 export { HOVER_SELECTIONS, type HoverOutcome, type HoverSelection, hoverOrder, resolveHover, selectHoverLayer } from "./hover-layer.js";
 export { type IdentityDisplay, type IdentityGroups, IdentityMap, type IdentityRule, parseIdentityGroups } from "./identity.js";
-export type { FrameEnvelope, FrameResult, ReleaseStatus, WorkerReply, WorkerRequest } from "./messages.js";
+export type { FrameEnvelope, FrameResult, ReleaseProgress, ReleaseStatus, WorkerReply, WorkerRequest } from "./messages.js";
 export { boxAverageRgb, PREPROCESSING, type PreprocessingContract, rotateTensor90, toContractTensor } from "./preprocess.js";
 export { EXECUTION_PROVIDERS, type ExecutionProvider } from "./providers.js";
 export { chooseLook, cropRgba, lookAccepted, recognizeFrame, type ScoredFrame, type ScoredProposal } from "./recognition.js";

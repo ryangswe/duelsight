@@ -66,7 +66,13 @@ export interface VisionRelease {
         };
     };
 }
-/** Whether a path is a plain relative one that stays inside the folder of the release document. */
+/**
+ * Whether a path is a plain relative one that stays inside the folder of the release document.
+ * The rule is the URL parser's view of the path, since the loader resolves it as an address:
+ * no scheme prefix (`http:x`, `data:`, `C:`), no backslash, no control character, no space at
+ * either end, not absolute, and no segment that is, or percent-encodes, `.` or `..` (the parser
+ * reads `%2e%2e` as `..`). `cardvision verify-release` applies the same rule.
+ */
 export declare function isRelativePath(path: unknown): path is string;
 /**
  * Check a parsed release document and narrow it. Strict: a missing part, a malformed field, an
@@ -113,6 +119,9 @@ export interface CatalogCard {
     art: string | null;
     /** The id of the card this one is an alternate printing of, or null. */
     printingOf: string | null;
+    /** The card's `extra` object as the catalog gives it (any keys and values), when it has one.
+     *  The runtime never reads it; it is the game's own data, kept with the card. */
+    extra?: Record<string, unknown>;
 }
 /** Everything a release loaded, checked against the document and against each other. */
 export interface ReleaseData {
@@ -136,6 +145,10 @@ export interface ReleaseLoadOptions {
     /** The onnxruntime-web version this build runs on. A release measured on another line of it
      *  is refused; leave it out to skip the check (a caller without ONNX Runtime). */
     ortWeb?: string;
+    /** Called once the release document is read, before the files it pins are fetched, with the
+     *  sum of their sizes as the document pins them: what is left to download. Advisory: what it
+     *  throws is ignored, and the load goes on. */
+    onDocument?: (pinnedBytes: number) => void;
 }
 /**
  * Whether a release measured on onnxruntime-web `releaseOrt` may run on `bundledOrt`: the same

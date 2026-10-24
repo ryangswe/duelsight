@@ -3,6 +3,7 @@
 //
 //   node scripts/vendor-runtime.mjs --repo <path to a cardvision toolkit checkout> [--commit <sha>]
 //                                   --opencv <folder with opencv.mjs, opencv_js.wasm, opencv.mjs.LEGAL.txt>
+//                                   [--toolkit-release "cardvision 0.3.0rc1"]
 //
 // What it does, in a temporary folder outside this repository:
 //   1. `git archive` the runtime's `browser/` folder (and the repository's LICENSE and NOTICE)
@@ -21,8 +22,8 @@
 //   LICENSE, NOTICE                  the runtime's license and notice (ONNX Runtime Web's MIT
 //                                    license is in THIRD_PARTY_LICENSES.txt at the top)
 //   types/                           declarations of the runtime's API, and cardvision.d.ts
-//   VENDOR.json                      the commit, the runtime's version, the ONNX Runtime pin and
-//                                    the OpenCV.js lock
+//   VENDOR.json                      the commit, the toolkit release it belongs to (--toolkit-release),
+//                                    the runtime's version, the ONNX Runtime pin and the OpenCV.js lock
 //
 // ONNX Runtime Web's WebAssembly files (about 28 MB) are not vendored: `npm run build` copies
 // them from this repository's own `onnxruntime-web` dependency, pinned to the version VENDOR.json
@@ -36,7 +37,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-const DEFAULT_COMMIT = "9e59fee";
+const DEFAULT_COMMIT = "3d8962c";
 const OPENCV_FILES = ["opencv.mjs", "opencv_js.wasm", "opencv.mjs.LEGAL.txt"];
 
 const { values } = parseArgs({
@@ -45,6 +46,7 @@ const { values } = parseArgs({
     commit: { type: "string", default: DEFAULT_COMMIT },
     opencv: { type: "string" },
     keep: { type: "boolean", default: false },
+    "toolkit-release": { type: "string" },
   },
 });
 if (!values.repo || !values.opencv) {
@@ -113,6 +115,7 @@ try {
         license: pkg.license,
         source: "cardvision-browser, the browser runtime of the cardvision toolkit (source published with the toolkit release)",
         commit,
+        ...(values["toolkit-release"] ? { toolkitRelease: values["toolkit-release"] } : {}),
         onnxruntimeWeb: ortVersion,
         ortFiles,
         opencv: { lock, legalSha256: createHash("sha256").update(readFileSync(join(out, "opencv.mjs.LEGAL.txt"))).digest("hex") },

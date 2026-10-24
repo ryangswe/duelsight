@@ -1,4 +1,5 @@
 import type { GeometricSettings } from "./config.js";
+import type { StageDebug } from "./debug.js";
 export declare const EMBEDDING = "embedding";
 export declare const VOTE = "vote";
 export declare const BOTH = "both";
@@ -28,6 +29,8 @@ export interface StageResult {
     candidates: Verified[];
     cropKeypoints: number;
     ms: number;
+    /** The stage's debug record of the crop, when it was asked for one (debug.ts). */
+    debug?: StageDebug;
 }
 /** A verified candidate as a report records it (Python: `Verified.to_json`). */
 export interface VerifiedJson {
@@ -50,6 +53,8 @@ export interface GeometricEvidence {
         accepted: boolean;
     };
     candidates: VerifiedJson[];
+    /** The stage's debug record, when it was asked for one (Python: the same key). */
+    debug?: StageDebug;
 }
 /** A verified candidate's fused score from its evidence (Python: `fused_score`). */
 export declare function fusedScore(cosine: number, evidence: number, fusion: GeometricSettings["fusion"]): number;
