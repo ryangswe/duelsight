@@ -10,6 +10,7 @@ copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment. Card data
 YGOPRODeck.
 
 It is aimed at Master Duel, Dueling Book and paper tables, with the camera above the table.
+Master Duel and Dueling Book are measured and promised; paper is supported but not promised.
 Results vary by video; see [docs/accuracy.md](docs/accuracy.md).
 
 ## Install

@@ -1,23 +1,24 @@
-DuelSight Yu-Gi-Oh! models, early preview release T (id 6666477f410559ac)
+DuelSight Yu-Gi-Oh! models, release T2 (id 0927859c6f18302f)
 Copyright 2026 The DuelSight authors and the cardvision authors
 
 The files in the release folder (release.json, detector.onnx, recognizer.onnx, bank.json,
 identity-groups.json, catalog.json) are licensed under the Apache License, Version 2.0.
 The full text is in the file LICENSE beside this one.
 
-This is an early preview of DuelSight's models. A newer release is in preparation.
+This release replaces the early preview release T (id 6666477f410559ac). It was measured on a
+held-out test before release; docs/accuracy.md in the DuelSight repository gives the figures.
 
 ------------------------------------------------------------------------------
 What the models are
 ------------------------------------------------------------------------------
 
-  * detector.onnx: a card detector derived from YOLOX. It was fine-tuned from the detector of
+  * detector.onnx: a card detector derived from YOLOX. It was fine-tuned, in two rounds, from the detector of
     the Kenbunshoku One Piece Card Game release B2.1
     (https://huggingface.co/JuicyKaraageNo1/kenbunshoku-onepiece, Apache-2.0), which was itself
     fine-tuned from the COCO-pretrained YOLOX-Nano weights published by Megvii
     (https://github.com/Megvii-BaseDetection/YOLOX, Apache-2.0).
   * recognizer.onnx: the cardvision recognizer (MobileNetV3-Small), trained to output one
-    128-value vector per card picture. It was fine-tuned from the Kenbunshoku release B2.1
+    128-value vector per card picture. It was fine-tuned, in three rounds, from the Kenbunshoku release B2.1
     recognizer, which started from torchvision's ImageNet-pretrained weights (BSD-3-Clause code).
   * bank.json: one vector per known card, computed by the recognizer from card pictures. It
     does not contain the pictures.

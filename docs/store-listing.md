@@ -13,7 +13,8 @@ anything. Read the store's current policies before each submission: they change.
 
 | Version | Models | Visibility | Status |
 | --- | --- | --- | --- |
-| 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | prepared 2026-10-23, not yet submitted |
+| 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | submitted 2026-10-23 |
+| 0.2.0 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)) | Public | prepared 2026-10-24, not yet submitted |
 
 Update this table with each submission (date submitted, date approved, store item ID).
 
@@ -49,14 +50,18 @@ most, this is 129):
 Unofficial fan project, not affiliated with or endorsed by Konami. Hover a Yu-Gi-Oh! card in a YouTube or Twitch video to see it.
 ```
 
-**Description** (0.1.0, early preview):
+**Description** (0.2.0):
 
 ```text
 DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.
 
 Hover a card in a Yu-Gi-Oh! video on YouTube or Twitch, and a larger picture of it appears beside it, with its name, type, stats and text.
 
-Early preview: card recognition is still being improved, most of all on paper tables. An update is on its way.
+Measured before release, in a held-out test scored once (31 frames from 11 recordings, labeled without any model's help):
+- Master Duel: 72 of 80 readable cards named right; 0 of 72 tooltips shown were wrong.
+- Dueling Book: 41 of 42 readable cards named right; 0 of 41 tooltips shown were wrong.
+- Paper videos are supported but not promised: in the test it named 45 of 106 readable cards; 1 of 46 tooltips shown were wrong. The paper footage tested was official Konami tournament broadcasts at 1080p or higher; locals, phone footage and lower-resolution streams were not tested.
+Full test report: https://github.com/ryangswe/duelsight/blob/main/docs/accuracy.md
 
 - Aimed at Master Duel, Dueling Book and paper tables with the camera above the table. Results vary by video, and it can miss a card or show a wrong one.
 - Turn it on per channel with the button in the player. The toolbar switch turns it off everywhere.
@@ -138,8 +143,8 @@ https://cdn.duelsight.com/privacy.html
 
 ## Distribution tab
 
-**Visibility:** 0.1.0 is **Unlisted** (people find it through its link, not in search), so the store's review of a new item
-is done before launch. The launch release goes Public as an update. **Regions:** all.
+**Visibility:** 0.1.0 was **Unlisted** (people find it through its link, not in search), so the store's review of a new item
+was done before launch. **0.2.0 is the launch release: switch Visibility to Public** with this update. **Regions:** all.
 **Pricing:** free.
 
 ## Test instructions (if the dashboard asks)
