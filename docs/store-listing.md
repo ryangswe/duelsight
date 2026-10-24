@@ -14,7 +14,7 @@ anything. Read the store's current policies before each submission: they change.
 | Version | Models | Visibility | Status |
 | --- | --- | --- | --- |
 | 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | submitted 2026-10-23 |
-| 0.2.0 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)) | Public | prepared 2026-10-24, not yet submitted |
+| 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | prepared 2026-10-24, not yet submitted |
 
 Update this table with each submission (date submitted, date approved, store item ID).
 
@@ -50,7 +50,7 @@ most, this is 129):
 Unofficial fan project, not affiliated with or endorsed by Konami. Hover a Yu-Gi-Oh! card in a YouTube or Twitch video to see it.
 ```
 
-**Description** (0.2.0):
+**Description** (0.2.0 and later):
 
 ```text
 DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.
@@ -144,7 +144,7 @@ https://cdn.duelsight.com/privacy.html
 ## Distribution tab
 
 **Visibility:** 0.1.0 was **Unlisted** (people find it through its link, not in search), so the store's review of a new item
-was done before launch. **0.2.0 is the launch release: switch Visibility to Public** with this update. **Regions:** all.
+was done before launch. **0.2.1 is the launch release: switch Visibility to Public** once it is approved. **Regions:** all.
 **Pricing:** free.
 
 ## Test instructions (if the dashboard asks)

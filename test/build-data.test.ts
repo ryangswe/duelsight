@@ -287,8 +287,9 @@ describe("load request", () => {
 describe("public copy", () => {
   const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf-8");
   const disclaimer = "is an unofficial fan project, not affiliated with or endorsed by Konami.";
-  it("says in the popup, the README, PRIVACY and the manifest that it is not affiliated with Konami", () => {
-    expect(read("../static/popup.html")).toContain(`{{name}} ${disclaimer}`);
+  // The popup leaves it out (owner, 2026-10-24): the manifest description (shown on the extensions page
+  // and as the store summary), the store description, the README and PRIVACY carry it.
+  it("says in the README, PRIVACY and the manifest that it is not affiliated with Konami", () => {
     expect(read("../README.md")).toContain(`DuelSight ${disclaimer}`.replace("DuelSight is", "**DuelSight is").replace("Konami.", "Konami.**"));
     expect(read("../PRIVACY.md")).toContain("not affiliated with or endorsed by Konami");
     expect(CONFIG.description).toContain("not affiliated with or endorsed by Konami");
