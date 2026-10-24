@@ -11,7 +11,7 @@ import type { Settings } from "../src/settings/schema.js";
 import { artSize, connectTooltipFrame, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
 import { parseDetailsFile } from "../src/details/details.js";
 import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
-import { tag, type TooltipSize } from "../src/shared/messages.js";
+import { parseCardFacts, tag, type TooltipSize } from "../src/shared/messages.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 
 /** Settings for these tests (a fixture, not the build's own). */
@@ -458,5 +458,106 @@ describe("tooltip frame origin rule", () => {
     expect(shown).toEqual(["89631139", "clear"]);
     post!({ kind: "ready" });
     expect(posted).toEqual([{ message: tag({ kind: "ready" }), origin: SITE_ORIGIN }]);
+  });
+});
+
+describe("cards of a remote release (the facts channel, Addendum 2)", () => {
+  const RID = "0123456789abcdef";
+  const facts = (id: string, name: string) => ({ id, name, set: null, art: `${id}.jpg` });
+  let timers: Array<() => void>;
+  const withTimers = (extra: Partial<TooltipDeps> = {}) => {
+    timers = [];
+    const c = build({ setTimer: (fn) => (timers.push(fn), timers.length), clearTimer: () => undefined, ...extra });
+    c.setSettings(defaultSettings());
+    return c;
+  };
+
+  it("shows the channel's facts for that release, which win over the bundled table (a rename)", async () => {
+    const c = withTimers();
+    c.addFacts(RID, facts("89631139", "Renamed Dragon"));
+    expect(c.show("89631139", 1, RID)).toBe(true);
+    expect(elements.placeholder.textContent).toBe("Renamed Dragon");
+    await tick();
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg"]);
+    // Without the release id (a bundled card), or for another release, the bundled table's name.
+    expect(c.show("89631139", 2)).toBe(true);
+    expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
+    expect(c.show("89631139", 3, "ffffffffffffffff")).toBe(true);
+    expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
+  });
+
+  it("waits for the facts of a card new in that release, and shows it when they come", () => {
+    const c = withTimers();
+    expect(c.show("999", 4, RID)).toBe(false);
+    expect(elements.root.hidden).toBe(true);
+    c.addFacts(RID, facts("999", "New Card"));
+    expect(c.current).toBe("999");
+    expect(c.currentSeq).toBe(4);
+    expect(elements.placeholder.textContent).toBe("New Card");
+  });
+
+  it("shows nothing when the facts do not come within the wait", () => {
+    const c = withTimers();
+    expect(c.show("999", 5, RID)).toBe(false);
+    for (const fire of timers) fire();
+    c.addFacts(RID, facts("999", "Late Card"));
+    expect(c.current).toBeNull();
+    expect(elements.root.hidden).toBe(true);
+  });
+
+  it("keeps the shown card's facts for every later lookup, the details panel's too (A1)", async () => {
+    const c = withTimers({ measurePanel: () => [[220, 300]], frameSize: () => ({ width: 600, height: 460 }) });
+    c.setDetails(DETAILS);
+    c.addFacts(RID, facts("10000001", "Renamed Robot"));
+    c.show("10000001", 6, RID);
+    await tick();
+    expect(elements.panel.name.textContent).toBe("Renamed Robot");
+    c.setDetailsOn(false);
+    c.setDetailsOn(true);
+    expect(elements.panel.name.textContent).toBe("Renamed Robot");
+  });
+
+  it("a page-originated `card` for an id the compute frame never showed displays nothing, and cannot add facts", () => {
+    const c = withTimers();
+    const parent = { postMessage: () => undefined };
+    let listener: ((e: MessageEvent) => void) | null = null;
+    connectTooltipFrame({ win: { parent, addEventListener: (_: "message", l: (e: MessageEvent) => void) => void (listener = l) }, framed: true, parentOrigin: SITE_ORIGIN, dev: false }, c);
+    const fromPage = (data: unknown) => listener!({ data, source: parent, origin: SITE_ORIGIN } as unknown as MessageEvent);
+    // The page posts a card with made-up facts, and a facts-shaped message: neither reaches the map.
+    fromPage(tag({ kind: "card", cardId: "999", name: "Free Prize", releaseId: RID, facts: { name: "Free Prize", set: null, art: "x.jpg" } }));
+    fromPage({ releaseId: RID, cardId: "999", facts: { name: "Free Prize", set: null, art: "x.jpg" } });
+    fromPage(tag({ releaseId: RID, cardId: "999", facts: { name: "Free Prize", set: null, art: "x.jpg" } }));
+    for (const fire of timers) fire();
+    expect(c.current).toBeNull();
+    expect(elements.root.hidden).toBe(true);
+    fromPage(tag({ kind: "card", cardId: "999", name: "Free Prize", releaseId: RID }));
+    for (const fire of timers) fire();
+    expect(c.current).toBeNull();
+    // Only the channel adds facts; then the same page message shows the channel's name, never the page's.
+    c.addFacts(RID, facts("999", "Real Card"));
+    fromPage(tag({ kind: "card", cardId: "999", name: "Free Prize", releaseId: RID }));
+    expect(elements.placeholder.textContent).toBe("Real Card");
+  });
+});
+
+describe("parseCardFacts (A4)", () => {
+  const RID = "0123456789abcdef";
+  const good = { releaseId: RID, cardId: "999", facts: { name: "New Card", set: null, art: "full/999.jpg" } };
+  it("accepts a well-formed message", () => {
+    expect(parseCardFacts(good)).toEqual(good);
+    expect(parseCardFacts({ ...good, facts: { ...good.facts, art: null, printed: "LOB-001" } })?.facts.printed).toBe("LOB-001");
+  });
+  it.each([
+    ["a bad release id", { ...good, releaseId: "x" }],
+    ["no card id", { ...good, cardId: "" }],
+    ["no name", { ...good, facts: { ...good.facts, name: "" } }],
+    ["a long name", { ...good, facts: { ...good.facts, name: "n".repeat(201) } }],
+    ["an art path with ..", { ...good, facts: { ...good.facts, art: "../x.jpg" } }],
+    ["an absolute art path", { ...good, facts: { ...good.facts, art: "/x.jpg" } }],
+    ["an art URL", { ...good, facts: { ...good.facts, art: "https://evil.example/x.jpg" } }],
+    ["an empty segment", { ...good, facts: { ...good.facts, art: "a//b.jpg" } }],
+    ["no facts", { releaseId: RID, cardId: "999" }],
+  ])("refuses %s", (_, m) => {
+    expect(parseCardFacts(m)).toBeNull();
   });
 });

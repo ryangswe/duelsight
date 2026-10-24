@@ -11,7 +11,8 @@ what it sends, and what it keeps.
 - Video frames are processed temporarily in memory, inside your browser. They are not saved to
   storage and never uploaded.
 - The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a
-  settings file, card pictures and a card details file.
+  settings file, card pictures, a card details file and, when new cards are published, updated
+  card-recognition data.
 
 ## What it reads
 
@@ -47,9 +48,10 @@ storage, uploaded or shared.
 | The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
 | The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover) |
+| Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card hovers start in a tab and the settings file names a release newer than the one built into your version of the extension (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
 
 These requests carry no cookies, no account ID or per-user tracking identifier, and not the
-address of the page you watch. Settings, picture and details requests carry no `Referer` at all. Like any
+address of the page you watch. Settings, picture, details and release requests carry no `Referer` at all. Like any
 web request, they show the host your IP address, which file was asked for, and the headers your
 browser adds to every request. The extension sends nothing else to anyone, and it does not send
 the channels you turned on.
@@ -60,7 +62,8 @@ requests or IP addresses. Cloudflare handles the requests under its own
 [privacy policy](https://www.cloudflare.com/privacypolicy/).
 
 The settings file can turn card pictures off (`namesOnly`); the extension then requests no
-pictures at all. It can also stop naming a card details file; the extension then requests none and
+pictures at all. The maintainer can also point every install back to the recognition data built into
+it, or to an earlier release, within about an hour, with no action from you and no store review. It can also stop naming a card details file; the extension then requests none and
 deletes the copy it kept. With card details switched off in the popup, the details file is not
 requested.
 
@@ -76,12 +79,15 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
     video id), each with the time you turned it on, and that you have seen the button's
     intro label;
   - the last settings file it fetched, and when;
+  - if updated recognition data failed its checks, that release's id and why, for 24 hours, so that
+    it is not downloaded again in the meantime;
   - the version of a "New version available" notice you dismissed.
 - **In the extension's own Cache Storage:** one copy of the card details file from the CDN (the
   same file for everyone; it says nothing about you or what you watched). A newer version
   replaces it.
 
-Card pictures are kept in memory while the tab is open, and in your browser's ordinary cache.
+Card pictures are kept in memory while the tab is open, and in your browser's ordinary cache, as
+are the files of updated recognition data.
 
 To clear the channel list: click the player button again on a channel to forget that one, or
 remove the extension, which deletes all of its storage.

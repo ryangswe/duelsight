@@ -24,6 +24,9 @@ export interface FractionBox {
 export interface ShownCard {
   cardId: string;
   name: string;
+  /** The remote release the card was recognized with (its facts went to the tooltip frame by the
+   *  facts channel); absent for the bundled release. */
+  releaseId?: string;
   box: FractionBox;
   /** The other cards of the same analysis, so that the tooltip can be placed off them. */
   others?: FractionBox[];
@@ -56,7 +59,26 @@ export type ComputeOut =
 /** Content script → tooltip frame. */
 /** `seq` numbers each card the content script sends; the tooltip echoes it in its sizes, so a
  *  late size from an earlier showing of the same card is told apart. */
-export type TooltipIn = { kind: "card"; cardId: string; name: string; seq?: number } | { kind: "clear" };
+export type TooltipIn = { kind: "card"; cardId: string; name: string; seq?: number; releaseId?: string } | { kind: "clear" };
+
+/**
+ * Compute frame → tooltip frame, over the extension-only facts channel (FACTS_CHANNEL), never
+ * through the page: a card of a remote release, with the facts its tooltip shows. The page can
+ * post `card` messages to the tooltip frame, but it cannot reach this channel, so a tooltip only
+ * ever shows facts that a compute frame sent for a card it showed.
+ */
+export interface CardFactsMessage {
+  releaseId: string;
+  cardId: string;
+  facts: { name: string; set: string | null; art: string | null; printed?: string | null };
+}
+
+/** The BroadcastChannel the compute frame posts card facts on (both frames are extension pages). */
+export const FACTS_CHANNEL = "duelsight-card-facts";
+
+const RELEASE_ID = /^[0-9a-f]{16}$/;
+/** A clean relative art path: no scheme, no leading slash, no "." or ".." segment. */
+const ART_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
 /** Tooltip frame → content script. */
 export type TooltipOut =
@@ -184,7 +206,8 @@ export function parseComputeOut(data: unknown): ComputeOut | null {
       const box = c ? parseBox(c.box) : null;
       if (!(c && isText(c.cardId) && isText(c.name) && box)) return null;
       const others = Array.isArray(c.others) ? c.others.slice(0, 40).map(parseBox).filter((b): b is FractionBox => b !== null) : [];
-      return { kind: "shown", card: { cardId: c.cardId, name: c.name, box, others } };
+      const releaseId = typeof c.releaseId === "string" && RELEASE_ID.test(c.releaseId) ? c.releaseId : undefined;
+      return { kind: "shown", card: { cardId: c.cardId, name: c.name, ...(releaseId ? { releaseId } : {}), box, others } };
     }
     default:
       return null;
@@ -201,9 +224,29 @@ export function parseTooltipIn(data: unknown): TooltipIn | null {
   if (m.kind === "clear") return { kind: "clear" };
   if (m.kind === "card" && isText(m.cardId) && isText(m.name)) {
     if (m.seq !== undefined && !isSeq(m.seq)) return null;
-    return { kind: "card", cardId: m.cardId, name: m.name, ...(isSeq(m.seq) ? { seq: m.seq } : {}) };
+    const releaseId = typeof m.releaseId === "string" && RELEASE_ID.test(m.releaseId) ? m.releaseId : undefined;
+    return { kind: "card", cardId: m.cardId, name: m.name, ...(isSeq(m.seq) ? { seq: m.seq } : {}), ...(releaseId ? { releaseId } : {}) };
   }
   return null;
+}
+
+const isFactText = (v: unknown): v is string | null => v === null || (typeof v === "string" && v.length <= 200);
+
+/** A facts-channel message, checked (Addendum 1, A4): strings of at most 200 characters, a clean
+ *  relative art path. Null when anything is off: the tooltip then falls back to its own table. */
+export function parseCardFacts(data: unknown): CardFactsMessage | null {
+  if (typeof data !== "object" || data === null) return null;
+  const m = data as Raw;
+  if (typeof m.releaseId !== "string" || !RELEASE_ID.test(m.releaseId) || !isText(m.cardId)) return null;
+  const f = m.facts as Raw | undefined;
+  if (typeof f !== "object" || f === null || !isText(f.name) || !isFactText(f.set) || !isFactText(f.art)) return null;
+  if (f.art !== null && !ART_PATH.test(f.art as string)) return null;
+  if (f.printed !== undefined && !isFactText(f.printed)) return null;
+  return {
+    releaseId: m.releaseId,
+    cardId: m.cardId,
+    facts: { name: f.name, set: f.set as string | null, art: f.art as string | null, ...(f.printed !== undefined ? { printed: f.printed as string | null } : {}) },
+  };
 }
 
 export function parseTooltipOut(data: unknown): TooltipOut | null {
@@ -236,5 +279,5 @@ export type BackgroundIn = { kind: "settings:refresh" };
 export function allowedParentOrigin(origin: string, dev: boolean, sites: VideoSites = VIDEO_SITES): boolean {
   if (sites.youtube && origin === "https://www.youtube.com") return true;
   if (sites.twitch && origin === "https://www.twitch.tv") return true;
-  return dev && /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin);
+  return dev && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
 }

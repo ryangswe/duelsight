@@ -73,7 +73,7 @@ export function channelKey(url: URL, ownerHref: string | null): string | null {
     if (first === "videos" && second && /^\d{1,15}$/.test(second)) return `tw-video:${second}`;
     return null;
   }
-  if (url.protocol === "http:" && url.hostname === "127.0.0.1") return `local:${url.pathname}`;
+  if (url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost")) return `local:${url.pathname}`;
   return null;
 }
 

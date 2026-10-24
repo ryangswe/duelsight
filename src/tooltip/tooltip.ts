@@ -16,7 +16,7 @@ import { SETTINGS_URL } from "../constants.js";
 import type { CardTable } from "./card-data.js";
 import { connectTooltipFrame, TooltipController } from "./controller.js";
 import { frameHasShape, type ShapeWindow } from "./frame-shape.js";
-import type { TooltipOut } from "../shared/messages.js";
+import { FACTS_CHANNEL, parseCardFacts, type TooltipOut } from "../shared/messages.js";
 
 declare const __DEV__: boolean;
 
@@ -65,6 +65,12 @@ void (async () => {
     fitText: () => fitPanelText($("panel"), $("panel-text")),
   });
   controller.setSettings(effective.settings);
+  // Facts of a remote release's cards come from the compute frame over this extension-only
+  // channel, never through the page (the page can post `card` messages to this frame, not here).
+  new BroadcastChannel(FACTS_CHANNEL).onmessage = (event: MessageEvent) => {
+    const m = parseCardFacts(event.data);
+    if (m) controller.addFacts(m.releaseId, { id: m.cardId, ...m.facts });
+  };
   // The details file: fetched (once, then from the cache) only while the panel is on and the
   // settings name one; until it is loaded, pictures show alone.
   let detailsOn = await readDetailsOn(chrome.storage.local).catch(() => true);

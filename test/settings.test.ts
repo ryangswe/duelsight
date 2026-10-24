@@ -39,6 +39,7 @@ describe("validateSettings", () => {
       fallbacks: [],
       update: null,
       details: { path: expect.stringMatching(/^data\/details-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      release: null,
     });
     // The versioned name is the start of the file's SHA-256.
     expect(settings!.details!.sha256.startsWith(settings!.details!.path.slice("data/details-".length, -".json".length))).toBe(true);

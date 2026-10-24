@@ -33,7 +33,9 @@ export function extensionIdOf(publicKeyBase64) {
 }
 export const UNPACKED_EXTENSION_ID = extensionIdOf(UNPACKED_PUBLIC_KEY);
 
-export const DEV_PAGES = ["http://127.0.0.1/*"];
+// localhost too: a second top-level site, so the smoke check can see whether the browser keeps one
+// HTTP cache per site (test/smoke/remote-smoke.mjs).
+export const DEV_PAGES = ["http://127.0.0.1/*", "http://localhost/*"];
 
 /**
  * The policy of the extension's own pages, frames and worker. WebAssembly may be compiled (the

@@ -760,7 +760,7 @@ export class Agent {
     if (card.cardId !== this.displayedCardId) {
       this.displayedCardId = card.cardId;
       this.cardSeq += 1;
-      this.toTooltip({ kind: "card", cardId: card.cardId, name: card.name, seq: this.cardSeq });
+      this.toTooltip({ kind: "card", cardId: card.cardId, name: card.name, seq: this.cardSeq, ...(card.releaseId ? { releaseId: card.releaseId } : {}) });
     }
     // Shown once the tooltip has sized itself for this card; the outline comes with it.
     const ready = this.sizedCardId === card.cardId;

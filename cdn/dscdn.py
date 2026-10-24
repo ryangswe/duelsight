@@ -11,11 +11,20 @@ project's. See README.md (setup, usage) and SETTINGS.md (the config.json contrac
   dscdn.py publish --config F                 # config.json only
   dscdn.py publish --page F                   # a page, e.g. privacy.html (scripts/privacy-page.mjs)
   dscdn.py verify  [--samples N]
+  dscdn.py publish-release --release DIR --min-version X [--max-version Y] [--legal DIR] [--details F]
+                   [--config F [--set-pointer]] [--sessions] [--fix-metadata] [--dry-run]
+  dscdn.py verify-release-live [--candidate ID | --config-url U] [--expect-id ID] [--sessions]
   dscdn.py selftest
 
 Credentials (environment or --env-file; only DSCDN_* entries are read):
   DSCDN_R2_ACCOUNT_ID, DSCDN_R2_ACCESS_KEY_ID, DSCDN_R2_SECRET_ACCESS_KEY,
   DSCDN_BUCKET, DSCDN_PUBLIC_BASE (e.g. https://cdn.example.org, no trailing slash)
+  DSCDN_EXTENSION_IDS (verify-release-live: the store and unpacked extension ids, comma-separated)
+
+--sessions starts both ONNX Runtime sessions of the release in Node (scripts/verify-remote-release.mjs);
+use it whenever the detector or recognizer differs from the live release's. If Node cannot do it on some
+machine, the fallback is the toolkit's Python check: `cardvision verify-release DIR/release.json`, then an
+onnxruntime InferenceSession on each of the two .onnx files.
 """
 
 from __future__ import annotations
@@ -302,6 +311,7 @@ def validate_config(cfg: object, public_base: Optional[str]) -> list[str]:
                 errs.append(f"config: details.path {path!r} is not a clean relative path to a .json file")
             if not re.fullmatch(r"[0-9a-f]{64}", details["sha256"]):
                 errs.append("config: details.sha256 must be 64 lowercase hex digits")
+    errs += release_pointer_problems(cfg.get("release"))
     return errs
 
 
@@ -554,11 +564,11 @@ def ssl_context():
     return _SSL_CONTEXT
 
 
-def http_get(url: str, origin: Optional[str] = None) -> tuple[int, dict, bytes]:
-    headers = {"User-Agent": USER_AGENT}
+def http_get(url: str, origin: Optional[str] = None, method: str = "GET", headers: Optional[dict] = None) -> tuple[int, dict, bytes]:
+    hdrs = {"User-Agent": USER_AGENT, **(headers or {})}
     if origin:
-        headers["Origin"] = origin
-    req = urllib.request.Request(url, headers=headers)
+        hdrs["Origin"] = origin
+    req = urllib.request.Request(url, headers=hdrs, method=method)
     try:
         with urllib.request.urlopen(req, timeout=30, context=ssl_context()) as r:
             return r.status, {k.lower(): v for k, v in r.headers.items()}, r.read()
@@ -677,6 +687,378 @@ def verify(public_base: str, samples: int, get=http_get) -> int:
     return bad
 
 
+# ---------------------------------------------------------------------------- remote releases (SETTINGS.md "release")
+
+RELEASES_PREFIX = "vision/releases/"
+RELEASES_INDEX_KEY = "vision/releases/index.json"
+RELEASE_CACHE = "public, max-age=31536000, immutable"
+RELEASE_ID = re.compile(r"^[0-9a-f]{16}$")
+FLAT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# Published beside the weights: the release's license, notice and provenance (release-legal/).
+LEGAL_TYPES = {"LICENSE": "text/plain; charset=utf-8", "NOTICE": "text/plain; charset=utf-8",
+               "PROVENANCE.md": "text/markdown; charset=utf-8"}
+REPO = Path(__file__).resolve().parent.parent
+RUNTIMES_PATH = Path(__file__).with_name("RUNTIMES.json")
+
+
+def version_tuple(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def release_pointer_problems(rel: object) -> list[str]:
+    """The config's `release` field (SETTINGS.md, schema 1, additive). The extension ignores a
+    malformed one (and loads its bundled release); refused here so that it is never published."""
+    if rel is None:
+        return []
+    if not isinstance(rel, dict):
+        return ["config: release must be an object or null"]
+    errs = []
+    rid = rel.get("id")
+    if not isinstance(rid, str) or not RELEASE_ID.match(rid):
+        errs.append("config: release.id must be 16 lowercase hex digits")
+    elif rel.get("path") != f"{RELEASES_PREFIX}{rid}/release.json":
+        errs.append(f"config: release.path must be exactly {RELEASES_PREFIX}{rid}/release.json")
+    if not isinstance(rel.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", rel["sha256"]):
+        errs.append("config: release.sha256 must be 64 lowercase hex digits")
+    if not isinstance(rel.get("minimumExtensionVersion"), str) or not VERSION_RE.match(rel["minimumExtensionVersion"]):
+        errs.append("config: release.minimumExtensionVersion is required, x.y.z")
+    if "maximumExtensionVersion" in rel and (not isinstance(rel["maximumExtensionVersion"], str) or not VERSION_RE.match(rel["maximumExtensionVersion"])):
+        errs.append("config: release.maximumExtensionVersion must be x.y.z (or left out)")
+    if "geometric" in rel:
+        errs.append("config: release.geometric is another product's field; DuelSight has no geometric stage")
+    return errs
+
+
+@dataclass
+class ReleaseFile:
+    key: str
+    data: bytes
+    sha256: str
+    content_type: str
+
+
+@dataclass
+class LocalRelease:
+    id: str
+    doc: dict
+    doc_bytes: bytes
+    pinned: list[ReleaseFile]
+    legal: list[ReleaseFile]
+
+    @property
+    def doc_file(self) -> ReleaseFile:
+        return ReleaseFile(f"{RELEASES_PREFIX}{self.id}/release.json", self.doc_bytes,
+                           hashlib.sha256(self.doc_bytes).hexdigest(), "application/json")
+
+
+def pinned_refs(doc: dict) -> list[dict]:
+    return [doc.get("detector"), doc.get("recognizer"), doc.get("bank"), (doc.get("identity") or {}).get("groups"), doc.get("catalog")]
+
+
+def load_local_release(folder: Path, legal_dir: Path) -> LocalRelease:
+    """Step 1, the local seal: the document parses, its id is the folder's name, every pinned file is
+    a flat name present with its size and SHA-256, and the legal files name this release."""
+    doc_path = folder / "release.json"
+    if not doc_path.is_file():
+        raise Refused(f"{doc_path}: no release document")
+    doc_bytes = doc_path.read_bytes()
+    try:
+        doc = json.loads(doc_bytes)
+    except json.JSONDecodeError:
+        raise Refused(f"{doc_path}: not JSON")
+    rid = doc.get("id") if isinstance(doc, dict) else None
+    if not isinstance(rid, str) or not RELEASE_ID.match(rid):
+        raise Refused(f"{doc_path}: no 16-hex release id")
+    if folder.resolve().name != rid:
+        raise Refused(f"the release folder is named {folder.resolve().name!r}; name it after its id ({rid}) so that the "
+                      "CDN folder and the local one are the same")
+    pinned = []
+    for ref in pinned_refs(doc):
+        if not isinstance(ref, dict) or not isinstance(ref.get("path"), str):
+            raise Refused(f"{doc_path}: a pinned file is missing")
+        path = ref["path"]
+        if not FLAT_NAME.match(path):
+            raise Refused(f"{doc_path}: pinned path {path!r} is not a flat name (letters, digits, '.', '_', '-')")
+        f = folder / path
+        if not f.is_file():
+            raise Refused(f"{f}: missing")
+        data = f.read_bytes()
+        sha = hashlib.sha256(data).hexdigest()
+        if len(data) != ref.get("bytes") or sha != ref.get("sha256"):
+            raise Refused(f"{f}: size or sha256 differs from the release document")
+        ctype = "application/octet-stream" if path.endswith(".onnx") else "application/json"
+        pinned.append(ReleaseFile(f"{RELEASES_PREFIX}{rid}/{path}", data, sha, ctype))
+    legal = []
+    for name, ctype in LEGAL_TYPES.items():
+        f = legal_dir / name
+        if not f.is_file():
+            raise Refused(f"{f}: missing (the release's license files go beside its weights)")
+        data = f.read_bytes()
+        legal.append(ReleaseFile(f"{RELEASES_PREFIX}{rid}/{name}", data, hashlib.sha256(data).hexdigest(), ctype))
+    notice_first = legal[1].data.decode("utf-8").split("\n", 1)[0]
+    if rid not in notice_first:
+        raise Refused(f"{legal_dir / 'NOTICE'}: its first line does not name release {rid}; update NOTICE and PROVENANCE.md "
+                      "for this release (as for a build) before publishing it")
+    return LocalRelease(rid, doc, doc_bytes, pinned, legal)
+
+
+def node_verify(args: list[str], run=None) -> dict:
+    """scripts/verify-remote-release.mjs: the vendored runtime's own checks (and, with --sessions,
+    ONNX Runtime sessions in Node)."""
+    import subprocess
+
+    run = run or subprocess.run
+    r = run(["node", str(REPO / "scripts" / "verify-remote-release.mjs"), *args], capture_output=True, text=True)
+    lines = [l for l in (r.stdout or "").splitlines() if l.startswith("{")]
+    try:
+        out = json.loads(lines[-1]) if lines else {}
+    except json.JSONDecodeError:
+        out = {}
+    if not out:
+        out = {"ok": False, "reason": f"verify-remote-release.mjs gave no result: {(r.stderr or '').strip()[-300:]}"}
+    return out
+
+
+def runtime_problems(doc: dict, min_v: str, max_v: Optional[str], runtimes: dict) -> list[str]:
+    """Step 2: every pointer-aware version the pointer would reach can load the release (ONNX
+    Runtime major.minor). A version it would not reach is fine; none at all is refused."""
+    want = str((doc.get("runtime") or {}).get("ortWeb", ""))
+    mm = lambda v: ".".join(v.split(".")[:2])
+    reached = [v for v in runtimes if VERSION_RE.match(v) and version_tuple(v) >= version_tuple(min_v) and (max_v is None or version_tuple(v) < version_tuple(max_v))]
+    if not reached:
+        return [f"no extension version in cdn/RUNTIMES.json is in [{min_v}, {max_v or '∞'}): nothing would load it"]
+    return [f"extension {v} runs onnxruntime-web {runtimes[v]['ortWeb']}, the release needs {want} (major.minor): raise --min-version"
+            for v in reached if mm(runtimes[v]["ortWeb"]) != mm(want)]
+
+
+def remote_state(s3, bucket: str, files: list[ReleaseFile], fix_metadata: bool) -> tuple[list[ReleaseFile], list[ReleaseFile]]:
+    """Step 4, through the S3 API only (never the public URL, so that no 404 is cached at the edge
+    before the upload). Returns (to upload, already there). Another file's bytes under one of the keys
+    refuses the whole run before anything is uploaded."""
+    upload, there = [], []
+    for f in files:
+        try:
+            head = s3.head_object(Bucket=bucket, Key=f.key)
+        except Exception as e:
+            code = str(getattr(e, "response", {}).get("Error", {}).get("Code", ""))
+            if code in ("404", "NoSuchKey", "NotFound"):
+                upload.append(f)
+                continue
+            raise
+        meta = (head.get("Metadata") or {}).get("sha256")
+        if meta == f.sha256 and head.get("ContentLength") == len(f.data):
+            there.append(f)
+            continue
+        body = s3.get_object(Bucket=bucket, Key=f.key)["Body"].read()
+        if hashlib.sha256(body).hexdigest() != f.sha256:
+            raise Refused(f"{f.key} is already on the CDN with other bytes: release folders are never overwritten "
+                          "(a changed release is a new id)")
+        if not fix_metadata:
+            raise Refused(f"{f.key}: same bytes, but its sha256 metadata is {meta!r}; re-run with --fix-metadata")
+        upload.append(f)
+    return upload, there
+
+
+def upload_release(s3, bucket: str, lr: LocalRelease, todo: list[ReleaseFile], log: Callable[[str], None] = print) -> int:
+    """Step 5: the pinned and legal files, then release.json last within the folder; each one
+    HEAD-checked. Stops at the first failure: nothing after it is written."""
+    doc = lr.doc_file
+    order = [f for f in todo if f.key != doc.key] + [f for f in todo if f.key == doc.key]
+    for f in order:
+        try:
+            s3.put_object(Bucket=bucket, Key=f.key, Body=f.data, ContentType=f.content_type,
+                          CacheControl=RELEASE_CACHE, Metadata={"sha256": f.sha256})
+            head = s3.head_object(Bucket=bucket, Key=f.key)
+            if head.get("ContentLength") != len(f.data) or (head.get("Metadata") or {}).get("sha256") != f.sha256:
+                raise RuntimeError("the uploaded object does not match")
+        except Exception as e:
+            log(f"FAILED {f.key}: {e}; nothing after it was written. Re-run to retry.")
+            return 1
+        log(f"release: {f.key} written ({len(f.data)} bytes)")
+    return 0
+
+
+def write_release_index(s3, bucket: str, lr: LocalRelease, log: Callable[[str], None] = print) -> None:
+    """The tool's own record of what was published (not part of the contract)."""
+    try:
+        idx = json.loads(s3.get_object(Bucket=bucket, Key=RELEASES_INDEX_KEY)["Body"].read())
+    except Exception:
+        idx = {"schemaVersion": 1, "releases": {}}
+    idx.setdefault("releases", {})[lr.id] = {"publishedAt": utc_now(), "bytes": {f.key.rsplit("/", 1)[1]: len(f.data) for f in lr.pinned}}
+    s3.put_object(Bucket=bucket, Key=RELEASES_INDEX_KEY, Body=json.dumps(idx, indent=1).encode(),
+                  ContentType="application/json", CacheControl=INDEX_CACHE)
+    log(f"index: {RELEASES_INDEX_KEY} written")
+
+
+def pointer_block(lr: LocalRelease, min_v: str, max_v: Optional[str]) -> dict:
+    block = {"id": lr.id, "path": f"{RELEASES_PREFIX}{lr.id}/release.json", "sha256": hashlib.sha256(lr.doc_bytes).hexdigest(),
+             "minimumExtensionVersion": min_v}
+    if max_v:
+        block["maximumExtensionVersion"] = max_v
+    return block
+
+
+def bundled_release_id(path: Optional[Path] = None) -> Optional[str]:
+    """The id of the release the current build bundles (dist/release/release.json), when there is one."""
+    p = path or REPO / "dist" / "release" / "release.json"
+    try:
+        return json.loads(p.read_text()).get("id")
+    except Exception:
+        return None
+
+
+def verify_release_live(public_base: str, candidate: Optional[str] = None, expect_id: Optional[str] = None,
+                        sessions: bool = False, expect_sha: Optional[str] = None, extension_ids: Optional[list[str]] = None,
+                        get=None, node=node_verify, config_url: Optional[str] = None) -> int:
+    """verify-release-live (SETTINGS.md): the pointer (or a candidate id), its document, the
+    runtime's own checks over https, and every file's headers. Returns failures."""
+    get = get or http_get
+    bad = 0
+
+    def fail(msg: str) -> None:
+        nonlocal bad
+        bad += 1
+        print(f"FAIL {msg}")
+
+    bust = f"cb={random.getrandbits(32):x}"
+    pointer = None
+    if candidate:
+        if not RELEASE_ID.match(candidate):
+            fail(f"--candidate {candidate!r} is not a 16-hex id")
+            return bad
+        rid = candidate
+    else:
+        url = config_url or f"{public_base}/{CONFIG_KEY}"
+        status, _, body = get(f"{url}{'&' if '?' in url else '?'}{bust}")
+        if status != 200:
+            fail(f"config.json: HTTP {status}")
+            return bad
+        cfg = json.loads(body)
+        pointer = cfg.get("release")
+        if pointer is None:
+            print("ok   config.json: no release pointer (installs run their bundled release)")
+            return 0
+        errs = release_pointer_problems(pointer)
+        for e in errs:
+            fail(e)
+        if errs:
+            return bad
+        rid = pointer["id"]
+        expect_sha = pointer["sha256"]
+    if expect_id and rid != expect_id:
+        fail(f"release {rid} is not the expected {expect_id}")
+    doc_url = f"{public_base}/{RELEASES_PREFIX}{rid}/release.json"
+    status, h, doc_bytes = get(f"{doc_url}?{bust}")
+    if status != 200:
+        fail(f"release.json: HTTP {status}")
+        return bad
+    sha = hashlib.sha256(doc_bytes).hexdigest()
+    if expect_sha and sha != expect_sha:
+        fail(f"release.json: sha256 {sha} is not the pointer's {expect_sha}")
+    result = node(["--url", doc_url, "--expect-id", rid, *(["--sessions"] if sessions else [])])
+    if not result.get("ok"):
+        fail(f"runtime check: {result.get('reason')}")
+    else:
+        print(f"ok   runtime check: release {result['id']}, bank {result['bankEntries']} entries / {result['bankCards']} cards, "
+              f"catalog {result['catalogCards']} cards, sessions {result['sessions']}")
+    doc = json.loads(doc_bytes)
+    ids = extension_ids if extension_ids is not None else [x.strip() for x in os.environ.get("DSCDN_EXTENSION_IDS", "").split(",") if x.strip()]
+    if not ids:
+        fail("DSCDN_EXTENSION_IDS is not set: the CORS check needs each real extension id (store and unpacked)")
+    checks = [(f"release.json", "application/json", sha)] + [(r["path"], "application/octet-stream" if r["path"].endswith(".onnx") else "application/json", r["sha256"]) for r in pinned_refs(doc)]
+    checks += [(name, ctype, None) for name, ctype in LEGAL_TYPES.items()]
+    for name, ctype, want_sha in checks:
+        url = f"{public_base}/{RELEASES_PREFIX}{rid}/{name}"
+        status, h, data = get(f"{url}?{bust}", origin=f"chrome-extension://{ids[0]}" if ids else None)
+        if status != 200:
+            fail(f"{name}: HTTP {status}")
+            continue
+        problems = []
+        if want_sha and hashlib.sha256(data).hexdigest() != want_sha:
+            problems.append("sha256 differs from the release document")
+        if h.get("content-type") != ctype:
+            problems.append(f"content-type {h.get('content-type')!r}, want {ctype!r}")
+        if h.get("cache-control") != RELEASE_CACHE:
+            problems.append(f"cache-control {h.get('cache-control')!r}, want {RELEASE_CACHE!r}")
+        if nel_problem(h):
+            problems.append(nel_problem(h))
+        for ext in ids:
+            origin = f"chrome-extension://{ext}"
+            _, ch, _ = get(f"{url}?{bust}", origin=origin, method="HEAD")
+            if ch.get("access-control-allow-origin") not in ("*", origin):
+                problems.append(f"no CORS header for {origin}")
+        if problems:
+            fail(f"{name}: " + "; ".join(problems))
+            continue
+        note = ""
+        if ctype == "application/json":
+            _, eh, _ = get(f"{url}?{bust}", method="HEAD", headers={"Accept-Encoding": "gzip, br, zstd"})
+            enc = eh.get("content-encoding")
+            note = f", content-encoding {enc}" if enc else ", WARNING: served uncompressed"
+        print(f"ok   {name}: {len(data)} bytes{note}")
+    print(f"verify-release-live {rid}: " + ("all checks passed" if not bad else f"{bad} failure(s)"))
+    return bad
+
+
+def publish_release(args, t: Target, s3=None, verify_live=None, node=node_verify, log: Callable[[str], None] = print) -> int:
+    """publish-release (SETTINGS.md, "Publishing a release"): seal, runtime table, remote state,
+    upload, verify live, details, pointer and config.json last."""
+    lr = load_local_release(Path(args.release), Path(args.legal) if args.legal else REPO / "release-legal")
+    min_v, max_v = args.min_version, args.max_version
+    if not min_v or not VERSION_RE.match(min_v) or (max_v and not VERSION_RE.match(max_v)):
+        raise Refused("--min-version x.y.z is required (and --max-version, when given, is x.y.z)")
+    local = node(["--dir", str(Path(args.release)), "--expect-id", lr.id, *(["--sessions"] if args.sessions else [])])
+    if not local.get("ok"):
+        raise Refused(f"the runtime's own check refused the release: {local.get('reason')}")
+    log(f"seal: release {lr.id} ok (bank {local['bankEntries']} entries, catalog {local['catalogCards']} cards, sessions {local['sessions']})")
+    runtimes = json.loads(RUNTIMES_PATH.read_text())
+    problems = runtime_problems(lr.doc, min_v, max_v, runtimes)
+    if problems:
+        raise Refused("; ".join(problems))
+    s3 = s3 or r2_client(t)
+    todo, there = remote_state(s3, t.bucket, lr.pinned + lr.legal + [lr.doc_file], args.fix_metadata)
+    block = pointer_block(lr, min_v, max_v)
+    log(f"remote: {len(todo)} to upload, {len(there)} already there")
+    for f in todo:
+        log(f"  upload {f.key} ({len(f.data)} bytes)")
+    log("pointer: " + json.dumps(block))
+    if bundled_release_id() == lr.id:
+        log(f"note: {lr.id} is the release the current build bundles: a pointer to it downloads nothing (a no-op move)")
+    if args.dry_run:
+        return 0
+    if upload_release(s3, t.bucket, lr, todo, log):
+        return 1
+    if todo:
+        write_release_index(s3, t.bucket, lr, log)
+    verify_live = verify_live or verify_release_live
+    if verify_live(t.public_base, candidate=lr.id, expect_sha=block["sha256"], sessions=args.sessions):
+        log("the release folder did not verify live: config.json NOT written")
+        return 1
+    details = load_details(Path(args.details)) if args.details else None
+    if details is not None and execute(s3, t.bucket, None, None, details=details, log=log):
+        return 1
+    if not args.config:
+        log("no --config: the release folder is published; the pointer is not moved")
+        return 0
+    cfg_path = Path(args.config)
+    cfg = json.loads(cfg_path.read_text())
+    if args.set_pointer:
+        cfg["release"] = block
+        cfg["updatedAt"] = utc_now()
+        cfg_path.write_text(json.dumps(cfg, indent=2) + "\n")
+        log(f"{cfg_path}: release set")
+    if cfg.get("release") != block:
+        raise Refused(f"{cfg_path}: its release field is not this release's pointer; set it to\n{json.dumps(block, indent=2)}\n(or pass --set-pointer)")
+    config = load_config(cfg_path, t.public_base)
+    problem = details_config_problem(config, details)
+    if problem:
+        raise Refused(problem)
+    if execute(s3, t.bucket, None, config, log=log):
+        return 1
+    return 1 if verify(t.public_base, 4) else 0
+
+
 # ---------------------------------------------------------------------------- CLI
 
 def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, Optional[bytes], Optional[DetailsFile]]:
@@ -699,7 +1081,7 @@ def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, 
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=("plan", "publish", "verify", "selftest"))
+    ap.add_argument("command", choices=("plan", "publish", "verify", "selftest", "publish-release", "verify-release-live"))
     ap.add_argument("--catalog", help="catalog JSON (entries with an id and an `art` path or null)")
     ap.add_argument("--images", help="directory the `art` paths are relative to")
     ap.add_argument("--config", help="config.json to publish (SETTINGS.md); uploaded last")
@@ -709,6 +1091,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--offline", action="store_true", help="plan: no credentials, treat the CDN as empty")
     ap.add_argument("--dry-run", action="store_true", help="publish: read the live index, print the plan, upload nothing")
     ap.add_argument("--samples", type=int, default=8, help="verify: images to fetch")
+    ap.add_argument("--release", help="publish-release: the release folder (named after its id; cardvision build-release)")
+    ap.add_argument("--min-version", help="publish-release: the pointer's minimumExtensionVersion (x.y.z)")
+    ap.add_argument("--max-version", help="publish-release: maximumExtensionVersion (exclusive); leave it out unless needed")
+    ap.add_argument("--legal", help="publish-release: LICENSE, NOTICE, PROVENANCE.md for this release (default release-legal/)")
+    ap.add_argument("--set-pointer", action="store_true", help="publish-release: write the pointer into --config first")
+    ap.add_argument("--fix-metadata", action="store_true", help="publish-release: re-upload same-bytes objects whose sha256 metadata is wrong")
+    ap.add_argument("--sessions", action="store_true", help="also start the ONNX Runtime sessions in Node (a new model)")
+    ap.add_argument("--candidate", help="verify-release-live: a release id on the CDN, without a pointer")
+    ap.add_argument("--config-url", help="verify-release-live: read the pointer from this config.json")
+    ap.add_argument("--expect-id", help="verify-release-live: the id the pointer must name")
     args = ap.parse_args(argv)
 
     if args.command == "selftest":
@@ -718,6 +1110,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         if args.command == "verify":
             return 1 if verify(target_from_env(need_secrets=False).public_base, args.samples) else 0
+        if args.command == "verify-release-live":
+            base = target_from_env(need_secrets=False).public_base
+            return 1 if verify_release_live(base, candidate=args.candidate, expect_id=args.expect_id, sessions=args.sessions,
+                                            config_url=args.config_url) else 0
+        if args.command == "publish-release":
+            if not args.release:
+                raise Refused("publish-release needs --release DIR")
+            return publish_release(args, target_from_env())
         if args.command == "plan" and args.offline:
             base = os.environ.get("DSCDN_PUBLIC_BASE")
             files, artless, cards, config, details = build(args, base.rstrip("/") if base else None)
@@ -730,6 +1130,11 @@ def main(argv: Optional[list[str]] = None) -> int:
             raise Refused("nothing to do: give --catalog/--images, --details, --page and/or --config")
         t = target_from_env()
         files, artless, cards, config, details = build(args, t.public_base)
+        # A pointer only ever moves to a folder that verifies live (this covers rollbacks too).
+        rel = json.loads(config).get("release") if config is not None else None
+        if rel and args.command == "publish" and not args.dry_run:
+            if verify_release_live(t.public_base, candidate=rel["id"], expect_sha=rel["sha256"]):
+                raise Refused(f"config.json points at release {rel['id']}, which does not verify live; nothing written")
         s3 = r2_client(t)
         live = read_live_index(s3, t.bucket)
         plan = make_plan(files, live, artless, cards) if args.catalog else None
@@ -1033,8 +1438,169 @@ def selftest() -> int:
         assert execute(s3p, "b", None, None, log=lambda _: None, page=page) == 0
         assert [p[0] for p in s3p.puts] == ["privacy.html"], "a page alone"
 
+    selftest_releases(refused)
     print("selftest: ok")
     return 0
+
+
+def selftest_releases(refused) -> None:
+    """publish-release and verify-release-live, with a fake bucket, a fake Node check and a fake CDN."""
+    import tempfile
+    from types import SimpleNamespace
+
+    rid = "0123456789abcdef"
+    ok_ptr = {"id": rid, "path": f"vision/releases/{rid}/release.json", "sha256": "a" * 64, "minimumExtensionVersion": "0.3.0"}
+    assert release_pointer_problems(None) == [] and release_pointer_problems(ok_ptr) == []
+    for bad in ({**ok_ptr, "path": f"vision/releases/{rid}/../x/release.json"}, {**ok_ptr, "id": "ABC"},
+                {**ok_ptr, "sha256": "x"}, {k: v for k, v in ok_ptr.items() if k != "minimumExtensionVersion"},
+                {**ok_ptr, "maximumExtensionVersion": "1"}, {**ok_ptr, "geometric": {}}, [ok_ptr]):
+        assert release_pointer_problems(bad), bad
+    cfg = json.loads(Path(__file__).with_name("config.example.json").read_text())
+    assert not validate_config({**cfg, "release": ok_ptr}, None)
+    assert validate_config({**cfg, "release": {**ok_ptr, "path": "x"}}, None)
+
+    runtimes = {"$comment": "x", "0.3.0": {"ortWeb": "1.29.0"}, "0.4.0": {"ortWeb": "1.30.1"}}
+    doc = {"runtime": {"ortWeb": "1.29.0"}}
+    assert runtime_problems(doc, "0.3.0", "0.4.0", runtimes) == []
+    assert runtime_problems(doc, "0.3.0", None, runtimes), "0.4.0 runs another ORT minor"
+    assert runtime_problems(doc, "9.0.0", None, runtimes), "nothing reached"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder, legal = Path(tmp) / rid, Path(tmp) / "legal"
+        folder.mkdir()
+        legal.mkdir()
+        refs = {}
+        for key, name in (("detector", "detector.onnx"), ("recognizer", "recognizer.onnx"), ("bank", "bank.json"),
+                          ("groups", "identity-groups.json"), ("catalog", "catalog.json")):
+            data = f"{name}-bytes".encode()
+            (folder / name).write_bytes(data)
+            refs[key] = {"path": name, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+        d = {"id": rid, "detector": refs["detector"], "recognizer": refs["recognizer"], "bank": refs["bank"],
+             "identity": {"groups": refs["groups"]}, "catalog": refs["catalog"], "runtime": {"ortWeb": "1.29.0"}}
+        (folder / "release.json").write_text(json.dumps(d))
+        (legal / "LICENSE").write_text("license")
+        (legal / "NOTICE").write_text(f"DuelSight models (release {rid})\nmore")
+        (legal / "PROVENANCE.md").write_text("provenance")
+        lr = load_local_release(folder, legal)
+        assert [f.key.rsplit("/", 1)[1] for f in lr.pinned] == ["detector.onnx", "recognizer.onnx", "bank.json", "identity-groups.json", "catalog.json"]
+        assert lr.pinned[0].content_type == "application/octet-stream" and lr.pinned[2].content_type == "application/json"
+        other = Path(tmp) / "elsewhere"
+        other.mkdir()
+        for f in folder.iterdir():
+            (other / f.name).write_bytes(f.read_bytes())
+        assert refused(lambda: load_local_release(other, legal)), "folder not named after its id"
+        (legal / "NOTICE").write_text("DuelSight models (release ffffffffffffffff)")
+        assert refused(lambda: load_local_release(folder, legal)), "NOTICE names another release"
+        (legal / "NOTICE").write_text(f"DuelSight models (release {rid})")
+        (folder / "bank.json").write_bytes(b"changed")
+        assert refused(lambda: load_local_release(folder, legal)), "a pinned file changed"
+        (folder / "bank.json").write_text("bank.json-bytes")
+        bad_doc = json.loads((folder / "release.json").read_text())
+        bad_doc["catalog"] = {**refs["catalog"], "path": "sub/catalog.json"}
+        (folder / "release.json").write_text(json.dumps(bad_doc))
+        assert refused(lambda: load_local_release(folder, legal)), "a pinned path is not a flat name"
+        (folder / "release.json").write_text(json.dumps(d))
+        lr = load_local_release(folder, legal)
+
+        class NoKey(Exception):
+            response = {"Error": {"Code": "404"}}
+
+        class FakeS3:
+            def __init__(self, objects=None, fail=()):
+                self.objects = dict(objects or {})
+                self.puts, self.fail = [], set(fail)
+
+            def head_object(self, *, Bucket, Key):
+                if Key not in self.objects:
+                    raise NoKey()
+                data, meta = self.objects[Key]
+                return {"ContentLength": len(data), "Metadata": meta}
+
+            def get_object(self, *, Bucket, Key):
+                if Key not in self.objects:
+                    raise NoKey()
+                return {"Body": SimpleNamespace(read=lambda: self.objects[Key][0])}
+
+            def put_object(self, *, Bucket, Key, Body, ContentType, CacheControl, Metadata=None):
+                if Key in self.fail:
+                    raise RuntimeError("boom")
+                self.objects[Key] = (Body, Metadata or {})
+                self.puts.append((Key, ContentType, CacheControl))
+
+        files = lr.pinned + lr.legal + [lr.doc_file]
+        todo, there = remote_state(FakeS3(), "b", files, False)
+        assert len(todo) == 9 and not there
+        f0 = lr.pinned[0]
+        todo, there = remote_state(FakeS3({f0.key: (f0.data, {"sha256": f0.sha256})}), "b", files, False)
+        assert len(todo) == 8 and there == [f0], "same bytes and metadata: skipped"
+        assert refused(lambda: remote_state(FakeS3({f0.key: (b"other", {"sha256": "x"})}), "b", files, True)), "other bytes refuse the run"
+        assert refused(lambda: remote_state(FakeS3({f0.key: (f0.data, {})}), "b", files, False)), "missing metadata"
+        todo, _ = remote_state(FakeS3({f0.key: (f0.data, {})}), "b", files, True)
+        assert f0 in todo, "--fix-metadata re-uploads it"
+
+        s3 = FakeS3()
+        assert upload_release(s3, "b", lr, files, log=lambda _: None) == 0
+        assert s3.puts[-1][0] == lr.doc_file.key, "release.json last within the folder"
+        assert all(p[2] == RELEASE_CACHE for p in s3.puts)
+        s3 = FakeS3(fail={lr.pinned[2].key})
+        assert upload_release(s3, "b", lr, files, log=lambda _: None) == 1
+        assert lr.doc_file.key not in s3.objects, "nothing after a failure, release.json above all"
+
+        node_ok = lambda args: {"ok": True, "id": rid, "bankEntries": 1, "bankCards": 1, "catalogCards": 1, "sessions": "skipped"}
+        cfg_file = Path(tmp) / "config.json"
+        cfg_file.write_text(json.dumps(cfg))
+        tgt = Target("a" * 32, "b" * 32, "c" * 64, "card-art", "https://cdn.example.org")
+        args = SimpleNamespace(release=str(folder), legal=str(legal), min_version="0.3.0", max_version=None, sessions=False,
+                               fix_metadata=False, dry_run=True, details=None, config=str(cfg_file), set_pointer=False)
+        s3 = FakeS3()
+        assert publish_release(args, tgt, s3=s3, node=node_ok, log=lambda _: None) == 0 and not s3.puts, "dry run writes nothing"
+        assert refused(lambda: publish_release(SimpleNamespace(**{**vars(args), "min_version": None}), tgt, s3=FakeS3(), node=node_ok, log=lambda _: None))
+        assert refused(lambda: publish_release(args, tgt, s3=FakeS3(), node=lambda a: {"ok": False, "reason": "x"}, log=lambda _: None)), "the runtime's check refuses"
+        args.dry_run = False
+        s3 = FakeS3()
+        assert refused(lambda: publish_release(args, tgt, s3=s3, node=node_ok, verify_live=lambda *a, **k: 0, log=lambda _: None)), "config without the pointer"
+        assert CONFIG_KEY not in s3.objects
+        s3 = FakeS3()
+        assert publish_release(args, tgt, s3=s3, node=node_ok, verify_live=lambda *a, **k: 1, log=lambda _: None) == 1, "not live: stop"
+        assert CONFIG_KEY not in s3.objects
+        args.set_pointer = True
+        s3 = FakeS3()
+        global verify
+        real_verify, verify = verify, (lambda base, samples, get=None: 0)
+        try:
+            assert publish_release(args, tgt, s3=s3, node=node_ok, verify_live=lambda *a, **k: 0, log=lambda _: None) == 0
+        finally:
+            verify = real_verify
+        keys = [p[0] for p in s3.puts]
+        assert keys[-1] == CONFIG_KEY and keys.index(lr.doc_file.key) < keys.index(CONFIG_KEY), "config.json last"
+        written = json.loads(cfg_file.read_text())["release"]
+        assert written == pointer_block(lr, "0.3.0", None) and "maximumExtensionVersion" not in written
+
+        # verify-release-live against a fake CDN
+        served = {f"{RELEASES_PREFIX}{rid}/{f.key.rsplit('/', 1)[1]}": f for f in files}
+        def fake_get(url, origin=None, method="GET", headers=None, cors=True, sha_ok=True):
+            path = url.split("cdn.example.org/", 1)[1].split("?")[0]
+            if path == CONFIG_KEY:
+                return 200, {"content-type": "application/json"}, json.dumps({**cfg, "release": pointer_block(lr, "0.3.0", None)}).encode()
+            f = served.get(path)
+            if not f:
+                return 404, {}, b""
+            h = {"content-type": f.content_type, "cache-control": RELEASE_CACHE}
+            if cors and origin:
+                h["access-control-allow-origin"] = origin
+            if headers and f.content_type == "application/json":
+                h["content-encoding"] = "zstd"
+            return 200, h, (f.data if sha_ok or not path.endswith("bank.json") else b"x")
+        quiet = lambda fn: fn()
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert verify_release_live("https://cdn.example.org", get=fake_get, node=node_ok, extension_ids=["e" * 32]) == 0
+            assert verify_release_live("https://cdn.example.org", candidate=rid, get=fake_get, node=node_ok, extension_ids=["e" * 32]) == 0
+            assert verify_release_live("https://cdn.example.org", get=fake_get, node=node_ok, extension_ids=[]) > 0, "no extension ids"
+            assert verify_release_live("https://cdn.example.org", get=lambda *a, **k: fake_get(*a, **k, cors=False), node=node_ok, extension_ids=["e" * 32]) > 0
+            assert verify_release_live("https://cdn.example.org", get=lambda *a, **k: fake_get(*a, **k, sha_ok=False), node=node_ok, extension_ids=["e" * 32]) > 0
+            assert verify_release_live("https://cdn.example.org", get=fake_get, node=lambda a: {"ok": False, "reason": "x"}, extension_ids=["e" * 32]) > 0
+            assert verify_release_live("https://cdn.example.org", expect_id="ffffffffffffffff", get=fake_get, node=node_ok, extension_ids=["e" * 32]) > 0
 
 
 if __name__ == "__main__":

@@ -1,9 +1,11 @@
 # Settings file contract (`config.json`), schema version 1
 
 The DuelSight extension reads one small JSON file from the project's CDN domain to decide where
-card images come from, and which card details file the tooltip's details panel uses. Changing this file, not shipping an extension release, is how images are
-turned off or moved between paths on the host the extension already has permission for. A new
-image host needs an extension release (see "Image hosts").
+card images come from, which card details file the tooltip's details panel uses, and which
+card-recognition release installs run (see "The release pointer"). Changing this file, not shipping an
+extension release, is how images are turned off or moved between paths on the host the extension
+already has permission for, and how new cards reach installed copies. A new image host needs an
+extension release (see "Image hosts").
 
 This document states what the extension enforces (`src/settings/`, `src/images/chain.ts`); a
 file that `dscdn.py` accepts can still have parts the extension drops.
@@ -35,6 +37,7 @@ file that `dscdn.py` accepts can still have parts the extension drops.
 | `primary` | source object or `null` | Our own CDN. **Required** (`null` is a value). `null` skips it (e.g. after a complaint), leaving the fallbacks. |
 | `fallbacks` | array of source objects | Tried in order after `primary` fails or is `null`. May be empty. |
 | `details` | object, optional | The card details file for the tooltip's details panel (see "The card details file"). `{ "path": "data/details-<sha8>.json", "sha256": "<64 hex digits>" }`: `path` is relative to this file's address (so on the same host), a clean relative path to a `.json` file (no leading `/`, no `.` or `..` segment); `sha256` is the file's SHA-256 in lowercase hex. Absent or `null`: no details panel, pictures alone, and a copy the extension kept is deleted. Malformed: ignored, the rest of the file still used. It does not bump `schemaVersion`; an older extension ignores it. |
+| `release` | object, optional | The card-recognition release installs run instead of their bundled one; see "The release pointer". Absent, `null` or malformed: the bundled release (a malformed one never makes the file unusable). It does not bump `schemaVersion`; an older extension ignores it. |
 | `update` | object, optional | For installs that never update by themselves (an unpacked folder from a release zip). `{ "latest": "x.y.z", "url": "https://…" }`: when the running extension's version is lower than `latest`, the popup shows one dismissible "New version available" line linking to `url`. Dismissed per version; a later `latest` shows it again. `latest` must be three dot-separated integers, and `url` must be the project's releases page or an address below it (`https://github.com/ryangswe/duelsight/releases`, `…/releases/…`). Absent, `null` or malformed: the field is ignored and the rest of the file is still used. It does not bump `schemaVersion`. |
 
 A **source object** is `{ "id": string, "template": string }`, `id` not empty. An object of
@@ -104,9 +107,158 @@ re-try it after a fresh `config.json` read.
 - **Unknown extra fields:** ignore them.
 - **Dropped, the rest kept:** a source whose template is not an absolute `https://` URL, has an
   unknown placeholder, or names a host the extension may not request (see "Image hosts"). A malformed `update`
-  is ignored; so are the retired `cardLink` and `geometric` fields, whatever they hold.
+  is ignored; so are the retired `cardLink` and `geometric` fields, whatever they hold. A malformed
+  `release` is ignored (the bundled release is used).
 - **Image requests** carry no cookies and no referrer. An image counts as loaded only once the
   browser has decoded its bytes; its type is never taken from the file name.
+
+## The release pointer (`release`)
+
+New cards reach installed copies without a store update: the settings file may name a
+card-recognition release published on this host, and a qualifying install loads it instead of the
+release bundled in the extension. The release is data only (JSON and ONNX files); code stays in the
+package. Anything wrong with it, at any step, loads the bundled release. The extension's side is
+`src/release/` and `src/compute/frame.ts`; the publishing side is `dscdn.py publish-release`.
+
+```json
+"release": {
+  "id": "0123456789abcdef",
+  "path": "vision/releases/0123456789abcdef/release.json",
+  "sha256": "<64 hex: SHA-256 of release.json's bytes as served>",
+  "minimumExtensionVersion": "0.3.0"
+}
+```
+
+| Field | Rule | Meaning |
+|---|---|---|
+| `release` | object, optional; absent or `null`: no pointer | The release every qualifying install runs instead of its bundled one. |
+| `id` | `^[0-9a-f]{16}$` | The release id (the hash of its canonical document; the runtime checks it). |
+| `path` | **exactly** `vision/releases/<id>/release.json` (string equality) | Resolved against this file's address, so always this host. No scheme, `..`, `%2e` or query. |
+| `sha256` | `^[0-9a-f]{64}$` | SHA-256 of the document's bytes, checked before the worker starts. |
+| `minimumExtensionVersion` | `x.y.z`, **required** | A running version below it ignores the whole field. The first pointer-aware DuelSight is 0.3.0. |
+| `maximumExtensionVersion` | `x.y.z`, optional, **exclusive** | A running version at or above it ignores the whole field. Left out unless a downgrade window needs it. |
+| unknown keys inside `release` | ignored | Forward compatibility (another product's `geometric` among them). |
+
+A store build bundles the release the pointer names when it is built, so a fresh install loads
+nothing (rule 4).
+
+### Rules the extension enforces
+
+The compute frame reads the settings in effect once per page, at its start (the first hover on a
+page with card hovers on; nothing happens at install). **A page tries the remote release at most
+once; every fallback goes to the bundled release and never back.**
+
+| # | Condition | Outcome | Log reason |
+|---|---|---|---|
+| 1 | `release` absent or `null` | bundled (the request is byte-for-byte what it was before pointers) | `absent` |
+| 2 | malformed (the rules above; `id` not the id in `path`) | field ignored, rest of the file kept: bundled | `malformed:<key>` |
+| 3 | running version below the minimum, or at or above the maximum | bundled | `version` |
+| 4 | `id` is the bundled release's id | bundled, **nothing downloaded** | `same-as-bundled` |
+| 5 | the skip-list holds `(id, sha256)`, less than 24 h old | bundled | `skipped:<reason>` |
+| 6 | the document: network error, non-2xx, or 10 s for all of it | bundled | `unreachable` / `http-<n>` |
+| 7 | SHA-256 of the document is not `sha256` (after one re-fetch past the cache) | bundled; skip-listed | `doc-sha` |
+| 8 | the document is not JSON, its `id` is not `id`, or a pinned path is not a flat name `^[A-Za-z0-9][A-Za-z0-9._-]*$` | bundled; skip-listed | `doc-shape` |
+| 9 | a file download fails, is non-2xx, or stalls (30 s with no bytes; no cap on the total) | bundled | `unreachable:<file>` |
+| 9b | a downloaded file's size or SHA-256 is not the document's (after one re-fetch past the cache) | bundled; skip-listed | `file-sha:<file>` |
+| 10 | the worker refuses the release (`release-status.ok` false) | a new worker, bundled; skip-listed only as below | `runtime:<reason>` |
+| 11 | the worker loaded another id than the pointer's | that worker ended, a new one, bundled; skip-listed | `id-mismatch` |
+| 12 | the worker fails after loading a remote release | its one restart loads the bundled release | `worker-restart` |
+
+**Skip-list.** `chrome.storage.local["releaseSkip"]` holds one entry `{id, sha256, reason, at}`, or
+none. It is recorded for rules 7, 8, 9b and 11, and for rule 10 only when the refusal came before the
+worker said it was preparing the models (the files and their bindings were judged then); never
+for network failures (6, 9), refusals after that point, the runtime's catch-all (`unexpected:`), the
+frame's own errors (a worker that did not start) or worker crashes. Before a document or file
+SHA-256 failure is recorded, that URL is fetched once more with `cache: "reload"`. A new entry
+replaces the old one. The entry is cleared when the pointer names another `(id, sha256)` (so a
+later move back to it is tried again), when `release` is absent, and when it is 24 h old.
+
+**File reuse.** Each of the five files the remote document pins that has the same SHA-256 and size
+as a file of the bundled release is taken from the extension, under the remote document's name;
+every other file is downloaded from `vision/releases/<id>/<path>`. The runtime checks every file,
+reused or downloaded, against the remote document. A card-only update reuses both models and
+downloads the bank, the identity groups and the catalog.
+
+**Downloads** are made by the compute frame with `credentials: "omit"`, `referrerPolicy:
+"no-referrer"` and `cache: "default"` (the release's files are immutable, so a later page reads them
+from the browser's cache), read as streams; while they run, the page shows its usual loading state.
+
+**Workers.** The fallback of rules 10 and 11 is a planned replacement, not a restart: the bundled
+worker then has the usual budget (a failure to load turns recognition off for the page; a crash
+after loading, one restart).
+
+**Card facts.** The tooltip's table of names (`data/cards.json`) is built from the bundled catalog,
+so a card new in a remote release would be recognized and then shown as nothing. The compute frame
+therefore builds the same table (`src/shared/card-table.mjs`, the build's own rule) from the catalog
+it hands the worker, before the load, and adopts it only when the worker confirms that release's
+id. With each card it shows from that release, it posts the card's facts (`{releaseId, cardId,
+facts: {name, set, art}}`) on the extension-only `BroadcastChannel("duelsight-card-facts")`, then
+sends the card, with the release id, through the page as before. The tooltip looks a card up in the
+facts it received for that release first, then in its bundled table; an id in neither is waited for
+300 ms, then shows nothing. The page can post card messages to the tooltip frame, but it cannot reach
+the channel, so it can never make the tooltip show a name or picture that a compute frame did not
+send. The facts are checked on arrival (strings of at most 200 characters, a clean relative art
+path); every later lookup for the card on show (its details panel too) uses them.
+
+**Logging** (local, never sent): one `console.info` line per decision in the compute frame,
+`[DuelSight] release source=remote|bundled reason=<code> pointer=<id|-> bundled=<id> reused=<k>/5
+downloaded=<bytes> ms=<n>`, where `downloaded` counts decoded bytes. Never the page's address, the
+channel, the video, frames or cards. Dev builds add `release` to `__duelsightDebug`.
+
+**Pickup.** A running browser picks a pointer move up within about 1 h 5 min (the hourly settings
+fetch plus this file's 5-minute cache), or at its next start. Rolling back is pointing back to an
+earlier release, or removing the field.
+
+### The release folder on the CDN
+
+| Key | Content-Type | Cache-Control |
+|---|---|---|
+| `vision/releases/<id>/release.json` (written last within the folder) | `application/json` | `public, max-age=31536000, immutable` |
+| `vision/releases/<id>/{detector,recognizer}.onnx` | `application/octet-stream` | immutable, as above |
+| `vision/releases/<id>/{bank,identity-groups,catalog}.json` (the document's own names) | `application/json` | immutable |
+| `vision/releases/<id>/LICENSE`, `NOTICE` / `PROVENANCE.md` | `text/plain; charset=utf-8` / `text/markdown; charset=utf-8` | immutable |
+| `vision/releases/index.json` (the tool's record; not part of this contract) | `application/json` | `no-cache` |
+
+The full pinned set is uploaded even when the extension would reuse some of it. Every object
+carries `Metadata: {sha256}`. Folders are never overwritten or deleted. JSON should be served
+compressed (the bank and catalog are most of a card-only update).
+
+### Publishing a release
+
+`dscdn.py publish-release --release <folder named after its id> --min-version 0.3.0 [--details F]
+[--config cdn/config.json --set-pointer] [--sessions] [--dry-run]`:
+
+1. **Seal:** the document parses, its id is the folder's name, every pinned file is a flat name
+   present with its size and SHA-256, and `release-legal/` names this release (`NOTICE`'s first
+   line, as for a build); then `scripts/verify-remote-release.mjs`, the vendored runtime's own
+   checks (`--sessions` also starts both ONNX Runtime sessions in Node: use it whenever a model
+   changed).
+2. **Runtimes:** every extension version in `cdn/RUNTIMES.json` that the pointer would reach must
+   run the release's ONNX Runtime major.minor; otherwise raise `--min-version`. A release that needs
+   a newer runtime ships bundled in a store release first, and the pointer moves at least 14 days
+   later.
+3. **Remote state, through the S3 API only** (never the public URL, so no 404 is cached at the
+   edge): missing files are uploaded, identical ones skipped, and another file's bytes under one of
+   the keys refuse the whole run before anything is written.
+4. **Upload** the files, then `release.json`; each is checked with HEAD.
+5. **Verify live** (`verify-release-live`): the document over https, the runtime's checks on the
+   served files, each file's SHA-256, type, cache rule, no NEL, CORS for each real extension id
+   (`DSCDN_EXTENSION_IDS`) and compression. Then the card details file of this catalog (`--details`).
+6. **Pointer:** the `release` block is computed from what was verified (`--set-pointer` writes it
+   into the config file), and `config.json` is uploaded last.
+
+`dscdn.py publish --config F` refuses a `release` that does not verify live, so a pointer only ever
+moves to a verified folder, a rollback included. `dscdn.py verify-release-live` checks the live
+pointer at any time.
+
+### What the pins do not guard against
+
+The SHA-256 pins guard against corruption, stale caches and partial uploads. They do not guard
+against someone who controls the CDN bucket or zone, who could publish a self-consistent folder and
+pointer. Such a person can only choose among folders on this host (the path rule and the extension's
+content security policy fix the host) and change data, never code: scripts and WebAssembly are in
+the package. Card names are shown as text. Keep the CDN tokens narrowly scoped (one bucket, object
+read and write) and on the maintainer's machine.
 
 ## The card details file
 

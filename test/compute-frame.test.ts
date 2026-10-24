@@ -88,9 +88,9 @@ describe("compute frame origin rule", () => {
     const pointer = tag({ kind: "pointer", x: 0.5, y: 0.5, mediaTime: 1, touch: false });
     send(pointer, {}, SITE_ORIGIN);
     send(pointer, parent, "https://evil.example");
-    expect(frame!.session.scheduler.pointerActive(0)).toBe(false);
+    expect(frame!.session!.scheduler.pointerActive(0)).toBe(false);
     send(pointer, parent);
-    expect(frame!.session.scheduler.pointerActive(0)).toBe(true);
+    expect(frame!.session!.scheduler.pointerActive(0)).toBe(true);
   });
 
   it("closes a picture in a message it does not take", () => {
@@ -120,9 +120,9 @@ describe("compute frame worker lifecycle", () => {
     expect(frame!.restarts).toBe(1);
     // A late message from the old worker is ignored.
     workers[0]!.reply({ kind: "release-status", ok: false, error: "late", release: null, cards: [] });
-    expect(frame!.session.state).toBe("loading");
+    expect(frame!.session!.state).toBe("loading");
     loaded(workers[1]!);
-    expect(frame!.session.state).toBe("ready");
+    expect(frame!.session!.state).toBe("ready");
     workers[1]!.fail("again");
     expect(workers).toHaveLength(2);
     expect(frame!.stopped).toBe(true);

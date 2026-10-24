@@ -9,8 +9,7 @@ import { describe, expect, it } from "vitest";
 
 // @ts-expect-error plain JavaScript build scripts
 import { releaseLegalProblem } from "../scripts/release-legal.mjs";
-// @ts-expect-error plain JavaScript build scripts
-import { buildCardTable } from "../scripts/card-data.mjs";
+import { buildCardTable } from "../src/shared/card-table.mjs";
 // @ts-expect-error plain JavaScript build scripts
 import { buildManifest, UNPACKED_EXTENSION_ID } from "../scripts/manifest.mjs";
 // @ts-expect-error plain JavaScript build scripts
@@ -166,9 +165,11 @@ describe("manifest", () => {
 
   it("lets only a dev build fetch from a local server, and run on the local test page", () => {
     expect(JSON.stringify(m)).not.toContain("127.0.0.1");
+    expect(JSON.stringify(m)).not.toContain("localhost");
     const dev = buildManifest({ version: "0.1.0", dev: true });
     expect(dev.content_security_policy.extension_pages).toContain(" http://127.0.0.1:*");
     expect(dev.content_scripts[0].matches).toContain("http://127.0.0.1/*");
+    expect(dev.content_scripts[0].matches).toContain("http://localhost/*");
     expect(dev.host_permissions).not.toContain("http://127.0.0.1/*");
     expect(dev.name).toBe(`${CONFIG.name} (dev)`);
   });
@@ -259,7 +260,7 @@ describe("card data (names from our own catalog; no third-party card source)", (
   });
 
   it("has no reader of any third-party card source in the build or the extension", () => {
-    for (const path of ["../scripts/card-data.mjs", "../scripts/build.mjs", "../src/tooltip/card-data.ts", "../src/settings/templates.ts"]) {
+    for (const path of ["../src/shared/card-table.mjs", "../scripts/build.mjs", "../src/tooltip/card-data.ts", "../src/settings/templates.ts"]) {
       const text = readFileSync(new URL(path, import.meta.url), "utf-8");
       expect(text).not.toMatch(/optcgapi|sourceFile|source-files/);
     }

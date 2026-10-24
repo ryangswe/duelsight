@@ -4,6 +4,9 @@ Copyright 2026 The DuelSight authors
 This product is licensed under the Apache License, Version 2.0. The full text is in the file
 LICENSE.
 
+runtime/NOTICE is the cardvision toolkit's notice for its own code and its own Riftbound release;
+DuelSight's Yu-Gi-Oh! card data are covered by release/NOTICE.
+
 ------------------------------------------------------------------------------
 Derived from
 ------------------------------------------------------------------------------

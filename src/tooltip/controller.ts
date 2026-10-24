@@ -4,7 +4,10 @@
 //   - It starts only inside a page the extension is built for, and acts only on messages from
 //     that page's window, from that origin.
 //   - It shows only cards of the release's catalog, with the catalog's name: an id it does not
-//     know (which only a page posting to the frame itself could send) shows nothing.
+//     know (which only a page posting to the frame itself could send) shows nothing. A card of a
+//     remote release (src/release/) comes with that release's id; its facts arrive from the compute
+//     frame over the extension-only facts channel (`addFacts`), which the page cannot reach, and win
+//     over the bundled table. An id in neither is waited for FACTS_WAIT_MS, then shows nothing.
 //   - Each newly shown card asks the background for a settings refresh. The background fetches
 //     at most once an hour, so a long-open tab still picks up `namesOnly` within the hour.
 //   - With the details panel on and the card's details loaded (src/details/), the picture comes
@@ -26,6 +29,10 @@ export const CACHE_LIMIT = 60;
 export const PORTRAIT_WIDTH = 320;
 /** A landscape picture is shown this wide. */
 export const LANDSCAPE_WIDTH = 448;
+/** How long a card of a remote release waits for its facts from the channel. */
+export const FACTS_WAIT_MS = 300;
+/** Facts kept from the channel, oldest dropped first. */
+export const FACTS_LIMIT = 500;
 /** The card's shape while its picture loads (a Yu-Gi-Oh! card: 59 x 86 mm). */
 export const CARD_ASPECT = 86 / 59;
 
@@ -80,6 +87,9 @@ export interface TooltipDeps {
   fitText?(): void;
   createObjectURL(blob: Blob): string;
   revokeObjectURL(url: string): void;
+  /** A timer (the facts wait); setTimeout by default. */
+  setTimer?(fn: () => void, ms: number): unknown;
+  clearTimer?(handle: unknown): void;
 }
 
 /** The card for an id, from the catalog only; null for an id the catalog does not have. */
@@ -99,6 +109,12 @@ export class TooltipController {
   current: string | null = null;
   /** The content script's number for the card shown (echoed in sizes). */
   currentSeq: number | undefined = undefined;
+  /** The facts of the card on show: every later lookup for it uses them (Addendum 1, A1). */
+  private currentFacts: CardFacts | null = null;
+  /** Card facts from the channel, by `${releaseId}|${cardId}`. */
+  private readonly facts = new Map<string, CardFacts>();
+  /** A card of a remote release whose facts have not come yet. */
+  private waiting: { cardId: string; releaseId: string; seq: number | undefined; timer: unknown } | null = null;
   private details: DetailsTable | null = null;
   private detailsOn = true;
   /** The picture on show (decoded and shown): its card, size and whether a panel goes with it. */
@@ -129,17 +145,53 @@ export class TooltipController {
     this.refreshPanel();
   }
 
+  /** Facts for a card of a remote release, from the compute frame (the facts channel only). */
+  addFacts(releaseId: string, card: CardFacts): void {
+    const key = `${releaseId}|${card.id}`;
+    this.facts.delete(key);
+    this.facts.set(key, card);
+    while (this.facts.size > FACTS_LIMIT) this.facts.delete(this.facts.keys().next().value as string);
+    const w = this.waiting;
+    if (w && w.releaseId === releaseId && w.cardId === card.id) {
+      this.stopWaiting();
+      this.show(w.cardId, w.seq, w.releaseId);
+    }
+  }
+
+  /** The facts for a card: the channel's for its release, then the bundled table. */
+  private lookup(cardId: string, releaseId: string | undefined): CardFacts | null {
+    if (releaseId !== undefined) {
+      const f = this.facts.get(`${releaseId}|${cardId}`);
+      if (f) return f;
+    }
+    return knownCard(this.deps.table, cardId);
+  }
+
+  private stopWaiting(): void {
+    if (this.waiting) (this.deps.clearTimer ?? ((h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>)))(this.waiting.timer);
+    this.waiting = null;
+  }
+
   /** Show a card: its picture alone, or its name. False (and nothing shown) for an id the
-   *  catalog does not have. */
-  show(cardId: string, messageSeq?: number): boolean {
-    const card = knownCard(this.deps.table, cardId);
+   *  catalog does not have, and no facts came for (a card of a remote release is waited for
+   *  FACTS_WAIT_MS first). */
+  show(cardId: string, messageSeq?: number, releaseId?: string): boolean {
+    this.stopWaiting();
+    const card = this.lookup(cardId, releaseId);
     const e = this.deps.elements;
     if (!card) {
       this.clear();
+      if (releaseId !== undefined) {
+        const timer = (this.deps.setTimer ?? setTimeout)(() => {
+          if (this.waiting?.timer === timer) this.waiting = null;
+        }, FACTS_WAIT_MS);
+        this.waiting = { cardId, releaseId, seq: messageSeq, timer };
+      }
       return false;
     }
     this.deps.requestRefresh();
     this.current = card.id;
+    this.currentFacts = card;
     this.currentSeq = messageSeq;
     const seq = ++this.seq;
     const settings = this.settings;
@@ -201,8 +253,10 @@ export class TooltipController {
   }
 
   clear(): void {
+    this.stopWaiting();
     this.seq += 1;
     this.current = null;
+    this.currentFacts = null;
     this.picture = null;
     this.deps.elements.root.hidden = true;
   }
@@ -257,8 +311,8 @@ export class TooltipController {
   private refreshPanel(): void {
     const picture = this.picture;
     if (!picture || picture.cardId !== this.current) return;
-    const card = knownCard(this.deps.table, picture.cardId);
-    if (!card) return;
+    const card = this.currentFacts;
+    if (!card || card.id !== picture.cardId) return;
     const panel = this.fillPanel(card);
     this.picture = { ...picture, panel: panel !== null };
     const seq = this.currentSeq;
@@ -321,7 +375,7 @@ export function connectTooltipFrame(
     if (!message) return;
     // The page's name for the card is never shown: the catalog's is.
     if (message.kind === "clear") controller.clear();
-    else controller.show(message.cardId, message.seq);
+    else controller.show(message.cardId, message.seq, message.releaseId);
   });
   return (message) => env.win.parent.postMessage(tag(message), parentOrigin);
 }

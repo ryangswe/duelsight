@@ -74,8 +74,12 @@ passed: 5 of its 163 tooltips were wrong.
 - Cards that share an archetype's look can be confused with each other.
 - One card name with several artworks counts as one card: a match names the card, and the picture
   shown may be a different artwork of it.
-- What an installed copy recognizes is the card list in its release. New cards need a release
-  that includes them; publishing an official list does not update an installed extension.
+- What an installed copy recognizes is the card list in its release. New cards reach installed
+  copies (version 0.3.0 and later) as an updated release from DuelSight's CDN, about once a month,
+  without a store update. Such an update adds the new cards' fingerprints and leaves the models
+  unchanged, so the figures above, which describe the models, still hold; the release id an install
+  runs may then be newer than the one this page names. An update must pass a fixed,
+  pre-registered check that it changes nothing for the cards that already worked.
 - Speed depends on your computer. Pointing at a card should feel immediate on a recent one, but
   that is not a promise.
 

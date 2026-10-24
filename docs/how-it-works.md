@@ -44,6 +44,7 @@ flowchart TD
         TT["Tooltip iframe,<br/>extension origin"]
     end
     PKG["Bundled in the extension:<br/>release, models, bank"]
+    REL["A newer release on the CDN<br/>(when the settings name one)"]
     POP["Popup"]
     BG["Background"]
     CDN["DuelSight card CDN"]
@@ -54,6 +55,7 @@ flowchart TD
     HS -- "capture request;<br/>card id, name, box" --> CS
     HS <-- "frame out,<br/>boxes and names back" --> W
     PKG -- "release.json<br/>at load" --> W
+    REL -. "checked files,<br/>when hovers start" .-> W
     CS -- "card id and name" --> TT
     TT -- "its size" --> CS
     CS -- "the named box" --> OUT
@@ -73,7 +75,11 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   and, when asked and the pointer is active over the player, draws the video to a canvas at
   analysis size and transfers it as an `ImageBitmap`.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
-  vendored runtime on the release bundled in the extension. Nothing in it goes to the network.
+  vendored runtime on the release bundled in the extension, or on a newer release the settings
+  file names (`src/release/`): the frame downloads that release's files once, checks each against
+  its SHA-256, reuses the bundled files that are the same, and falls back to the bundled release on
+  any problem. Frames, pictures and results never go to the network. With a newer release, the
+  frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box.
 - **The details panel:** with card details on, the tooltip frame also loads the card details file
@@ -101,6 +107,9 @@ another source, or off, without a new extension release:
   identity in the release's groups.
 - `details` names the card details file (a path on the same host and its SHA-256); without it,
   the tooltip shows pictures alone. See [cdn/SETTINGS.md](../cdn/SETTINGS.md).
+- `release` names a newer card-recognition release on the same host (its id, path and SHA-256, and
+  the lowest extension version that may load it), so that new cards reach installs without a store
+  update. See "The release pointer" in [cdn/SETTINGS.md](../cdn/SETTINGS.md).
 - `cardLink` and `geometric` are retired fields: a file may still carry them; they are ignored.
 - The tooltip's link to Konami's official card database is built by `src/tooltip/card-link.ts` as
   an address (a card page when the catalog row has a `konamiId`, else a name search). It is

@@ -16,5 +16,5 @@ export function isActivePage(url: URL, dev: boolean, sites: VideoSites = VIDEO_S
     return url.pathname === "/watch" || url.pathname.startsWith("/embed/") || url.pathname.startsWith("/live/") || CHANNEL_LIVE.test(url.pathname);
   }
   if (sites.twitch && url.protocol === "https:" && url.hostname === "www.twitch.tv") return true;
-  return dev && url.protocol === "http:" && url.hostname === "127.0.0.1";
+  return dev && url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
 }

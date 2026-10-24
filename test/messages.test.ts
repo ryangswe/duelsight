@@ -80,6 +80,10 @@ describe("message checks", () => {
     expect(allowedParentOrigin("http://127.0.0.1:8770", false, BOTH_SITES)).toBe(false);
     expect(allowedParentOrigin("http://127.0.0.1:8770", true, BOTH_SITES)).toBe(true);
     expect(allowedParentOrigin("http://127.0.0.1.evil.example", true, BOTH_SITES)).toBe(false);
+    // localhost: a second local site for the smoke check, dev builds only.
+    expect(allowedParentOrigin("http://localhost:8770", false, BOTH_SITES)).toBe(false);
+    expect(allowedParentOrigin("http://localhost:8770", true, BOTH_SITES)).toBe(true);
+    expect(allowedParentOrigin("http://localhost.evil.example", true, BOTH_SITES)).toBe(false);
   });
 
   it("accepts only the sites turned on", () => {

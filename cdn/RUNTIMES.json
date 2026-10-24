@@ -1,0 +1,4 @@
+{
+  "$comment": "Every pointer-aware DuelSight version shipped, and the runtime it runs (cdn/SETTINGS.md, 'Publishing a release'). publish-release refuses a release one of the versions its pointer reaches could not load. Add a row with each store release.",
+  "0.3.0": { "vendoredCommit": "3d8962cbc98f347dab9943dce031e29ba27aaff3", "ortWeb": "1.29.0" }
+}

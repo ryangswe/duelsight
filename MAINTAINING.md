@@ -6,29 +6,42 @@ depends on sits in accounts of its own, so a new maintainer can take it over.
 
 ## New cards
 
+New cards reach installed copies (0.3.0 and later) through the settings file's release pointer
+([cdn/SETTINGS.md](cdn/SETTINGS.md), "The release pointer"), with no store update. About once a
+month, on a fixed day:
+
 1. **Catalog refresh.** Rebuild the catalog from the card source (YGOPRODeck's catalog, requested
    politely: one request for the list, each image once, throttled; never Konami's database, which
-   is linked to but not read). Check it with the cardvision toolkit's catalog checks. Ids are
-   passcodes; every artwork of one name is one identity.
-2. **Bank rows for new cards.** With the release's recognizer, embed the new cards' art and add
-   rows to the bank and the identity groups (toolkit: `build-release`; then `verify-release`,
-   which prints the 16-hex-digit release id). Replay the toolkit's held-out check: rows for
-   existing cards should not change the result.
-3. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
+   is linked to but not read). New cards are appended; existing entries keep their ids and art.
+   Check it with the cardvision toolkit's catalog checks. Ids are passcodes; every artwork of one
+   name is one identity.
+2. **Bank rows for new cards.** With the live release's recognizer, embed the new cards' art and
+   append rows to the bank (`cardvision build-bank --base`, then `cardvision check-refresh`: every
+   existing row byte-identical, the bank version raised), then `cardvision build-release` into a
+   folder named after the new release id. Look at a handful of the new cards' images before going on.
+3. **The regression check.** Run the maintainer's pre-registered replay against the live release:
+   it must find nothing that worked broken, on real footage and on generated scenes, and the new
+   cards must work about as well as cards the models never trained on. A release that fails is not
+   published. Its rules are fixed in advance and are not changed after seeing a result.
+4. **Legal files.** Update `release-legal/` for the new release id (the opening line of `NOTICE` names it;
+   PROVENANCE.md says what was added). They are published beside the release's files.
+5. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
    folder outside the repository: `node scripts/card-details.mjs --cards <cardinfo JSON>
-   --catalog <release folder>/catalog.json --out <folder>`. It prints the file's new versioned
-   name and the `details` entry for `cdn/config.json`; put that entry there. Card text is the
-   rights holder's: the file is never committed or packaged.
-4. **CDN publish, by the owner.** Publish the new art, the details file (`--details`) and
-   `config.json` with `cdn/dscdn.py` (`plan`, `publish --dry-run`, `publish`, `verify`; see
-   [cdn/README.md](cdn/README.md)). Publishing is the owner's step: it needs the CDN account's token.
-5. **Extension release.** Put the new release folder through `npm run build -- --release <folder>`
-   (the build checks it), update `release-legal/` (`NOTICE`'s opening line names the release id),
-   bump `version` in `package.json`, `npm test`, `npm run build -- --store --release <folder>`,
-   `npm run package`, and submit `duelsight-<version>-store.zip` (manifest at its top level) to the
-   Chrome Web Store as [docs/store-listing.md](docs/store-listing.md) lays out, updating its
-   version table. Cards in the catalog but not in an installed copy's release are not recognized
-   until the release is installed.
+   --catalog <release folder>/catalog.json --out <folder>`. Card text is the rights holder's: the
+   file is never committed or packaged.
+6. **Publish.** The new art (`dscdn.py publish --catalog … --images …`), then the release:
+   `dscdn.py publish-release --release <folder> --min-version 0.3.0 --details <file> --config
+   cdn/config.json --set-pointer` (try it with `--dry-run` before). It uploads the release folder, verifies it
+   live, publishes the details file, and moves the pointer in `config.json` last. Commit the changed
+   `cdn/config.json`. Publishing needs the CDN account's token: it is the owner's step, or the
+   maintainer's under a standing permission the owner gave for updates that add cards and nothing else.
+7. **Confirm** after about an hour (`dscdn.py verify-release-live`; a hover on a new card). Rolling
+   back is publishing the previous `release` block, or removing it.
+
+The next store release bundles the release the pointer names then, so fresh installs download
+nothing. Installs older than 0.3.0, and zip installs that never update, keep the cards of their
+bundled release until they are updated. A new model (a retrain) is a core-model refresh, below,
+not a monthly card update.
 
 ## Store submission
 
@@ -56,7 +69,11 @@ When the cardvision toolkit publishes a better detector or recognizer, or a new 
    checkout> --commit <sha> --opencv <OpenCV.js build>` (see [docs/development.md](docs/development.md);
    the build copies none of OpenCV into the extension). Keep `onnxruntime-web` in `package.json` at
    the version `vendor/cardvision-browser/VENDOR.json` names. Run `npm test`.
-3. Update `release-legal/` (license, notice, provenance of the models) and ship as above.
+3. Update `release-legal/` (license, notice, provenance of the models). A release with new models
+   can be published through the pointer like a card update (`publish-release --sessions`, after its
+   held-out measurement), or bundled in a store release: one that needs a newer runtime ships bundled
+   in a store release, and the pointer moves at least 14 days later, with `--min-version` raised to that version.
+   Add a row to `cdn/RUNTIMES.json` with every store release.
 
 ## Accounts to transfer in a handoff
 

@@ -23,7 +23,7 @@ Update this table with each submission (date submitted, date approved, store ite
 1. **The package.** Bump `version` in `package.json` if this is an update, then
    `npm test`, `npm run build -- --store --release <release folder>` and `npm run package`. Upload
    `duelsight-<version>-store.zip` (it has `manifest.json` at its top level, as the store requires;
-   the other zip is for the release page). the opening line of `release-legal/NOTICE` must name the release
+   the other zip is for the release page). The opening line of `release-legal/NOTICE` must name the release
    (the build refuses otherwise).
 2. **The privacy page** must be live at `<cdnBase>/privacy.html`, and match PRIVACY.md. After any
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
@@ -117,17 +117,21 @@ has the long form):
 `storage`:
 
 ```text
-Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the channels the user turned card hovers on for, the last settings file fetched, and a dismissed update notice. Nothing is synced or sent anywhere.
+Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the channels the user turned card hovers on for, the last settings file fetched, a dismissed update notice, and for 24 hours the id of updated recognition data that failed its checks. Nothing is synced or sent anywhere.
 ```
 
 Host permissions (`https://www.youtube.com/*`, `https://www.twitch.tv/*`, `https://cdn.duelsight.com/*`):
 
 ```text
-YouTube and Twitch: to show the extension's on/off button in the video player and, on channels the user turned it on for, read the video picture around the pointer and recognize the card under it. Recognition runs inside the browser; frames are never saved or uploaded. cdn.duelsight.com is the extension's own server: it loads a small settings file, card pictures and a card details file from it.
+YouTube and Twitch: to show the extension's on/off button in the video player and, on channels the user turned it on for, read the video picture around the pointer and recognize the card under it. Recognition runs inside the browser; frames are never saved or uploaded. cdn.duelsight.com is the extension's own server: it loads a small settings file, card pictures, a card details file and, when new cards are published, updated card-recognition data (JSON and ONNX data files, never code) from it.
 ```
 
-**Remote code:** "No, I am not using remote code." The recognition models, the ONNX Runtime
-WebAssembly and every script are inside the package; the CDN serves images and JSON data, nothing executable.
+**Remote code:** "No, I am not using remote code." The ONNX Runtime WebAssembly and every script
+are inside the package; the CDN serves images and data, nothing executable. From 0.3.0 that data
+can include an updated card-recognition release (a card list, card fingerprints and, after a model
+update, ONNX model files: data the packaged runtime reads, never code it runs), named by the settings
+file and checked against SHA-256 pins before use ([cdn/SETTINGS.md](../cdn/SETTINGS.md), "The release
+pointer").
 
 **Data usage:** per [PRIVACY.md](../PRIVACY.md) the extension collects no user data: frames stay in
 the browser, settings stay on the computer, and the CDN requests carry no identifier (no request
