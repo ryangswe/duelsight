@@ -13,8 +13,8 @@ anything. Read the store's current policies before each submission: they change.
 
 | Version | Models | Visibility | Status |
 | --- | --- | --- | --- |
-| 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | submitted 2026-10-23 |
-| 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | prepared 2026-10-24, not yet submitted |
+| 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | approved; replaced by 0.2.1 |
+| 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | live 2026-10-24 (item `okngcckiafmekbmdgoakggfbicgoagnc`) |
 
 Update this table with each submission (date submitted, date approved, store item ID).
 

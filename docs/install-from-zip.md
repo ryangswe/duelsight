@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Install from a release zip (Load unpacked)
 
-This page is for installing DuelSight without the Chrome Web Store: before a store listing
-exists, in a Chrome setup that cannot use the store, or to learn how to load an extension you
+Most people should install DuelSight from the [Chrome Web Store](https://chromewebstore.google.com/detail/duelsight/okngcckiafmekbmdgoakggfbicgoagnc), which keeps it
+up to date. This page is for installing it without the store: in a Chrome setup that cannot use
+the store, to try a release before it reaches the store, or to learn how to load an extension you
 build yourself (**Load unpacked**), for example a [fork for another card game](make-it-yours.md).
 It takes a few minutes, and a zip install does not update itself.
 

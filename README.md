@@ -15,10 +15,12 @@ Results vary by video; see [docs/accuracy.md](docs/accuracy.md).
 
 ## Install
 
-The Chrome Web Store listing is not live yet. Until it is, install from a release zip: see
-[docs/install-from-zip.md](docs/install-from-zip.md). Then open a Yu-Gi-Oh! video on YouTube
-or Twitch, click the DuelSight button in the player to turn card hovers on for that channel,
-and rest the pointer on a card.
+Install DuelSight from the [Chrome Web Store](https://chromewebstore.google.com/detail/duelsight/okngcckiafmekbmdgoakggfbicgoagnc). Then open a Yu-Gi-Oh! video on
+YouTube or Twitch, click the DuelSight button in the player to turn card hovers on for that
+channel, and rest the pointer on a card.
+
+If your Chrome can't use the store, install from a release zip instead: see
+[docs/install-from-zip.md](docs/install-from-zip.md).
 
 ## Privacy
 
