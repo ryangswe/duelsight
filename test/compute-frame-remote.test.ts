@@ -49,17 +49,18 @@ const remoteChoice = (): ReleaseChoice => ({
   ms: 12,
 });
 
-async function setup(choice: ReleaseChoice) {
+async function setup(choice: ReleaseChoice | Promise<ReleaseChoice>, over: Partial<ComputeEnv> = {}) {
   const toParent: Array<Record<string, unknown>> = [];
   const workers: FakeWorker[] = [];
   const skips: string[] = [];
   const decisions: ReleaseDecision[] = [];
   const facts: CardFactsMessage[] = [];
   const order: string[] = [];
+  let listener: ((e: MessageEvent) => void) | null = null;
   const env: ComputeEnv = {
     win: {
       parent: { postMessage: (m: unknown) => (toParent.push(m as Record<string, unknown>), order.push(`content:${(m as { kind: string }).kind}`)) },
-      addEventListener: () => undefined,
+      addEventListener: (_: "message", l: (e: MessageEvent) => void) => void (listener = l),
     },
     framed: true,
     parentOrigin: SITE_ORIGIN,
@@ -75,10 +76,12 @@ async function setup(choice: ReleaseChoice) {
     recordSkip: (_, reason) => skips.push(reason),
     onDecision: (d) => decisions.push(d),
     postFacts: (m) => (facts.push(m), order.push("facts")),
+    ...over,
   };
   const frame = startComputeFrame(env)!;
   await new Promise((r) => setTimeout(r, 0));
-  return { frame, toParent, workers, skips, decisions, facts, order };
+  const send = (data: unknown) => listener?.({ data, source: env.win.parent, origin: SITE_ORIGIN } as unknown as MessageEvent);
+  return { frame, toParent, workers, skips, decisions, facts, order, send };
 }
 
 const statusOk = (id: string) => ({ kind: "release-status", ok: true, error: null, release: releaseOf(id), cards: [] });
@@ -167,5 +170,73 @@ describe("compute frame, remote release", () => {
     expect(isBundled(t.workers[0]!)).toBe(true);
     expect(t.decisions).toEqual([{ source: "bundled", reason: "same-as-bundled", pointer: ID, reused: 0, downloaded: 0, ms: 1 }]);
     expect(t.frame.release).toMatchObject({ source: "bundled", reason: "same-as-bundled" });
+  });
+
+  it("while it chooses, has no session: content messages are dropped and a picture is closed", async () => {
+    let resolve!: (c: ReleaseChoice) => void;
+    const t = await setup(new Promise<ReleaseChoice>((r) => (resolve = r)));
+    expect(t.frame.session).toBeNull();
+    expect(t.frame.release.source).toBe("choosing");
+    let closed = false;
+    t.send({ duelsight: 1, kind: "frame", requestId: 1, mediaTime: 0, bitmap: { close: () => (closed = true) } });
+    expect(closed).toBe(true);
+    t.frame.tick();
+    resolve(remoteChoice());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(t.workers).toHaveLength(1);
+    expect(t.frame.session).not.toBeNull();
+  });
+
+  it("ignores late messages and errors from the remote worker it replaced", async () => {
+    const t = await setup(remoteChoice());
+    t.workers[0]!.reply(statusFail("bank: sha256 of bank.json does not match the release"));
+    t.workers[0]!.reply(statusOk(ID));
+    t.workers[0]!.fail("late");
+    expect(t.workers).toHaveLength(2);
+    expect(t.frame.release.source).toBe("bundled");
+    expect(t.frame.restarts).toBe(0);
+  });
+
+  it("an error after 'preparing' falls back, not recorded", async () => {
+    const t = await setup(remoteChoice());
+    t.workers[0]!.reply({ kind: "release-progress", phase: "preparing" });
+    t.workers[0]!.fail("out of memory");
+    expect(t.skips).toEqual([]);
+    expect(isBundled(t.workers[1]!)).toBe(true);
+  });
+
+  it("2.4: a bundled fallback that then fails to load turns recognition off, as today", async () => {
+    const t = await setup(remoteChoice());
+    t.workers[0]!.reply(statusOk("ffffffffffffffff"));
+    t.workers[1]!.reply(statusFail("no execution provider to try"));
+    expect(t.frame.session!.state).toBe("failed");
+    expect(t.toParent.some((m) => m.kind === "status" && m.state === "failed")).toBe(true);
+    expect(t.workers).toHaveLength(2);
+  });
+
+  it("a worker that cannot be made turns recognition off instead of hanging", async () => {
+    const t = await setup(remoteChoice(), {
+      createWorker: () => {
+        throw new Error("blocked");
+      },
+    });
+    expect(t.frame.stopped).toBe(true);
+    expect(t.toParent.some((m) => m.kind === "status" && m.state === "failed")).toBe(true);
+  });
+
+  it("12: the restart's log line names the remote release it leaves", async () => {
+    const t = await setup(remoteChoice());
+    t.workers[0]!.reply(statusOk(ID));
+    t.workers[0]!.fail("crash");
+    expect(t.decisions.at(-1)).toMatchObject({ source: "bundled", reason: "worker-restart", pointer: ID });
+  });
+
+  it("answers a tooltip's request for facts of its own release only", async () => {
+    const t = await setup(remoteChoice());
+    expect(t.frame.factsFor(ID, "999")).toBeNull();
+    t.workers[0]!.reply(statusOk(ID));
+    expect(t.frame.factsFor(ID, "999")).toEqual({ releaseId: ID, cardId: "999", facts: { name: "New Card", set: null, art: "full/999.jpg" } });
+    expect(t.frame.factsFor("ffffffffffffffff", "999")).toBeNull();
+    expect(t.frame.factsFor(ID, "1")).toBeNull();
   });
 });

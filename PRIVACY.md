@@ -48,7 +48,7 @@ storage, uploaded or shared.
 | The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
 | The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover) |
-| Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card hovers start in a tab and the settings file names a release newer than the one built into your version of the extension (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
+| Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card hovers start in a tab and the settings file names a release other than the one built into your version of the extension: a newer one, or an earlier one after a rollback (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
 
 These requests carry no cookies, no account ID or per-user tracking identifier, and not the
 address of the page you watch. Settings, picture, details and release requests carry no `Referer` at all. Like any
@@ -79,8 +79,8 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
     video id), each with the time you turned it on, and that you have seen the button's
     intro label;
   - the last settings file it fetched, and when;
-  - if updated recognition data failed its checks, that release's id and why, for 24 hours, so that
-    it is not downloaded again in the meantime;
+  - if updated recognition data failed its checks, that release's id and why, so that it is not
+    downloaded again for a day (after 24 hours it is ignored, and deleted the next time it is read);
   - the version of a "New version available" notice you dismissed.
 - **In the extension's own Cache Storage:** one copy of the card details file from the CDN (the
   same file for everyone; it says nothing about you or what you watched). A newer version

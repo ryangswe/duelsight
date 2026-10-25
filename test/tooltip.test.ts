@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Settings } from "../src/settings/schema.js";
-import { artSize, connectTooltipFrame, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
+import { artSize, connectTooltipFrame, FACTS_LIMIT, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
 import { parseDetailsFile } from "../src/details/details.js";
 import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
 import { parseCardFacts, tag, type TooltipSize } from "../src/shared/messages.js";
@@ -537,6 +537,77 @@ describe("cards of a remote release (the facts channel, Addendum 2)", () => {
     c.addFacts(RID, facts("999", "Real Card"));
     fromPage(tag({ kind: "card", cardId: "999", name: "Free Prize", releaseId: RID }));
     expect(elements.placeholder.textContent).toBe("Real Card");
+  });
+});
+
+describe("cards of a remote release: races and limits", () => {
+  const RID = "0123456789abcdef";
+  const facts = (id: string, name: string, art = `${id}.jpg`) => ({ id, name, set: null, art });
+  let timers: Array<() => void>;
+  let asked: string[];
+  const make = () => {
+    timers = [];
+    asked = [];
+    const c = build({ setTimer: (fn) => (timers.push(fn), timers.length), clearTimer: () => undefined, requestFacts: (r, id) => void asked.push(`${r}|${id}`) });
+    c.setSettings(defaultSettings());
+    return c;
+  };
+
+  it("asks the compute frames for facts it lacks, even when the bundled table has the id", () => {
+    const c = make();
+    c.show("999", 1, RID);
+    c.show("89631139", 2, RID);
+    c.show("89631139", 3);
+    expect(asked).toEqual([`${RID}|999`, `${RID}|89631139`]);
+    c.addFacts(RID, facts("89631139", "Renamed Dragon"));
+    c.show("89631139", 4, RID);
+    expect(asked).toHaveLength(2);
+  });
+
+  it("replaces a card on show with its release's facts when they come after it (a rename, another artwork)", async () => {
+    const c = make();
+    c.show("89631139", 5, RID);
+    expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
+    await tick();
+    c.addFacts(RID, facts("89631139", "Renamed Dragon", "alt/89631139.jpg"));
+    expect(c.currentSeq).toBe(5);
+    expect(elements.placeholder.textContent).toBe("Renamed Dragon");
+    await tick();
+    expect(loads).toContain("https://art.example/art/alt/89631139.jpg");
+    // Facts for a card not on show, or for another release, change nothing on screen.
+    c.addFacts("ffffffffffffffff", facts("89631139", "Other Release"));
+    c.addFacts(RID, facts("1", "Elsewhere"));
+    expect(elements.placeholder.textContent).toBe("Renamed Dragon");
+  });
+
+  it("keeps pictures apart by artwork: the bundled art is not reused for a release's other art", async () => {
+    const c = make();
+    c.show("89631139", 6);
+    await tick();
+    c.addFacts(RID, facts("89631139", "Blue-Eyes White Dragon", "alt/89631139.jpg"));
+    c.show("89631139", 7, RID);
+    await tick();
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://art.example/art/alt/89631139.jpg"]);
+  });
+
+  it("stops waiting on clear(), and on another card", () => {
+    const c = make();
+    c.show("999", 8, RID);
+    c.clear();
+    c.addFacts(RID, facts("999", "New Card"));
+    expect(c.current).toBeNull();
+    c.show("998", 9, RID);
+    c.show("89631139", 10);
+    c.addFacts(RID, facts("998", "Other New"));
+    expect(c.current).toBe("89631139");
+    expect(elements.placeholder.textContent).toBe("Blue-Eyes White Dragon");
+  });
+
+  it("keeps at most FACTS_LIMIT facts, dropping the oldest", () => {
+    const c = make();
+    for (let i = 0; i <= FACTS_LIMIT; i += 1) c.addFacts(RID, facts(`n${i}`, `Card ${i}`));
+    expect(c.show("n0", 11, RID)).toBe(false);
+    expect(c.show(`n${FACTS_LIMIT}`, 12, RID)).toBe(true);
   });
 });
 

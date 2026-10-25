@@ -87,10 +87,15 @@ export interface TooltipDeps {
   fitText?(): void;
   createObjectURL(blob: Blob): string;
   revokeObjectURL(url: string): void;
+  /** Ask the compute frames for a card's facts (the facts channel). */
+  requestFacts?(releaseId: string, cardId: string): void;
   /** A timer (the facts wait); setTimeout by default. */
   setTimer?(fn: () => void, ms: number): unknown;
   clearTimer?(handle: unknown): void;
 }
+
+/** Pictures are cached by card id and art path. */
+const pictureKey = (card: CardFacts): string => `${card.id}|${card.art ?? ""}`;
 
 /** The card for an id, from the catalog only; null for an id the catalog does not have. */
 export function knownCard(table: CardTable, id: string): CardFacts | null {
@@ -111,6 +116,8 @@ export class TooltipController {
   currentSeq: number | undefined = undefined;
   /** The facts of the card on show: every later lookup for it uses them (Addendum 1, A1). */
   private currentFacts: CardFacts | null = null;
+  /** The remote release the card on show came with, if any. */
+  private currentRelease: string | undefined = undefined;
   /** Card facts from the channel, by `${releaseId}|${cardId}`. */
   private readonly facts = new Map<string, CardFacts>();
   /** A card of a remote release whose facts have not come yet. */
@@ -155,6 +162,13 @@ export class TooltipController {
     if (w && w.releaseId === releaseId && w.cardId === card.id) {
       this.stopWaiting();
       this.show(w.cardId, w.seq, w.releaseId);
+      return;
+    }
+    // The card on show came before its facts and was shown from the bundled table: the release's
+    // facts win (a renamed card, another artwork).
+    const shown = this.currentFacts;
+    if (this.current === card.id && this.currentRelease === releaseId && shown && JSON.stringify(shown) !== JSON.stringify(card)) {
+      this.show(card.id, this.currentSeq, releaseId);
     }
   }
 
@@ -179,6 +193,9 @@ export class TooltipController {
     this.stopWaiting();
     const card = this.lookup(cardId, releaseId);
     const e = this.deps.elements;
+    // A card of a remote release whose facts this frame has not received: ask for them (they win
+    // over the bundled table when they come).
+    if (releaseId !== undefined && !this.facts.has(`${releaseId}|${cardId}`)) this.deps.requestFacts?.(releaseId, cardId);
     if (!card) {
       this.clear();
       if (releaseId !== undefined) {
@@ -192,6 +209,7 @@ export class TooltipController {
     this.deps.requestRefresh();
     this.current = card.id;
     this.currentFacts = card;
+    this.currentRelease = releaseId;
     this.currentSeq = messageSeq;
     const seq = ++this.seq;
     const settings = this.settings;
@@ -222,10 +240,10 @@ export class TooltipController {
         const pixels = await this.deps.imageSize(r.blob);
         if (!live()) return;
         const size = artSize(pixels.width, pixels.height);
-        let url = this.objectUrls.get(card.id);
+        let url = this.objectUrls.get(pictureKey(card));
         if (!url) {
           url = this.deps.createObjectURL(r.blob);
-          this.objectUrls.set(card.id, url);
+          this.objectUrls.set(pictureKey(card), url);
         }
         e.img.src = url;
         // Shown once it is drawable, so the placeholder never gives way to an empty box; a
@@ -257,6 +275,7 @@ export class TooltipController {
     this.seq += 1;
     this.current = null;
     this.currentFacts = null;
+    this.currentRelease = undefined;
     this.picture = null;
     this.deps.elements.root.hidden = true;
   }
@@ -333,13 +352,15 @@ export class TooltipController {
   }
 
   private resolve(card: CardFacts, settings: Settings): Promise<Resolution> {
-    let entry = this.cache.get(card.id);
+    // By id and art path: the same id may carry another artwork in a remote release's facts.
+    const key = pictureKey(card);
+    let entry = this.cache.get(key);
     if (!entry) {
       entry = resolveCardImage(card, settings, this.health, this.deps.load);
-      this.cache.set(card.id, entry);
+      this.cache.set(key, entry);
       // A card that showed names only is tried again next time.
       void entry.then((r) => {
-        if (r.kind === "names" && this.cache.get(card.id) === entry) this.cache.delete(card.id);
+        if (r.kind === "names" && this.cache.get(key) === entry) this.cache.delete(key);
       });
       while (this.cache.size > CACHE_LIMIT) {
         const oldest = this.cache.keys().next().value as string;

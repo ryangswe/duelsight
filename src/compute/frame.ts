@@ -98,6 +98,8 @@ export interface ComputeFrame {
   readonly stopped: boolean;
   readonly restarts: number;
   readonly release: ReleaseInEffect;
+  /** The facts of a card of the remote release in effect, for a tooltip that asks; null otherwise. */
+  factsFor(releaseId: string, cardId: string): CardFactsMessage | null;
   tick(): void;
 }
 
@@ -118,17 +120,22 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
   let facts: { releaseId: string; table: CardTable } | null = null;
   const release: ReleaseInEffect = { source: env.chooseRelease ? "choosing" : "bundled", id: null, reason: null };
 
+  /** The pointer of the remote release in effect (for the log after a restart). */
+  let remotePointer: string | null = null;
+
+  const factsFor = (releaseId: string, cardId: string): CardFactsMessage | null => {
+    if (!facts || facts.releaseId !== releaseId || !Object.hasOwn(facts.table, cardId)) return null;
+    const row = facts.table[cardId]!;
+    return { releaseId, cardId, facts: { name: row[0], set: row[1], art: row[2], ...(row.length > 3 ? { printed: row[3] ?? null } : {}) } };
+  };
+
   /** Shown cards of a remote release: their facts go out first, by the extension-only channel. */
   const toContent = (message: ComputeOut): void => {
     if (message.kind === "shown" && message.card && facts) {
-      const row = Object.hasOwn(facts.table, message.card.cardId) ? facts.table[message.card.cardId] : undefined;
-      if (row) {
-        env.postFacts?.({
-          releaseId: facts.releaseId,
-          cardId: message.card.cardId,
-          facts: { name: row[0], set: row[1], art: row[2], ...(row.length > 3 ? { printed: row[3] ?? null } : {}) },
-        });
-        toParent({ kind: "shown", card: { ...message.card, releaseId: facts.releaseId } });
+      const f = factsFor(facts.releaseId, message.card.cardId);
+      if (f) {
+        env.postFacts?.(f);
+        toParent({ kind: "shown", card: { ...message.card, releaseId: f.releaseId } });
         return;
       }
     }
@@ -181,6 +188,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     if (reply.ok && reply.release?.id === t.pointer.id) {
       trying = null;
       facts = { releaseId: t.pointer.id, table: t.facts };
+      remotePointer = t.pointer.id;
       release.source = "remote";
       release.id = t.pointer.id;
       release.reason = "ok";
@@ -218,7 +226,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
         release.source = "bundled";
         release.id = null;
         release.reason = "worker-restart";
-        decision({ source: "bundled", reason: "worker-restart", pointer: null });
+        decision({ source: "bundled", reason: "worker-restart", pointer: remotePointer });
       }
       startWorker(env.loadRequest);
       return;
@@ -240,6 +248,16 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     if (bitmap && typeof bitmap.close === "function") bitmap.close();
   });
 
+  /** A worker that cannot even be made: recognition is off for this page, as when a load fails. */
+  const startOrFail = (request: LoadRequest): void => {
+    try {
+      startWorker(request);
+    } catch (error) {
+      stopped = true;
+      toParent({ kind: "status", state: "failed", error: `the recognition worker could not start (${String(error)})`, backend: null });
+    }
+  };
+
   if (!env.chooseRelease) {
     startWorker(env.loadRequest);
   } else {
@@ -250,13 +268,13 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
         if (choice.source === "remote") {
           trying = choice;
           sawPreparing = false;
-          startWorker(choice.request);
+          startOrFail(choice.request);
           return;
         }
         release.source = "bundled";
         release.reason = choice.reason;
         decision({ source: "bundled", reason: choice.reason, pointer: choice.pointer?.id ?? null, downloaded: choice.downloaded, ms: choice.ms });
-        startWorker(env.loadRequest);
+        startOrFail(env.loadRequest);
       });
   }
   toParent({ kind: "ready" });
@@ -273,6 +291,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     get release() {
       return { ...release };
     },
+    factsFor,
     tick() {
       if (!stopped) session?.tick();
     },

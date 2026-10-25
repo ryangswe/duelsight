@@ -37,6 +37,7 @@ let post: ((message: TooltipOut) => void) | null = null;
 void (async () => {
   const framed = window.parent !== window;
   const parentOrigin = location.ancestorOrigins?.[0] ?? null;
+  const factsChannel = new BroadcastChannel(FACTS_CHANNEL);
   const [cards, effective] = await Promise.all([fetchJson("data/cards.json"), readEffectiveSettings(chrome.storage.local)]);
   const controller = new TooltipController({
     elements: {
@@ -56,6 +57,7 @@ void (async () => {
       return size;
     },
     requestRefresh: () => void chrome.runtime.sendMessage({ kind: "settings:refresh" }).catch(() => undefined),
+    requestFacts: (releaseId, cardId) => factsChannel.postMessage({ want: true, releaseId, cardId }),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     onSize: (size) => post?.({ kind: "size", ...size }),
@@ -65,9 +67,9 @@ void (async () => {
     fitText: () => fitPanelText($("panel"), $("panel-text")),
   });
   controller.setSettings(effective.settings);
-  // Facts of a remote release's cards come from the compute frame over this extension-only
-  // channel, never through the page (the page can post `card` messages to this frame, not here).
-  new BroadcastChannel(FACTS_CHANNEL).onmessage = (event: MessageEvent) => {
+  // Facts of a remote release's cards come from a compute frame over this channel, never through
+  // the page (the page can post `card` messages to this frame, not here).
+  factsChannel.onmessage = (event: MessageEvent) => {
     const m = parseCardFacts(event.data);
     if (m) controller.addFacts(m.releaseId, { id: m.cardId, ...m.facts });
   };

@@ -73,8 +73,25 @@ export interface CardFactsMessage {
   facts: { name: string; set: string | null; art: string | null; printed?: string | null };
 }
 
-/** The BroadcastChannel the compute frame posts card facts on (both frames are extension pages). */
+/** The BroadcastChannel the compute frame posts card facts on. Every page of the extension's origin
+ *  can use it (the frames of other tabs too); a web page cannot. */
 export const FACTS_CHANNEL = "duelsight-card-facts";
+
+/** Tooltip frame → compute frames, on the facts channel: the facts of a card it was asked to show
+ *  and does not have (a tooltip frame made again, or a card that came before its facts). */
+export interface FactsRequest {
+  want: true;
+  releaseId: string;
+  cardId: string;
+}
+
+export function parseFactsRequest(data: unknown): FactsRequest | null {
+  if (typeof data !== "object" || data === null) return null;
+  const m = data as Raw;
+  return m.want === true && typeof m.releaseId === "string" && RELEASE_ID.test(m.releaseId) && isText(m.cardId)
+    ? { want: true, releaseId: m.releaseId, cardId: m.cardId }
+    : null;
+}
 
 const RELEASE_ID = /^[0-9a-f]{16}$/;
 /** A clean relative art path: no scheme, no leading slash, no "." or ".." segment. */

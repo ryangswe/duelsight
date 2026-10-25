@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { allowedParentOrigin, MAX_FRAME_SIDE, parseComputeIn, parseComputeOut, parseTooltipIn, parseTooltipOut, tag } from "../src/shared/messages.js";
+import { allowedParentOrigin, MAX_FRAME_SIDE, parseComputeIn, parseFactsRequest, parseComputeOut, parseTooltipIn, parseTooltipOut, tag } from "../src/shared/messages.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
 const BOTH_SITES = { youtube: true, twitch: true };
@@ -112,5 +112,13 @@ describe("frame size cap", () => {
     expect(frame(MAX_FRAME_SIDE + 1, 100)).toBeNull();
     expect(frame(100, MAX_FRAME_SIDE + 1)).toBeNull();
     expect(frame(0, 100)).toBeNull();
+  });
+});
+
+describe("facts requests on the channel", () => {
+  it("accepts {want: true, releaseId, cardId} and nothing else", () => {
+    const ok = { want: true, releaseId: "0123456789abcdef", cardId: "999" };
+    expect(parseFactsRequest(ok)).toEqual(ok);
+    for (const bad of [{ ...ok, want: 1 }, { ...ok, releaseId: "x" }, { ...ok, cardId: "" }, null, "want"]) expect(parseFactsRequest(bad)).toBeNull();
   });
 });

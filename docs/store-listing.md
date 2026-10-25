@@ -117,7 +117,7 @@ has the long form):
 `storage`:
 
 ```text
-Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the channels the user turned card hovers on for, the last settings file fetched, a dismissed update notice, and for 24 hours the id of updated recognition data that failed its checks. Nothing is synced or sent anywhere.
+Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the channels the user turned card hovers on for, the last settings file fetched, a dismissed update notice, and the id of updated recognition data that failed its checks (ignored after 24 hours). Nothing is synced or sent anywhere.
 ```
 
 Host permissions (`https://www.youtube.com/*`, `https://www.twitch.tv/*`, `https://cdn.duelsight.com/*`):

@@ -160,6 +160,45 @@ describe("loadRemoteRelease", () => {
     expect(r).toMatchObject({ ok: false, reason: "unreachable:catalog.json", record: false });
   });
 
+  it("9: a server that never answers a file's request is a stall too (no headers within the stall time)", async () => {
+    const routes = defaultRoutes();
+    routes[`${BASE}vision/releases/${ID}/bank.json`] = (init) =>
+      new Promise((_, reject) => init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+    const r = await loadRemoteRelease(pointer, deps(server(routes).fetch, { stallMs: 30 }));
+    expect(r).toMatchObject({ ok: false, reason: "unreachable:bank.json", record: false });
+  });
+
+  it("8: a pinned file named release.json (the document's own key) is refused", async () => {
+    const doc = { ...JSON.parse(new TextDecoder().decode(DOC)), catalog: { ...docFor(ID, REMOTE).catalog, path: "release.json" } };
+    const bytes = enc(JSON.stringify(doc));
+    const routes = defaultRoutes();
+    routes[`${BASE}vision/releases/${ID}/release.json`] = body(bytes);
+    expect(await loadRemoteRelease({ ...pointer, sha256: hex(bytes) }, deps(server(routes).fetch))).toMatchObject({ ok: false, reason: "doc-shape", record: true });
+  });
+
+  it("2.2: a bundled file that cannot be read from the extension is downloaded instead", async () => {
+    const routes = defaultRoutes();
+    routes["ext://release/detector.onnx"] = () => new Response("gone", { status: 404 });
+    const s = server(routes);
+    const r = await loadRemoteRelease(pointer, deps(s.fetch));
+    expect(r).toMatchObject({ ok: true, reused: 1 });
+    expect(s.calls.some((c) => c.url === `${BASE}vision/releases/${ID}/detector.onnx`)).toBe(true);
+  });
+
+  it("2.2: no readable bundled document: every file is downloaded", async () => {
+    const routes = defaultRoutes();
+    routes["ext://release/release.json"] = () => "network";
+    expect(await loadRemoteRelease(pointer, deps(server(routes).fetch))).toMatchObject({ ok: true, reused: 0 });
+  });
+
+  it("shows the loading state before the document is asked for", async () => {
+    const order: string[] = [];
+    const s = server(defaultRoutes());
+    const fetch = ((input: RequestInfo | URL, init?: RequestInit) => (order.push(String(input).split("/").pop()!), s.fetch(input, init))) as typeof globalThis.fetch;
+    await loadRemoteRelease(pointer, deps(fetch, { onDownloading: () => order.push("loading") }));
+    expect(order[0]).toBe("loading");
+  });
+
   it("9b: a file whose size or sha256 is wrong twice is recorded; once (a stale cache entry) is fine", async () => {
     const routes = defaultRoutes();
     routes[`${BASE}vision/releases/${ID}/identity-groups.json`] = body(enc('{"g":9}'));

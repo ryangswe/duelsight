@@ -1,4 +1,12 @@
 {
-  "$comment": "Every pointer-aware DuelSight version shipped, and the runtime it runs (cdn/SETTINGS.md, 'Publishing a release'). publish-release refuses a release one of the versions its pointer reaches could not load. Add a row with each store release.",
-  "0.3.0": { "vendoredCommit": "3d8962cbc98f347dab9943dce031e29ba27aaff3", "ortWeb": "1.29.0" }
+  "$comment": "Every pointer-aware DuelSight version shipped: the runtime it runs and the release bundled in it (cdn/SETTINGS.md, 'Publishing a release'). publish-release refuses a release one of the versions its pointer reaches could not load, and asks for --sessions when its models differ from what installs run. Add a row with each store release.",
+  "0.3.0": {
+    "vendoredCommit": "3d8962cbc98f347dab9943dce031e29ba27aaff3",
+    "ortWeb": "1.29.0",
+    "bundledRelease": {
+      "id": "0927859c6f18302f",
+      "detectorSha256": "54882ff7faebb854f79505b4f00313ea9a8ef927741c1501ac60d98022fe356e",
+      "recognizerSha256": "0722ca4a2b9e76b37f3e0d32b78bb1d9afd5d040d219de3560a322c98a966d79"
+    }
+  }
 }

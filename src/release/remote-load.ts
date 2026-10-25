@@ -34,8 +34,7 @@ export interface RemoteLoadDeps {
   settingsUrl: string;
   /** A file inside the extension (chrome.runtime.getURL). */
   extensionUrl(path: string): string;
-  /** Called when the first byte of a download is about to be asked for (the frame shows its
-   *  loading state). */
+  /** Called before the release document is asked for (the frame shows its loading state). */
   onDownloading?(): void;
   documentTimeoutMs?: number;
   stallMs?: number;
@@ -116,14 +115,16 @@ async function readWithStall(response: Response, controller: AbortController, st
 
 export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoadDeps): Promise<RemoteLoad> {
   let downloaded = 0;
-  const docTimeout = deps.documentTimeoutMs ?? 10_000;
+  const docTimeout = deps.documentTimeoutMs ?? DOCUMENT_TIMEOUT_MS;
   const stallMs = deps.stallMs ?? STALL_MS;
 
   /** Fetch a URL on the settings host with the rules' options. `whole`: one deadline for the
    *  whole body (the document); otherwise the stall rule (files). */
   const get = async (url: string, label: string, opts: { whole: boolean; reload: boolean }): Promise<ArrayBuffer> => {
     const controller = new AbortController();
-    const deadline = opts.whole ? setTimeout(() => controller.abort(), docTimeout) : undefined;
+    // The document: one deadline for all of it. A file: the stall rule from the request on (a server
+    // that never answers is a stall too), re-armed per chunk once the body comes.
+    const deadline = setTimeout(() => controller.abort(), opts.whole ? docTimeout : stallMs);
     try {
       let response: Response;
       try {
@@ -131,6 +132,7 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
       } catch {
         throw new Failure(label === "release.json" ? "unreachable" : `unreachable:${label}`, false);
       }
+      if (!opts.whole) clearTimeout(deadline);
       if (!response.ok) throw new Failure(label === "release.json" ? `http-${response.status}` : `unreachable:${label}`, false);
       try {
         const body = opts.whole ? await response.arrayBuffer() : await readWithStall(response, controller, stallMs);
@@ -147,6 +149,7 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
   try {
     // ---------------------------------------------------------------- 1. the document
     const docUrl = new URL(pointer.path, deps.settingsUrl).href;
+    deps.onDownloading?.();
     let docBytes = await get(docUrl, "release.json", { whole: true, reload: false });
     if ((await deps.sha256Hex(docBytes)) !== pointer.sha256) {
       docBytes = await get(docUrl, "release.json", { whole: true, reload: true });
@@ -159,7 +162,9 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
       throw new Failure("doc-shape", true);
     }
     const remote = pinnedFiles(doc);
-    if (!remote || (doc as { id?: unknown }).id !== pointer.id || !remote.every((f) => FLAT_NAME.test(f.path))) throw new Failure("doc-shape", true);
+    // Flat names, and none of them the document's own key among the worker's files.
+    const flat = (f: PinnedFile): boolean => FLAT_NAME.test(f.path) && f.path !== "release.json";
+    if (!remote || (doc as { id?: unknown }).id !== pointer.id || !remote.every(flat)) throw new Failure("doc-shape", true);
 
     // ---------------------------------------------------------------- 2. reuse, then downloads
     let bundled: PinnedFile[] = [];
@@ -171,7 +176,6 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
     }
     const files: Record<string, Blob> = { "release.json": new Blob([docBytes], { type: "application/json" }) };
     let reused = 0;
-    let announced = false;
     for (const file of remote) {
       const same = bundled.find((b) => b.sha256 === file.sha256 && b.bytes === file.bytes);
       if (same) {
@@ -181,10 +185,6 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
           reused += 1;
           continue;
         }
-      }
-      if (!announced) {
-        announced = true;
-        deps.onDownloading?.();
       }
       const url = new URL(`vision/releases/${pointer.id}/${file.path}`, deps.settingsUrl).href;
       let bytes = await get(url, file.path, { whole: false, reload: false });

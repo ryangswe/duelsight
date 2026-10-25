@@ -192,8 +192,12 @@ so a card new in a remote release would be recognized and then shown as nothing.
 therefore builds the same table (`src/shared/card-table.mjs`, the build's own rule) from the catalog
 it hands the worker, before the load, and adopts it only when the worker confirms that release's
 id. With each card it shows from that release, it posts the card's facts (`{releaseId, cardId,
-facts: {name, set, art}}`) on the extension-only `BroadcastChannel("duelsight-card-facts")`, then
-sends the card, with the release id, through the page as before. The tooltip looks a card up in the
+facts: {name, set, art}}`) on `BroadcastChannel("duelsight-card-facts")`, then sends the card, with
+the release id, through the page as before. The channel reaches the extension's own pages (other
+tabs' frames too) and no web page. A tooltip frame that has a card of a remote release to show and
+not its facts (made again, or the card came first) asks on the channel (`{want: true, releaseId,
+cardId}`); the compute frame of that release answers, and facts that arrive for the card on show
+replace what it showed. The tooltip looks a card up in the
 facts it received for that release first, then in its bundled table; an id in neither is waited for
 300 ms, then shows nothing. The page can post card messages to the tooltip frame, but it cannot reach
 the channel, so it can never make the tooltip show a name or picture that a compute frame did not
@@ -204,6 +208,9 @@ path); every later lookup for the card on show (its details panel too) uses them
 `[DuelSight] release source=remote|bundled reason=<code> pointer=<id|-> bundled=<id> reused=<k>/5
 downloaded=<bytes> ms=<n>`, where `downloaded` counts decoded bytes. Never the page's address, the
 channel, the video, frames or cards. Dev builds add `release` to `__duelsightDebug`.
+
+**Once per frame.** "Once per page" is once per compute frame: if the page removes the frame, a new
+one decides again.
 
 **Pickup.** A running browser picks a pointer move up within about 1 h 5 min (the hourly settings
 fetch plus this file's 5-minute cache), or at its next start. Rolling back is pointing back to an

@@ -51,7 +51,8 @@ export async function chooseRelease(deps: ChooseDeps, hooks: { onDownloading(): 
   try {
     facts = deps.buildCardTable(JSON.parse(await loaded.catalog.text()));
   } catch {
-    return { source: "bundled", reason: "doc-shape", pointer: d.pointer, downloaded: loaded.downloaded, ms: ms() };
+    // The runtime would refuse it too (and that would be recorded); here it is only logged.
+    return { source: "bundled", reason: "catalog-unreadable", pointer: d.pointer, downloaded: loaded.downloaded, ms: ms() };
   }
   const request: LoadRequest = {
     kind: "load",

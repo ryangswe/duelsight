@@ -27,8 +27,9 @@ month, on a fixed day:
    PROVENANCE.md says what was added). They are published beside the release's files.
 5. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
    folder outside the repository: `node scripts/card-details.mjs --cards <cardinfo JSON>
-   --catalog <release folder>/catalog.json --out <folder>`. Card text is the rights holder's: the
-   file is never committed or packaged.
+   --catalog <release folder>/catalog.json --out <folder>`. It prints the file's versioned name and
+   the `details` entry for `cdn/config.json` (step 6 writes both entries with `--set-pointer`). Card
+   text is the rights holder's: the file is never committed or packaged.
 6. **Publish.** The new art (`dscdn.py publish --catalog … --images …`), then the release:
    `dscdn.py publish-release --release <folder> --min-version 0.3.0 --details <file> --config
    cdn/config.json --set-pointer` (try it with `--dry-run` before). It uploads the release folder, verifies it

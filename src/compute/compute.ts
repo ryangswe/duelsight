@@ -12,7 +12,7 @@
 import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
 import { readEffectiveSettings } from "../settings/store.js";
-import { allowedParentOrigin, FACTS_CHANNEL } from "../shared/messages.js";
+import { allowedParentOrigin, FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
 import { buildCardTable } from "../shared/card-table.mjs";
 import { chooseRelease, decisionLine, recordSkip } from "../release/choose.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
@@ -96,6 +96,13 @@ void (async () => {
       : {}),
   });
   if (!frame) return;
+  // A tooltip frame that lacks a card's facts asks for them on the channel (one made again, or a
+  // card that arrived before its facts); the frame whose release it is answers.
+  facts.onmessage = (event: MessageEvent) => {
+    const want = parseFactsRequest(event.data);
+    const answer = want ? frame.factsFor(want.releaseId, want.cardId) : null;
+    if (answer) facts.postMessage(answer);
+  };
   setInterval(() => frame.tick(), DRIVER_TICK_MS);
   if (__DEV__) {
     // Dev builds only: what the smoke check reads (test/smoke/smoke.mjs).
