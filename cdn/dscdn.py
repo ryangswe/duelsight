@@ -695,6 +695,8 @@ RELEASE_CACHE = "public, max-age=31536000, immutable"
 RELEASE_ID = re.compile(r"^[0-9a-f]{16}$")
 FLAT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# The extension reads a release document no further than this (src/release/remote-load.ts DOCUMENT_MAX_BYTES).
+MAX_RELEASE_DOC_BYTES = 256 * 1024
 # Published beside the weights: the release's license, notice and provenance (release-legal/).
 LEGAL_TYPES = {"LICENSE": "text/plain; charset=utf-8", "NOTICE": "text/plain; charset=utf-8",
                "PROVENANCE.md": "text/markdown; charset=utf-8"}
@@ -763,6 +765,8 @@ def load_local_release(folder: Path, legal_dir: Path) -> LocalRelease:
     if not doc_path.is_file():
         raise Refused(f"{doc_path}: no release document")
     doc_bytes = doc_path.read_bytes()
+    if len(doc_bytes) > MAX_RELEASE_DOC_BYTES:
+        raise Refused(f"{doc_path}: {len(doc_bytes)} bytes; the extension reads a release document only up to {MAX_RELEASE_DOC_BYTES}")
     try:
         doc = json.loads(doc_bytes)
     except json.JSONDecodeError:
@@ -1573,6 +1577,8 @@ def selftest_releases(refused) -> None:
         bad_doc["catalog"] = {**refs["catalog"], "path": "sub/catalog.json"}
         (folder / "release.json").write_text(json.dumps(bad_doc))
         assert refused(lambda: load_local_release(folder, legal)), "a pinned path is not a flat name"
+        (folder / "release.json").write_text(json.dumps({**d, "padding": "x" * MAX_RELEASE_DOC_BYTES}))
+        assert refused(lambda: load_local_release(folder, legal)), "a document the extension would not read whole"
         (folder / "release.json").write_text(json.dumps(d))
         lr = load_local_release(folder, legal)
 
