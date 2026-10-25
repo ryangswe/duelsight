@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { loadRemoteRelease, type RemoteLoadDeps } from "../src/release/remote-load.js";
+import { DOCUMENT_MAX_BYTES, loadRemoteRelease, type RemoteLoadDeps } from "../src/release/remote-load.js";
 import type { ReleasePointer } from "../src/release/pointer.js";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -189,6 +189,32 @@ describe("loadRemoteRelease", () => {
     const routes = defaultRoutes();
     routes["ext://release/release.json"] = () => "network";
     expect(await loadRemoteRelease(pointer, deps(server(routes).fetch))).toMatchObject({ ok: true, reused: 0 });
+  });
+
+  it("9b: a file that streams without end is read no further than its pinned size, then fails and is recorded", async () => {
+    const routes = defaultRoutes();
+    let served = 0;
+    routes[`${BASE}vision/releases/${ID}/bank.json`] = () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          pull(c) {
+            served += 1024;
+            c.enqueue(new Uint8Array(1024));
+          },
+        }),
+      );
+    const r = await loadRemoteRelease(pointer, deps(server(routes).fetch));
+    expect(r).toMatchObject({ ok: false, reason: "file-sha:bank.json", record: true });
+    expect(served).toBeLessThan(64 * 1024);
+    expect(r.downloaded).toBeLessThanOrEqual(DOC.byteLength * 2 + 2 * (NEW["bank.json"].byteLength + 1024));
+  });
+
+  it("7: a document past 256 KB is read no further, fails its SHA-256 and is recorded", async () => {
+    const routes = defaultRoutes();
+    routes[`${BASE}vision/releases/${ID}/release.json`] = () => new Response(new Uint8Array(DOCUMENT_MAX_BYTES * 4) as unknown as BodyInit);
+    const r = await loadRemoteRelease(pointer, deps(server(routes).fetch));
+    expect(r).toMatchObject({ ok: false, reason: "doc-sha", record: true });
+    expect(r.downloaded).toBe(2 * (DOCUMENT_MAX_BYTES + 1));
   });
 
   it("shows the loading state before the document is asked for", async () => {

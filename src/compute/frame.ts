@@ -84,6 +84,8 @@ export interface ComputeEnv {
 
 /** How many times a worker that failed after loading is started again. */
 export const WORKER_RESTARTS = 1;
+/** Cards this frame has shown, kept to answer a tooltip's facts request (oldest dropped first). */
+export const SHOWN_IDS_LIMIT = 256;
 
 export interface ReleaseInEffect {
   source: "remote" | "bundled" | "choosing";
@@ -122,18 +124,29 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
 
   /** The pointer of the remote release in effect (for the log after a restart). */
   let remotePointer: string | null = null;
+  /** The ids this frame has sent in `shown` with the remote release's facts: a tooltip's request is
+   *  answered for these only (Addendum 2: facts of shown cards, nothing a page could ask for). */
+  const shownIds = new Set<string>();
+  let readyPosted = false;
 
-  const factsFor = (releaseId: string, cardId: string): CardFactsMessage | null => {
+  /** The facts of a card from the table in effect, whether shown or not. */
+  const rowFacts = (releaseId: string, cardId: string): CardFactsMessage | null => {
     if (!facts || facts.releaseId !== releaseId || !Object.hasOwn(facts.table, cardId)) return null;
     const row = facts.table[cardId]!;
     return { releaseId, cardId, facts: { name: row[0], set: row[1], art: row[2], ...(row.length > 3 ? { printed: row[3] ?? null } : {}) } };
   };
 
+  /** A tooltip's request: answered only for a card this frame showed, of its confirmed release. */
+  const factsFor = (releaseId: string, cardId: string): CardFactsMessage | null => (shownIds.has(cardId) ? rowFacts(releaseId, cardId) : null);
+
   /** Shown cards of a remote release: their facts go out first, by the extension-only channel. */
   const toContent = (message: ComputeOut): void => {
     if (message.kind === "shown" && message.card && facts) {
-      const f = factsFor(facts.releaseId, message.card.cardId);
+      const f = rowFacts(facts.releaseId, message.card.cardId);
       if (f) {
+        shownIds.delete(f.cardId);
+        shownIds.add(f.cardId);
+        while (shownIds.size > SHOWN_IDS_LIMIT) shownIds.delete(shownIds.values().next().value as string);
         env.postFacts?.(f);
         toParent({ kind: "shown", card: { ...message.card, releaseId: f.releaseId } });
         return;
@@ -167,6 +180,11 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     worker = w;
     session = s;
     w.postMessage(request);
+    // Ready once a session can take the content script's messages (its first `presented` too).
+    if (!readyPosted) {
+      readyPosted = true;
+      toParent({ kind: "ready" });
+    }
   };
 
   /** Fall back to the bundled release: a planned replacement, not a restart. */
@@ -179,7 +197,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
     release.id = null;
     release.reason = reason;
     decision({ source: "bundled", reason, pointer: t.pointer.id, reused: t.reused, downloaded: t.downloaded, ms: t.ms });
-    startWorker(env.loadRequest);
+    startOrFail(env.loadRequest);
   };
 
   /** The worker's verdict on a remote release. True: pass it on to the session. */
@@ -228,7 +246,7 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
         release.reason = "worker-restart";
         decision({ source: "bundled", reason: "worker-restart", pointer: remotePointer });
       }
-      startWorker(env.loadRequest);
+      startOrFail(env.loadRequest);
       return;
     }
     stopped = true;
@@ -249,14 +267,14 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
   });
 
   /** A worker that cannot even be made: recognition is off for this page, as when a load fails. */
-  const startOrFail = (request: LoadRequest): void => {
+  function startOrFail(request: LoadRequest): void {
     try {
       startWorker(request);
     } catch (error) {
       stopped = true;
       toParent({ kind: "status", state: "failed", error: `the recognition worker could not start (${String(error)})`, backend: null });
     }
-  };
+  }
 
   if (!env.chooseRelease) {
     startWorker(env.loadRequest);
@@ -277,7 +295,6 @@ export function startComputeFrame(env: ComputeEnv): ComputeFrame | null {
         startOrFail(env.loadRequest);
       });
   }
-  toParent({ kind: "ready" });
   return {
     get session() {
       return session;

@@ -196,8 +196,9 @@ facts: {name, set, art}}`) on `BroadcastChannel("duelsight-card-facts")`, then s
 the release id, through the page as before. The channel reaches the extension's own pages (other
 tabs' frames too) and no web page. A tooltip frame that has a card of a remote release to show and
 not its facts (made again, or the card came first) asks on the channel (`{want: true, releaseId,
-cardId}`); the compute frame of that release answers, and facts that arrive for the card on show
-replace what it showed. The tooltip looks a card up in the
+cardId}`); the compute frame of that release answers for a card it has shown (the last 256) and
+for nothing else, and facts that arrive for the card on show replace what it showed. A file is read
+no further than its pinned size, and the document no further than 256 KB. The tooltip looks a card up in the
 facts it received for that release first, then in its bundled table; an id in neither is waited for
 300 ms, then shows nothing. The page can post card messages to the tooltip frame, but it cannot reach
 the channel, so it can never make the tooltip show a name or picture that a compute frame did not

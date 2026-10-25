@@ -86,6 +86,7 @@ async function setup(choice: ReleaseChoice | Promise<ReleaseChoice>, over: Parti
 
 const statusOk = (id: string) => ({ kind: "release-status", ok: true, error: null, release: releaseOf(id), cards: [] });
 const statusFail = (error: string) => ({ kind: "release-status", ok: false, error, release: null, cards: [] });
+const made: FakeWorker[] = [];
 const isBundled = (w: FakeWorker) => w.posted[0]?.releaseUrl === "chrome-extension://x/release/release.json";
 
 describe("compute frame, remote release", () => {
@@ -231,12 +232,50 @@ describe("compute frame, remote release", () => {
     expect(t.decisions.at(-1)).toMatchObject({ source: "bundled", reason: "worker-restart", pointer: ID });
   });
 
-  it("answers a tooltip's request for facts of its own release only", async () => {
-    const t = await setup(remoteChoice());
+  it("answers a tooltip's request only for a card it showed, of its own release (Addendum 2)", async () => {
+    const t = await setup({ ...(remoteChoice() as Extract<ReleaseChoice, { source: "remote" }>), facts: { "999": ["New Card", null, "full/999.jpg"], "998": ["Never Shown", null, null] } });
     expect(t.frame.factsFor(ID, "999")).toBeNull();
     t.workers[0]!.reply(statusOk(ID));
+    expect(t.frame.factsFor(ID, "999")).toBeNull();
+    (t.frame.session as unknown as { deps: { toContent(m: unknown): void } }).deps.toContent({ kind: "shown", card: { cardId: "999", name: "New Card", box: { x: 0, y: 0, width: 0.1, height: 0.1 }, others: [] } });
     expect(t.frame.factsFor(ID, "999")).toEqual({ releaseId: ID, cardId: "999", facts: { name: "New Card", set: null, art: "full/999.jpg" } });
+    expect(t.frame.factsFor(ID, "998")).toBeNull();
     expect(t.frame.factsFor("ffffffffffffffff", "999")).toBeNull();
-    expect(t.frame.factsFor(ID, "1")).toBeNull();
+  });
+
+  it("says ready only once a session can take messages, so the first `presented` is not lost", async () => {
+    let resolve!: (c: ReleaseChoice) => void;
+    const t = await setup(new Promise<ReleaseChoice>((r) => (resolve = r)));
+    expect(t.toParent.some((m) => m.kind === "ready")).toBe(false);
+    resolve({ source: "bundled", reason: "absent", pointer: null, downloaded: 0, ms: 0 });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(t.toParent.filter((m) => m.kind === "ready")).toHaveLength(1);
+    expect(t.frame.session).not.toBeNull();
+    // A fallback or a restart does not say ready again.
+    t.workers[0]!.reply(statusOk("ffffffffffffffff"));
+    t.workers[0]!.fail("crash");
+    expect(t.toParent.filter((m) => m.kind === "ready")).toHaveLength(1);
+  });
+
+  it("with no pointer, the worker gets the bundled request exactly as before pointers", async () => {
+    const t = await setup({ source: "bundled", reason: "absent", pointer: null, downloaded: 0, ms: 0 });
+    expect(t.workers).toHaveLength(1);
+    expect(t.workers[0]!.posted).toEqual([{ kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "w/" }]);
+  });
+
+  it("4: a fallback whose worker cannot be made turns recognition off", async () => {
+    let n = 0;
+    const t = await setup(remoteChoice(), {
+      createWorker: () => {
+        n += 1;
+        if (n > 1) throw new Error("blocked");
+        const w = new FakeWorker();
+        made.push(w);
+        return w;
+      },
+    });
+    made[0]!.reply(statusFail("bank: sha256 of bank.json does not match the release"));
+    expect(t.frame.stopped).toBe(true);
+    expect(t.toParent.some((m) => m.kind === "status" && m.state === "failed")).toBe(true);
   });
 });

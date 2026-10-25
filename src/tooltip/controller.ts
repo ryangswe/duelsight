@@ -194,8 +194,9 @@ export class TooltipController {
     const card = this.lookup(cardId, releaseId);
     const e = this.deps.elements;
     // A card of a remote release whose facts this frame has not received: ask for them (they win
-    // over the bundled table when they come).
-    if (releaseId !== undefined && !this.facts.has(`${releaseId}|${cardId}`)) this.deps.requestFacts?.(releaseId, cardId);
+    // over the bundled table when they come). Asked once the wait or the card on show is set, so an
+    // answer that comes at once is not lost.
+    const ask = releaseId !== undefined && !this.facts.has(`${releaseId}|${cardId}`);
     if (!card) {
       this.clear();
       if (releaseId !== undefined) {
@@ -203,6 +204,7 @@ export class TooltipController {
           if (this.waiting?.timer === timer) this.waiting = null;
         }, FACTS_WAIT_MS);
         this.waiting = { cardId, releaseId, seq: messageSeq, timer };
+        if (ask) this.deps.requestFacts?.(releaseId, cardId);
       }
       return false;
     }
@@ -210,6 +212,7 @@ export class TooltipController {
     this.current = card.id;
     this.currentFacts = card;
     this.currentRelease = releaseId;
+    if (ask) this.deps.requestFacts?.(releaseId!, cardId);
     this.currentSeq = messageSeq;
     const seq = ++this.seq;
     const settings = this.settings;

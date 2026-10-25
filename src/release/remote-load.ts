@@ -19,6 +19,8 @@ import type { ReleasePointer } from "./pointer.js";
 /** A pinned file's name: no folder, no `..`, nothing but letters, digits, `.`, `_` and `-`. */
 export const FLAT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export const DOCUMENT_TIMEOUT_MS = 10_000;
+/** The release document is a few KB; a body past this is not read further (it fails its SHA-256). */
+export const DOCUMENT_MAX_BYTES = 256 * 1024;
 export const STALL_MS = 30_000;
 
 export interface PinnedFile {
@@ -81,14 +83,22 @@ export function pinnedFiles(doc: unknown): PinnedFile[] | null {
   return out;
 }
 
-/** Read a response's body as a stream; abort when no bytes arrive for `stallMs`. */
-async function readWithStall(response: Response, controller: AbortController, stallMs: number): Promise<ArrayBuffer> {
-  if (!response.body) return response.arrayBuffer();
+/**
+ * Read a response's body as a stream: with `stallMs`, abort when no bytes arrive for that long; never
+ * more than `maxBytes` + 1 bytes (a longer body is cut there and then fails its size and SHA-256
+ * check, so a server cannot make the frame read without end).
+ */
+async function readBody(response: Response, controller: AbortController, stallMs: number | null, maxBytes: number): Promise<ArrayBuffer> {
+  if (!response.body) {
+    const all = await response.arrayBuffer();
+    return all.byteLength > maxBytes ? all.slice(0, maxBytes + 1) : all;
+  }
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const arm = (): void => {
+    if (stallMs === null) return;
     clearTimeout(timer);
     timer = setTimeout(() => controller.abort(), stallMs);
   };
@@ -99,16 +109,23 @@ async function readWithStall(response: Response, controller: AbortController, st
       if (done) break;
       chunks.push(value);
       total += value.byteLength;
+      if (total > maxBytes) {
+        void reader.cancel().catch(() => undefined);
+        break;
+      }
       arm();
     }
   } finally {
     clearTimeout(timer);
   }
-  const out = new Uint8Array(total);
+  const size = Math.min(total, maxBytes + 1);
+  const out = new Uint8Array(size);
   let at = 0;
   for (const c of chunks) {
-    out.set(c, at);
-    at += c.byteLength;
+    if (at >= size) break;
+    const part = c.byteLength <= size - at ? c : c.subarray(0, size - at);
+    out.set(part, at);
+    at += part.byteLength;
   }
   return out.buffer;
 }
@@ -120,7 +137,7 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
 
   /** Fetch a URL on the settings host with the rules' options. `whole`: one deadline for the
    *  whole body (the document); otherwise the stall rule (files). */
-  const get = async (url: string, label: string, opts: { whole: boolean; reload: boolean }): Promise<ArrayBuffer> => {
+  const get = async (url: string, label: string, opts: { whole: boolean; reload: boolean; maxBytes: number }): Promise<ArrayBuffer> => {
     const controller = new AbortController();
     // The document: one deadline for all of it. A file: the stall rule from the request on (a server
     // that never answers is a stall too), re-armed per chunk once the body comes.
@@ -135,7 +152,7 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
       if (!opts.whole) clearTimeout(deadline);
       if (!response.ok) throw new Failure(label === "release.json" ? `http-${response.status}` : `unreachable:${label}`, false);
       try {
-        const body = opts.whole ? await response.arrayBuffer() : await readWithStall(response, controller, stallMs);
+        const body = await readBody(response, controller, opts.whole ? null : stallMs, opts.maxBytes);
         downloaded += body.byteLength;
         return body;
       } catch {
@@ -150,9 +167,9 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
     // ---------------------------------------------------------------- 1. the document
     const docUrl = new URL(pointer.path, deps.settingsUrl).href;
     deps.onDownloading?.();
-    let docBytes = await get(docUrl, "release.json", { whole: true, reload: false });
+    let docBytes = await get(docUrl, "release.json", { whole: true, reload: false, maxBytes: DOCUMENT_MAX_BYTES });
     if ((await deps.sha256Hex(docBytes)) !== pointer.sha256) {
-      docBytes = await get(docUrl, "release.json", { whole: true, reload: true });
+      docBytes = await get(docUrl, "release.json", { whole: true, reload: true, maxBytes: DOCUMENT_MAX_BYTES });
       if ((await deps.sha256Hex(docBytes)) !== pointer.sha256) throw new Failure("doc-sha", true);
     }
     let doc: unknown;
@@ -187,10 +204,10 @@ export async function loadRemoteRelease(pointer: ReleasePointer, deps: RemoteLoa
         }
       }
       const url = new URL(`vision/releases/${pointer.id}/${file.path}`, deps.settingsUrl).href;
-      let bytes = await get(url, file.path, { whole: false, reload: false });
+      let bytes = await get(url, file.path, { whole: false, reload: false, maxBytes: file.bytes });
       const ok = async (b: ArrayBuffer): Promise<boolean> => b.byteLength === file.bytes && (await deps.sha256Hex(b)) === file.sha256;
       if (!(await ok(bytes))) {
-        bytes = await get(url, file.path, { whole: false, reload: true });
+        bytes = await get(url, file.path, { whole: false, reload: true, maxBytes: file.bytes });
         if (!(await ok(bytes))) throw new Failure(`file-sha:${file.path}`, true);
       }
       files[file.path] = new Blob([bytes]);

@@ -13,6 +13,7 @@ import { parseDetailsFile } from "../src/details/details.js";
 import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
 import { parseCardFacts, tag, type TooltipSize } from "../src/shared/messages.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
+import { startComputeFrame } from "../src/compute/frame.js";
 
 /** Settings for these tests (a fixture, not the build's own). */
 const defaultSettings = (): Settings => ({
@@ -608,6 +609,60 @@ describe("cards of a remote release: races and limits", () => {
     for (let i = 0; i <= FACTS_LIMIT; i += 1) c.addFacts(RID, facts(`n${i}`, `Card ${i}`));
     expect(c.show("n0", 11, RID)).toBe(false);
     expect(c.show(`n${FACTS_LIMIT}`, 12, RID)).toBe(true);
+  });
+});
+
+describe("facts requests end to end (compute frame ↔ tooltip, Addendum 2)", () => {
+  it("a page-posted `card` for a card the compute frame never showed displays nothing; a shown one displays its facts", async () => {
+    const RID = "0123456789abcdef";
+    const workers: Array<{ onmessage: ((e: MessageEvent) => void) | null; posted: unknown[] }> = [];
+    const frame = startComputeFrame({
+      win: { parent: { postMessage: () => undefined }, addEventListener: () => undefined },
+      framed: true,
+      parentOrigin: SITE_ORIGIN,
+      dev: false,
+      createWorker: () => {
+        const w = { onmessage: null, onerror: null, posted: [] as unknown[], postMessage(m: unknown) { this.posted.push(m); }, terminate() {} };
+        workers.push(w);
+        return w as never;
+      },
+      loadRequest: { kind: "load", releaseUrl: "chrome-extension://x/release/release.json" },
+      now: () => 0,
+      chooseRelease: async () => ({
+        source: "remote",
+        pointer: { id: RID, path: `vision/releases/${RID}/release.json`, sha256: "a".repeat(64), minimumExtensionVersion: "0.3.0", maximumExtensionVersion: null },
+        request: { kind: "load", releaseUrl: "release.json", files: {} },
+        facts: { "999": ["Shown Card", null, "999.jpg"], "998": ["Never Shown", null, "998.jpg"] },
+        reused: 2, downloaded: 1, ms: 1,
+      }),
+    })!;
+    await new Promise((r) => setTimeout(r, 0));
+    workers[0]!.onmessage?.({ data: { kind: "release-status", ok: true, error: null, cards: [], release: { id: RID, recognizer: { ep: "wasm" }, detector: { ep: "wasm" }, hoverMaxAgeMs: 2000, analysisWidth: { min: 720, max: 1920 } } } } as MessageEvent);
+    // The frame shows card 999 (its facts go out on the channel; this tooltip frame is a new one that missed them).
+    (frame.session as unknown as { deps: { toContent(m: unknown): void } }).deps.toContent({ kind: "shown", card: { cardId: "999", name: "Shown Card", box: { x: 0, y: 0, width: 0.1, height: 0.1 }, others: [] } });
+    let timers: Array<() => void> = [];
+    let c!: TooltipController;
+    c = build({
+      setTimer: (fn) => (timers.push(fn), timers.length),
+      clearTimer: () => undefined,
+      // The channel, in one step: the request reaches the compute frame, its answer comes back.
+      requestFacts: (releaseId, cardId) => {
+        const answer = frame.factsFor(releaseId, cardId);
+        if (answer) c.addFacts(answer.releaseId, { id: answer.cardId, ...answer.facts });
+      },
+    });
+    c.setSettings(defaultSettings());
+    const parent = { postMessage: () => undefined };
+    let listener: ((e: MessageEvent) => void) | null = null;
+    connectTooltipFrame({ win: { parent, addEventListener: (_: "message", l: (e: MessageEvent) => void) => void (listener = l) }, framed: true, parentOrigin: SITE_ORIGIN, dev: false }, c);
+    const fromPage = (data: unknown) => listener!({ data, source: parent, origin: SITE_ORIGIN } as unknown as MessageEvent);
+    fromPage(tag({ kind: "card", cardId: "998", name: "x", releaseId: RID }));
+    for (const fire of timers) fire();
+    expect(c.current).toBeNull();
+    expect(elements.root.hidden).toBe(true);
+    fromPage(tag({ kind: "card", cardId: "999", name: "x", releaseId: RID }));
+    expect(c.current).toBe("999");
+    expect(elements.placeholder.textContent).toBe("Shown Card");
   });
 });
 

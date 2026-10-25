@@ -1017,7 +1017,7 @@ def live_models(public_base: str, runtimes: dict, min_v: str, max_v: Optional[st
     status, _, body = get(f"{public_base}/{CONFIG_KEY}?cb={random.getrandbits(32):x}")
     rel = json.loads(body).get("release") if status == 200 else None
     if rel and not release_pointer_problems(rel):
-        s2, _, doc_bytes = get(f"{public_base}/{rel['path']}")
+        s2, _, doc_bytes = get(f"{public_base}/{rel['path']}?cb={random.getrandbits(32):x}")
         if s2 == 200:
             doc = json.loads(doc_bytes)
             return [(f"live release {rel['id']}", doc["detector"]["sha256"], doc["recognizer"]["sha256"])]
@@ -1119,7 +1119,8 @@ def pointer_gate(public_base: str, rel: dict, get=None, runtimes: Optional[dict]
     if status == 200 and json.loads(body).get("release") == rel:
         print(f"note: the pointer is the live one ({rel['id']}); not checked again")
         return None
-    s2, _, doc_bytes = get(f"{public_base}/{rel['path']}")
+    # Cache-busted: never leave a cached 404 at the edge under a release's real URL.
+    s2, _, doc_bytes = get(f"{public_base}/{rel['path']}?cb={random.getrandbits(32):x}")
     if s2 != 200:
         return f"release {rel['id']}: its document is not on the CDN (HTTP {s2})"
     runtimes = runtimes if runtimes is not None else json.loads(RUNTIMES_PATH.read_text())
@@ -1204,7 +1205,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         files, artless, cards, config, details = build(args, t.public_base)
         # A pointer only ever moves to a folder that verifies live (this covers rollbacks too).
         rel = json.loads(config).get("release") if config is not None else None
-        if rel and args.command == "publish" and not args.dry_run:
+        if rel and args.command == "publish":  # a dry run checks it too
             problem = pointer_gate(t.public_base, rel)
             if problem:
                 raise Refused(problem + "; nothing written")
@@ -1700,6 +1701,10 @@ def selftest_releases(refused) -> None:
             # the publish --config gate
             ptr = pointer_block(lr, "0.3.0", None)
             assert pointer_gate("https://cdn.example.org", ptr, get=fake_get, runtimes=same_models, verify_live=lambda *a, **k: 1) is None, "the live pointer again: not re-checked"
+            seen: list[str] = []
+            pointer_gate("https://cdn.example.org", ptr, get=lambda url, **k: (seen.append(url), fake_get(url, **k, pointer=False))[1],
+                         runtimes=same_models, verify_live=lambda *a, **k: 0)
+            assert seen and all("?cb=" in u for u in seen), "the gate never asks for a bare public URL"
             off = lambda *a, **k: fake_get(*a, **k, pointer=False)
             assert pointer_gate("https://cdn.example.org", ptr, get=off, runtimes=same_models, verify_live=lambda *a, **k: 0) is None
             assert pointer_gate("https://cdn.example.org", ptr, get=off, runtimes=same_models, verify_live=lambda *a, **k: 1), "a new pointer that does not verify"
