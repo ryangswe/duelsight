@@ -15,6 +15,7 @@ anything. Read the store's current policies before each submission: they change.
 | --- | --- | --- | --- |
 | 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | approved; replaced by 0.2.1 |
 | 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | live 2026-10-24 (item `okngcckiafmekbmdgoakggfbicgoagnc`) |
+| 0.3.0 | release T2 `0927859c6f18302f` bundled; new cards through the settings file's release pointer (cdn/SETTINGS.md); runtime cardvision 0.3.0rc1 | Public | prepared 2026-10-25, not yet submitted |
 
 Update this table with each submission (date submitted, date approved, store item ID).
 
@@ -148,7 +149,7 @@ https://cdn.duelsight.com/privacy.html
 ## Distribution tab
 
 **Visibility:** 0.1.0 was **Unlisted** (people find it through its link, not in search), so the store's review of a new item
-was done before launch. **0.2.1 is the launch release: switch Visibility to Public** once it is approved. **Regions:** all.
+was done before launch. 0.2.1 was the launch release (Public since 2026-10-24); later versions keep Public. **Regions:** all.
 **Pricing:** free.
 
 ## Test instructions (if the dashboard asks)
