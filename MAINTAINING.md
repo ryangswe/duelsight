@@ -37,8 +37,9 @@ month, on a fixed day:
    `cdn/config.json`. Publishing needs the CDN account's token: it is the owner's step, or the
    maintainer's under a standing permission the owner gave for updates that add cards and nothing else, which
    applies once the owner has published the opening two pointer moves.
-7. **Confirm** after about an hour (`dscdn.py verify-release-live`; a hover on a new card). Rolling
-   back is publishing the previous `release` block, or removing it.
+7. **Confirm** after about an hour (`dscdn.py verify-release-live`; a hover on a new card). The hover can
+   also be done headlessly on the local test page: `node test/smoke/remote-smoke.mjs --live --expect-id <id>`
+   (its header says how). Rolling back is publishing the previous `release` block, or removing it.
 
 The next store release bundles the release the pointer names then, so fresh installs download
 nothing. Installs older than 0.3.0, and zip installs that never update, keep the cards of their
