@@ -938,7 +938,12 @@ def verify_release_live(public_base: str, candidate: Optional[str] = None, expec
         rid = candidate
     else:
         url = config_url or f"{public_base}/{CONFIG_KEY}"
-        status, _, body = get(f"{url}{'&' if '?' in url else '?'}{bust}")
+        status, h, body = get(f"{url}{'&' if '?' in url else '?'}{bust}")
+        if status == 0:
+            err = h.get("x-error", "")
+            hint = " This Python trusts no certificate authority: run it from cdn/.venv (README), or pip install certifi." if "CERTIFICATE" in err.upper() else ""
+            fail(f"config.json: no answer ({err}).{hint}")
+            return bad
         if status != 200:
             fail(f"config.json: HTTP {status}")
             return bad
