@@ -124,6 +124,9 @@ IMAGES=<the folder of card images>    # the `art` paths are relative to it
   no template may point at those other projects.
 - A details file must be named `details-<sha8>.json` after its own SHA-256 and be a schema 1
   details file; a `config.json` published with it must name it (path and SHA-256).
+- A `config.json` that names a details file it is not published with (`publish --config`, or
+  `publish-release --set-pointer`) is refused, dry run included, unless that file is already on the
+  CDN with exactly those bytes; the refusal names the live config's entry.
 - A page must be one of the names the tool serves (`privacy.html`), an HTML document, with no
   script, event handler or `javascript:` link.
 - A failed image upload leaves it out of `art/index.json` (a re-run retries it) and blocks

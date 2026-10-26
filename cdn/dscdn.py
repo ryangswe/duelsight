@@ -1085,6 +1085,9 @@ def publish_release(args, t: Target, s3=None, verify_live=None, node=node_verify
     details = load_details(Path(args.details)) if args.details else None
     block = pointer_block(lr, min_v, max_v)
     config = planned_config(args, lr, block, details, t.public_base)
+    problem = details_gate(t.public_base, config, details, get=get)
+    if problem:
+        raise Refused(problem + "; nothing written")
     s3 = s3 or r2_client(t)
     todo, there = remote_state(s3, t.bucket, lr.pinned + lr.legal + [lr.doc_file], args.fix_metadata)
     log(f"remote: {len(todo)} to upload, {len(there)} already there")
@@ -1141,6 +1144,35 @@ def pointer_gate(public_base: str, rel: dict, get=None, runtimes: Optional[dict]
     return None
 
 
+def details_gate(public_base: str, cfg_bytes: Optional[bytes], details: Optional[DetailsFile], get=None) -> Optional[str]:
+    """A config.json about to be published: why its `details` entry may not go out, or None. It must
+    name the details file this run publishes (before the config), or one already on the CDN with
+    exactly those bytes. Otherwise every viewer's details panel would ask for a file that is not
+    there (2026-10-26: a stale repository config named a details file that was never published)."""
+    if cfg_bytes is None:
+        return None
+    named = json.loads(cfg_bytes).get("details")
+    if not named:
+        return None
+    if details is not None and named == {"path": details.key, "sha256": details.sha256}:
+        return None
+    get = get or http_get
+    # Cache-busted: never leave a cached 404 at the edge under a real URL.
+    status, _, body = get(f"{public_base}/{named['path']}?cb={random.getrandbits(32):x}")
+    if status == 200 and hashlib.sha256(body).hexdigest() == named["sha256"]:
+        return None
+    why = f"HTTP {status}" if status != 200 else "other bytes than its sha256"
+    hint = "publish that file with --details, or name the details file that is live"
+    s2, _, live_body = get(f"{public_base}/{CONFIG_KEY}?cb={random.getrandbits(32):x}")
+    try:
+        live = json.loads(live_body).get("details") if s2 == 200 else None
+    except (json.JSONDecodeError, AttributeError):
+        live = None
+    if live and live != named:
+        hint = f"the live config.json names {json.dumps(live)}: copy that entry into the config, or publish {named['path']} with --details"
+    return f"config.json names {named['path']}, which is not on the CDN ({why}); {hint}"
+
+
 # ---------------------------------------------------------------------------- CLI
 
 def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, Optional[bytes], Optional[DetailsFile]]:
@@ -1149,9 +1181,9 @@ def build(args, public_base: Optional[str]) -> tuple[list[LocalFile], int, int, 
     problem = details_config_problem(config, details)
     if problem:
         raise Refused(problem)
-    if config is not None and details is None and json.loads(config).get("details"):
+    if config is not None and details is None and json.loads(config).get("details") and getattr(args, "offline", False):
         print(f"note: config.json names {json.loads(config)['details']['path']}; it must already be on the CDN "
-              "(publish it with --details; verify checks it)")
+              "(publish checks it before anything is written)")
     if not args.catalog:
         return [], 0, 0, config, details
     if not args.images:
@@ -1216,6 +1248,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         rel = json.loads(config).get("release") if config is not None else None
         if rel and args.command == "publish":  # a dry run checks it too
             problem = pointer_gate(t.public_base, rel)
+            if problem:
+                raise Refused(problem + "; nothing written")
+        if args.command == "publish":  # a dry run checks it too
+            problem = details_gate(t.public_base, config, details)
             if problem:
                 raise Refused(problem + "; nothing written")
         s3 = r2_client(t)
@@ -1721,6 +1757,43 @@ def selftest_releases(refused) -> None:
             assert pointer_gate("https://cdn.example.org", ptr, get=off, runtimes=same_models, verify_live=lambda *a, **k: 1), "a new pointer that does not verify"
             assert pointer_gate("https://cdn.example.org", ptr, get=off, runtimes={"0.3.0": {"ortWeb": "1.30.0"}}, verify_live=lambda *a, **k: 0), "another ORT minor"
             assert pointer_gate("https://cdn.example.org", {**ptr, "id": "f" * 16, "path": f"vision/releases/{'f' * 16}/release.json"}, get=off, runtimes=same_models, verify_live=lambda *a, **k: 0), "no document"
+
+            # details gate: a config may only name a details file this run publishes, or one live with those bytes
+            live_d = json.dumps({"schemaVersion": 1, "cards": {"1": ["A", None, None]}}).encode()
+            live_entry = {"path": f"data/details-{hashlib.sha256(live_d).hexdigest()[:8]}.json", "sha256": hashlib.sha256(live_d).hexdigest()}
+            stale_entry = {"path": "data/details-2442d28d.json", "sha256": "2442d28d" + "0" * 56}
+            live_cfg = json.dumps(cfg | {"details": live_entry}).encode()
+
+            def cdn(url, **k):
+                path = url.split("?")[0].removeprefix("https://cdn.example.org/")
+                if path == CONFIG_KEY:
+                    return 200, {}, live_cfg
+                return (200, {}, live_d) if path == live_entry["path"] else (404, {}, b"")
+
+            gate = lambda entry, d=None, get=cdn: details_gate("https://cdn.example.org", json.dumps(cfg | ({"details": entry} if entry else {})).encode(), d, get=get)
+            assert gate(None) is None, "no details entry"
+            assert gate(live_entry) is None, "the live file, same bytes"
+            msg = gate(stale_entry)
+            assert msg and "HTTP 404" in msg and live_entry["path"] in msg, "a file never published: refused, naming the live entry"
+            assert gate({**live_entry, "sha256": "0" * 64}), "the live path with other bytes"
+            assert gate(stale_entry, get=lambda url, **k: (0, {"x-error": "offline"}, b"")), "cannot confirm: refused"
+            mine = load_details(details_path)
+            asked = []
+            assert gate({"path": mine.key, "sha256": mine.sha256}, mine, get=lambda url, **k: asked.append(url)) is None and not asked, \
+                "the file this run publishes first: no fetch"
+
+            # 2026-10-26 replayed: publish-release --set-pointer, no --details, a config naming a file that is not there
+            stale_file = Path(tmp) / "stale-config.json"
+            stale_file.write_text(json.dumps(cfg | {"details": stale_entry}))
+            replay = SimpleNamespace(**{**vars(args), "config": str(stale_file), "details": None, "set_pointer": True, "dry_run": True})
+            s3 = FakeS3()
+            assert refused(lambda: publish_release(replay, tgt, s3=s3, node=node_ok, log=lambda _: None, get=cdn, runtimes=same_models)), \
+                "the dry run refuses it"
+            assert not s3.puts and json.loads(stale_file.read_text())["details"] == stale_entry, "nothing written, config untouched"
+            fixed = SimpleNamespace(**{**vars(replay), "config": str(Path(tmp) / "fixed-config.json")})
+            Path(fixed.config).write_text(json.dumps(cfg | {"details": live_entry}))
+            assert publish_release(fixed, tgt, s3=FakeS3(), node=node_ok, log=lambda _: None, get=cdn, runtimes=same_models) == 0, \
+                "with the live entry it goes ahead"
 
 
 if __name__ == "__main__":
