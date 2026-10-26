@@ -2,7 +2,19 @@
   "schemaVersion": 1,
   "updatedAt": "2026-10-18T00:00:00Z",
   "namesOnly": false,
-  "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
+  "primary": {
+    "id": "cdn",
+    "template": "https://cdn.duelsight.com/art/{art}"
+  },
   "fallbacks": [],
-  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28df1108e6f624fe36cd0f0ca69f9b34965169d06215a5dcf348beaa3d5" }
+  "details": {
+    "path": "data/details-4ab2f978.json",
+    "sha256": "4ab2f978549f10f6612869e9cd50be63abea61148111a7812ee1f47aee076030"
+  },
+  "release": {
+    "id": "0927859c6f18302f",
+    "path": "vision/releases/0927859c6f18302f/release.json",
+    "sha256": "2d0e8836a8de79cfd3791ccaac03934669b64ae02dd770856fbf7827c2e63c8f",
+    "minimumExtensionVersion": "0.3.0"
+  }
 }
