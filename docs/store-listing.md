@@ -30,7 +30,7 @@ Update this table with each submission (date submitted, date approved, store ite
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
    then `cdn/dscdn.py publish --page <that folder>/privacy.html` and `verify` (owner's step:
    [cdn/README.md](../cdn/README.md)).
-3. **The images** (five screenshots, two promo tiles), made as in [Store images](#store-images)
+3. **The images** (four screenshots, two promo tiles), made as in [Store images](#store-images)
    below, outside the repository.
 4. **Links resolve.** The description, the privacy page and the URL fields link to the project's
    GitHub repository; a reviewer who clicks a dead link may reject the item. If the repository is
