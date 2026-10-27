@@ -16,6 +16,7 @@ anything. Read the store's current policies before each submission: they change.
 | 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | approved; replaced by 0.2.1 |
 | 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | live 2026-10-24 (item `okngcckiafmekbmdgoakggfbicgoagnc`); replaced by 0.3.0 |
 | 0.3.0 | release T2 `0927859c6f18302f` bundled; new cards through the settings file's release pointer (cdn/SETTINGS.md); runtime cardvision 0.3.0rc1 | Public | live by 2026-10-26; the opening pointer move (to the bundled `0927859c6f18302f`, a no-op) published and verified 2026-10-26 |
+| 0.4.0 | release `387bdfb29b4b050f` bundled (T2 converted losslessly: a binary bank and a compact catalog); card hovers on for all supported videos, no in-player button; a Firefox build (addons.mozilla.org, `duelsight@duelsight.com`, Firefox 148 or later); runtime cardvision 0.4.0rc2. The live settings' release pointer is set to `null` at the upload (each version then runs its bundled release) | Public | not yet submitted |
 
 Update this table with each submission (date submitted, date approved, store item ID).
 

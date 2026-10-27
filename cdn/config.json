@@ -11,10 +11,5 @@
     "path": "data/details-4ab2f978.json",
     "sha256": "4ab2f978549f10f6612869e9cd50be63abea61148111a7812ee1f47aee076030"
   },
-  "release": {
-    "id": "0927859c6f18302f",
-    "path": "vision/releases/0927859c6f18302f/release.json",
-    "sha256": "2d0e8836a8de79cfd3791ccaac03934669b64ae02dd770856fbf7827c2e63c8f",
-    "minimumExtensionVersion": "0.3.0"
-  }
+  "release": null
 }
