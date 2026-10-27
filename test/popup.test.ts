@@ -239,6 +239,17 @@ describe("popup", () => {
     expect(document.getElementById("update")!.hidden).toBe(true);
   });
 
+  it.runIf(UPDATE_URL_PREFIX !== null)("never shows the new-version line in the Firefox build", async () => {
+    const config = {
+      schemaVersion: 1, updatedAt: "2026-10-16T00:00:00Z", namesOnly: false, primary: null, fallbacks: [], cardLink: null,
+      update: { latest: "0.2.0", url: `${UPDATE_URL_PREFIX}/tag/v0.2.0` },
+    };
+    const local = memoryStorage({ "settings.lastGood": { raw: config, fetchedAt: 1 } });
+    initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0", updateNotices: false });
+    await settle();
+    expect(document.getElementById("update")!.hidden).toBe(true);
+  });
+
   it("links the project page and the toolkit it is built on", () => {
     initPopup({ doc: document, local: memoryStorage(), onChanged: listenersOf().onChanged, version: "0.1.0" });
     expect((document.getElementById("project") as HTMLAnchorElement).href).toBe(new URL(PROJECT_URL).href);

@@ -14,5 +14,6 @@
   "modelUrl": null,
   "runtimeUrl": "https://github.com/ryangswe/riftsight-vision",
   "maintainerContactUrl": "https://github.com/ryangswe/duelsight/issues",
-  "packageName": "duelsight"
+  "packageName": "duelsight",
+  "firefoxAddonId": "duelsight@duelsight.com"
 }

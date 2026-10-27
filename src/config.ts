@@ -33,6 +33,8 @@ export interface ForkConfig {
   runtimeUrl: string;
   maintainerContactUrl: string | null;
   packageName: string;
+  /** The Firefox add-on ID (the build's manifest); absent or null: no Firefox build. */
+  firefoxAddonId?: string | null;
 }
 
 /**

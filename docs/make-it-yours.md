@@ -58,6 +58,9 @@ nothing beyond the local server.
    - `projectUrl` and `runtimeUrl`: the popup's two links (keep `runtimeUrl`: it credits the
      runtime). `updateUrlPrefix`: where a "New version available" line may link, or `null`
      for never. `modelUrl`, `maintainerContactUrl`: yours, or `null`.
+   - `firefoxAddonId` (optional): your Firefox add-on ID, `name@domain` on a domain you control.
+     It is permanent once your add-on is listed on addons.mozilla.org. Leave it out (or `null`)
+     for no Firefox build. Never reuse DuelSight's.
 
 3. **Your models.** Pass your release folder to the build with `--release`. Rewrite
    `release-legal/` for your models: `LICENSE` (your models' license), `NOTICE`, whose first
