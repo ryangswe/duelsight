@@ -7,6 +7,7 @@
 //   - the image hosts the config names (the CDN), so the extension's pages can load pictures and
 //     the settings file from it; the pages' connect-src names the same hosts.
 // No tabs, no history, no other host. A dev build also runs on the local test page.
+// A Firefox build (`firefoxManifest`) is the same manifest in Firefox's form.
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -73,5 +74,47 @@ export function buildManifest({ version, dev, store = false, config = loadForkCo
     icons,
     action: { default_popup: "popup.html", default_title: config.name, default_icon: { 16: icons[16], 32: icons[32] } },
     content_security_policy: { extension_pages: extensionPagesCsp(config, dev) },
+  };
+}
+
+/**
+ * The add-on ID of a Firefox build: the config's `firefoxAddonId` (permanent once the listing is
+ * published). A dev build carries its own, `<name>-dev@<domain>`, so it loads beside the installed
+ * add-on instead of replacing it.
+ */
+export function firefoxAddonId(config, dev) {
+  const id = config.firefoxAddonId;
+  if (typeof id !== "string") return null;
+  return dev ? id.replace("@", "-dev@") : id;
+}
+/**
+ * 148 is the first Firefox with `location.ancestorOrigins`, which the compute and tooltip frames
+ * need to know the page they are in (src/compute/compute.ts, src/tooltip/tooltip.ts): on an older
+ * Firefox they would never start, and no card would show.
+ */
+export const FIREFOX_MIN_VERSION = "148.0";
+/** Nothing about the user leaves the browser: the extension only downloads (settings, pictures,
+ *  card details, releases) from its own CDN. */
+export const FIREFOX_DATA_COLLECTION = { required: ["none"] };
+
+/**
+ * The Firefox form of a finished manifest. Firefox has no background service worker: the same
+ * module runs as a background script (an event page). It has no `key` (an add-on's ID is the
+ * gecko `id`) and no `minimum_chrome_version`. Permissions are the Chrome manifest's.
+ */
+export function firefoxManifest(manifest, { dev, config = loadForkConfig() }) {
+  const id = firefoxAddonId(config, dev);
+  if (id === null) throw new Error("duelsight.config.json has no firefoxAddonId: there is no Firefox build");
+  const { key: _key, minimum_chrome_version: _min, background, ...rest } = manifest;
+  return {
+    ...rest,
+    background: { scripts: [background.service_worker], type: background.type },
+    browser_specific_settings: {
+      gecko: {
+        id,
+        strict_min_version: FIREFOX_MIN_VERSION,
+        data_collection_permissions: FIREFOX_DATA_COLLECTION,
+      },
+    },
   };
 }

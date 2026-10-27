@@ -37,7 +37,47 @@ The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as
 release page, with every file inside one `duelsight-<version>/` folder (the folder a user selects in
 "Load unpacked"). A `--store` build becomes `duelsight-<version>-store.zip` with `manifest.json` at the
 zip's top level, as the Chrome Web Store requires. It refuses a dev build, and a build that holds
-OpenCV.js, geometric-stage files (this build ships none) or a card details file.
+OpenCV.js, geometric-stage files (this build ships none) or a card details file. It also refuses a
+`.json`, `.js`, `.mjs`, `.css` or `.html` file of 4.5 MiB or more (`scripts/package-size.mjs`):
+addons.mozilla.org refuses an add-on with a text file of 5 MiB, and the card catalog grows with
+every set. Bundle a release converted with `cardvision convert-release` (a binary bank and a
+compact catalog); `npm run build` warns about such files, so a dev build still works.
+
+## Firefox
+
+The same sources build for Firefox (desktop; 148 or later):
+
+```
+npm run build -- --target firefox --release <release folder>        # the addons.mozilla.org build
+npm run build -- --target firefox --dev --release <release folder>  # dev: also the local test page
+npm run package                                                    # duelsight-<version>-firefox.zip
+```
+
+Only the manifest differs (`firefoxManifest` in `scripts/manifest.mjs`):
+
+- the background module runs as a background script (Firefox has no service worker);
+- no `key` and no `minimum_chrome_version`;
+- a `gecko` block with the add-on ID (`firefoxAddonId` in `duelsight.config.json`, permanent once
+  listed; a dev build uses `duelsight-dev@duelsight.com`, so it loads beside the listed add-on),
+  the minimum Firefox version and the data declaration (`required: ["none"]`: nothing about the
+  user leaves the browser).
+
+The minimum is 148, the first Firefox with `location.ancestorOrigins`: the compute and tooltip
+frames read it to know the page they are in, and do not start without it. Permissions are the
+Chrome manifest's. The popup never shows the "New version available" line in Firefox, which
+installs only signed add-ons and updates them itself (`__TARGET__`, set by the build, is
+`"chrome"` or `"firefox"`; compare it at the use site).
+
+Code that runs in Firefox uses only `chrome.storage` and `chrome.runtime`. Before using another
+`chrome.*` API, check MDN's compatibility table for Firefox 148. The background is an event page:
+it may stop when idle, so it keeps no state outside storage.
+
+To try a build: `about:debugging` → This Firefox → Load Temporary Add-on → `dist/manifest.json`.
+Before an upload: unzip the package and run `npx web-ext lint --source-dir <folder>` (0 errors),
+then `node scripts/firefox-source-archive.mjs --release <folder> --runtime-repo <toolkit checkout>`
+for the source archive Mozilla's reviewers rebuild from (the bundles are minified). Unzip the
+archive into an empty folder, run `./build-firefox.sh`, and `diff -r` the unzipped
+`out/duelsight-<version>-firefox.zip` against the unzipped upload: every file must match.
 
 ## The runtime
 

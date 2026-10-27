@@ -50,6 +50,11 @@ describe("zipLayout", () => {
     expect(layout).toEqual({ file: "duelsight-0.1.0-store.zip", folder: null, store: true });
   });
 
+  it("names a Firefox build's zip -firefox and puts its files at the top level", () => {
+    const layout = zipLayout("duelsight", { version: "0.3.0", browser_specific_settings: { gecko: { id: "duelsight@duelsight.com" } } });
+    expect(layout).toEqual({ file: "duelsight-0.3.0-firefox.zip", folder: null, store: true, firefox: true });
+  });
+
   it("keeps a release-page build in one folder named like the zip", () => {
     const layout: Layout = zipLayout("duelsight", { version: "0.2.0", key: "MIIB…" });
     expect(layout).toEqual({ file: "duelsight-0.2.0.zip", folder: "duelsight-0.2.0", store: false });

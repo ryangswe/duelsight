@@ -84,7 +84,8 @@ try {
     join(browser, "tsconfig.types.json"),
     JSON.stringify({
       extends: "./tsconfig.json",
-      compilerOptions: { noEmit: false, declaration: true, emitDeclarationOnly: true, outDir: "types", types: ["@webgpu/types"] },
+      // rootDir: TypeScript 7 no longer infers it (the runtime moved to 7 in cardvision 0.4.0rc2); src/ is what 5.x inferred.
+      compilerOptions: { noEmit: false, declaration: true, emitDeclarationOnly: true, rootDir: "src", outDir: "types", types: ["@webgpu/types"] },
       include: ["src"],
     }),
   );

@@ -24,6 +24,8 @@
 //   updateUrlPrefix                where "New version available" may link, or null (never shown)
 //   projectUrl, runtimeUrl         the popup's two links; modelUrl, maintainerContactUrl: README's
 //   packageName                    the release zip's name (`<packageName>-<version>.zip`)
+//   firefoxAddonId                 optional: the Firefox add-on ID (`name@domain`, permanent once
+//                                  listed on addons.mozilla.org); without it there is no Firefox build
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,8 +37,10 @@ export const ICON_SIZES = [16, 32, 48, 128];
 
 const KEYS = [
   "$comment", "name", "shortName", "description", "icons", "videoSites", "cdnBase", "imageHosts", "settingsUrl", "outlineColor", "outlineGlowColor",
-  "printedNumber", "updateUrlPrefix", "projectUrl", "modelUrl", "runtimeUrl", "maintainerContactUrl", "packageName",
+  "printedNumber", "updateUrlPrefix", "projectUrl", "modelUrl", "runtimeUrl", "maintainerContactUrl", "packageName", "firefoxAddonId",
 ];
+/** A Firefox add-on ID in email form, as addons.mozilla.org takes it. */
+export const FIREFOX_ADDON_ID = /^[a-zA-Z0-9._-]{1,64}@[a-zA-Z0-9._-]{1,128}$/;
 /** The CSS named colors (CSS Color 4), without `transparent` and `currentcolor`. */
 const CSS_COLOR_NAMES = new Set(
   [
@@ -184,6 +188,9 @@ export function configProblems(c, root = ROOT) {
   for (const k of ["projectUrl", "runtimeUrl"]) if (!httpsUrl(c[k])) p.push(`${k}: an https:// address`);
   for (const k of ["modelUrl", "maintainerContactUrl"]) if (c[k] !== null && !httpsUrl(c[k])) p.push(`${k}: an https:// address, or null`);
   if (typeof c.packageName !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(c.packageName)) p.push("packageName: lowercase letters, digits and hyphens");
+  if (c.firefoxAddonId !== undefined && c.firefoxAddonId !== null && !(typeof c.firefoxAddonId === "string" && FIREFOX_ADDON_ID.test(c.firefoxAddonId))) {
+    p.push("firefoxAddonId: name@domain (letters, digits, dot, hyphen, underscore), or null");
+  }
   return p;
 }
 
