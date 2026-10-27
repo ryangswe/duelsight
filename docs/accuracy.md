@@ -76,10 +76,14 @@ passed: 5 of its 163 tooltips were wrong.
   shown may be a different artwork of it.
 - What an installed copy recognizes is the card list in its release. New cards reach installed
   copies (version 0.3.0 and later) as an updated release from DuelSight's CDN, about once a month,
-  without a store update. Such an update adds the new cards' fingerprints and leaves the models
-  unchanged, so the figures above, which describe the models, still hold; the release id an install
-  runs may then be newer than the one this page names. An update must pass a fixed,
-  pre-registered check that it changes nothing for the cards that already worked.
+  without a store update. Such an update adds the new cards' fingerprints and keeps the models
+  unchanged. The figures above were measured on the release this page names and are not measured
+  again for an update: a longer card list changes which cards compete for a match, so an update's
+  figures may differ, and the release an install runs may be newer than the one this page names.
+  Before it is published, an update must instead pass a check fixed in advance, on our development
+  data: on our real development frames, no card that was named right may be lost; on generated
+  scenes, a small fixed number of changes is allowed; and the new cards must be recognized about as
+  well as other cards the models were not trained on.
 - Speed depends on your computer. Pointing at a card should feel immediate on a recent one, but
   that is not a promise.
 

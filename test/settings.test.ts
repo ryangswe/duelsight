@@ -31,7 +31,8 @@ describe("validateSettings", () => {
   it.runIf(IS_DUELSIGHT)("accepts DuelSight's bundled default as it ships", () => {
     const { settings, problems } = validateWithHosts(DEFAULT_CONFIG);
     expect(problems).toEqual([]);
-    expect(settings).toEqual({
+    const { release, ...rest } = settings!;
+    expect(rest).toEqual({
       schemaVersion: 1,
       updatedAt: "2026-10-18T00:00:00Z",
       namesOnly: false,
@@ -39,8 +40,17 @@ describe("validateSettings", () => {
       fallbacks: [],
       update: null,
       details: { path: expect.stringMatching(/^data\/details-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
-      release: null,
     });
+    // cdn/config.json mirrors the live one, so it carries the live release pointer (or none): a well-formed one.
+    if (release !== null && release !== undefined) {
+      const id = (release as { id?: unknown }).id;
+      expect(release).toEqual({
+        id: expect.stringMatching(/^[0-9a-f]{16}$/),
+        path: `vision/releases/${String(id)}/release.json`,
+        sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+        minimumExtensionVersion: expect.stringMatching(/^\d+\.\d+\.\d+$/),
+      });
+    }
     // The versioned name is the start of the file's SHA-256.
     expect(settings!.details!.sha256.startsWith(settings!.details!.path.slice("data/details-".length, -".json".length))).toBe(true);
   });
