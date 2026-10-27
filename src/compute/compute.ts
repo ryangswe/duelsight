@@ -4,8 +4,8 @@
 // and the session that decides when a picture is analyzed (host-session.ts). The wiring and
 // its origin rule are in frame.ts.
 //
-// This frame is made on the first hover over a video whose channel the viewer turned card hovers
-// on for (the in-player button), so the release loads then and never at install. Which release:
+// This frame is made on the first pointer move over a video's picture, so the release loads then
+// and never at install. Which release:
 // the bundled one, or the one the settings file names (src/release/, cdn/SETTINGS.md "release"),
 // read once per page.
 

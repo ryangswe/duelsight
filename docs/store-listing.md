@@ -30,7 +30,7 @@ Update this table with each submission (date submitted, date approved, store ite
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
    then `cdn/dscdn.py publish --page <that folder>/privacy.html` and `verify` (owner's step:
    [cdn/README.md](../cdn/README.md)).
-3. **The images** (five screenshots, two promo tiles), made as in [Store images](#store-images)
+3. **The images** (four screenshots, two promo tiles), made as in [Store images](#store-images)
    below, outside the repository.
 4. **Links resolve.** The description, the privacy page and the URL fields link to the project's
    GitHub repository; a reviewer who clicks a dead link may reject the item. If the repository is
@@ -65,7 +65,7 @@ Measured before release, in a held-out test scored once (31 frames from 11 recor
 Full test report: https://github.com/ryangswe/duelsight/blob/main/docs/accuracy.md
 
 - Aimed at Master Duel, Dueling Book and paper tables with the camera above the table. Results vary by video, and it can miss a card or show a wrong one.
-- Turn it on per channel with the button in the player. The toolbar switch turns it off everywhere.
+- Rest the pointer on a card in a supported video; nothing to set up per channel. The toolbar switch turns it off everywhere.
 - Choose the card size (70% to 130%) and whether the card's text shows beside its picture, in the toolbar popup.
 - No accounts, analytics, telemetry or advertising. Video frames are analyzed inside your browser and never uploaded.
 - Open source (Apache-2.0), built on the cardvision toolkit: https://github.com/ryangswe/riftsight-vision
@@ -81,13 +81,14 @@ that it can miss a card or show a wrong one; no keyword lists (the store rejects
 
 **Store icon:** `icons/icon-128.png` (128×128).
 
-**Screenshots:** five, 1280×800, in listing order (see [Store images](#store-images)):
+**Screenshots:** four, 1280×800, in listing order (see [Store images](#store-images)):
 1. `1-hover`: a hover on a Master Duel card, with the card details beside it;
-2. `2-button`: the DuelSight button at the top right of the video, Off and then On after one
-   click, which turns card hovers on for that channel;
-3. `3-paper`: a hover on a card on a paper table;
-4. `4-card-alone`: the same hover with card details switched off: the enlarged card on its own;
-5. `5-popup`: the toolbar popup (on/off, card details, card size).
+2. `2-paper`: a hover on a card on a paper table;
+3. `3-card-alone`: the same hover with card details switched off: the enlarged card on its own;
+4. `4-popup`: the toolbar popup (on/off, card details, card size).
+
+The version that removed the in-player button (always-on hovers) also removed the listing's
+"Click the DuelSight button" screenshot: delete it from the dashboard at that upload.
 
 **Small promo tile:** `promo-small-440x280.jpg`. **Marquee promo tile:** `promo-marquee-1400x560.jpg`.
 **Video:** none.
@@ -118,13 +119,13 @@ has the long form):
 `storage`:
 
 ```text
-Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the channels the user turned card hovers on for, the last settings file fetched, a dismissed update notice, and the id of updated recognition data that failed its checks (ignored after 24 hours). Nothing is synced or sent anywhere.
+Keeps the user's settings on their computer: the on/off switch, the card size, whether card details show, the last settings file fetched, a dismissed update notice, and the id of updated recognition data that failed its checks (ignored after 24 hours). Nothing is synced or sent anywhere.
 ```
 
 Host permissions (`https://www.youtube.com/*`, `https://www.twitch.tv/*`, `https://cdn.duelsight.com/*`):
 
 ```text
-YouTube and Twitch: to show the extension's on/off button in the video player and, on channels the user turned it on for, read the video picture around the pointer and recognize the card under it. Recognition runs inside the browser; frames are never saved or uploaded. cdn.duelsight.com is the extension's own server: it loads a small settings file, card pictures, a card details file and, when new cards are published, updated card-recognition data (JSON and ONNX data files, never code) from it.
+YouTube and Twitch: to read the video picture around the pointer, once the pointer comes over a video, and recognize the card under it. Recognition runs inside the browser; frames are never saved or uploaded. cdn.duelsight.com is the extension's own server: it loads a small settings file, card pictures, a card details file and, when new cards are published, updated card-recognition data (JSON and ONNX data files, never code) from it.
 ```
 
 **Remote code:** "No, I am not using remote code." The ONNX Runtime WebAssembly and every script
@@ -155,12 +156,12 @@ was done before launch. 0.2.1 was the launch release (Public since 2026-10-24); 
 ## Test instructions (if the dashboard asks)
 
 ```text
-No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Click the DuelSight button in the top-right of the player to turn card hovers on for that channel, then rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size and turns the card details on or off.
+No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size and turns the card details on or off.
 ```
 
 ## Store images
 
-The five screenshots and the two promo tiles are made by `scripts/store-assets.mjs` from the real
+The four screenshots and the two promo tiles are made by `scripts/store-assets.mjs` from the real
 extension: a dev build in Chrome for Testing hovers a card on two clips (one Master Duel, one paper
 table) on a bare local page, and `scripts/store-templates.mjs` lays the captures out with the
 headlines, in the store's sizes (1280×800, 440×280, 1400×560), as JPEG (the store takes JPEG, or
@@ -177,8 +178,7 @@ are **never committed**: the script writes them outside the repository, and the 
    ```bash
    ffmpeg -loop 1 -i frame.png -vf "crop=1346:758:290:130" -t 12 -r 10 -c:v libvpx-vp9 -crf 18 -b:v 0 -pix_fmt yuv420p md.webm
    ```
-   Use WebM: Chrome for Testing plays it, not every build plays H.264. A 16:9 Master Duel clip suits
-   the button screenshot well.
+   Use WebM: Chrome for Testing plays it, not every build plays H.264.
 3. **Find a card the model names confidently** in each, and its centre in the clip's pixels:
    `cardvision infer <the cropped frame> --release <release.json> --prefill-out boxes.jsonl`
    (a named box's `box` is x, y, width, height).

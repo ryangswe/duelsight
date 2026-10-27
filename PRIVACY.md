@@ -17,11 +17,10 @@ what it sends, and what it keeps.
 ## What it reads
 
 - **On supported `www.youtube.com` and `www.twitch.tv` pages**, including `www.youtube.com`
-  player frames embedded in other websites: it reads the video and channel information needed
-  for card hovers. That is where the pointer is over the page's main video (to show its on/off
-  button), the page's channel (its address or channel link), and, on channels you turned card
-  hovers on for, the picture of the video. It reads the picture around your pointer activity
-  over the video: for 10 seconds after the pointer last moved there, and after that while a card
+  player frames embedded in other websites: it reads what card hovers need. That is where the
+  pointer is over the page's main video and, while card hovers are switched on in the popup, the
+  picture of the video. Nothing is read from a video before the pointer comes over it. It
+  reads the picture around your pointer activity over the video: for 10 seconds after the pointer last moved there, and after that while a card
   is showing under the resting pointer (until 5 seconds after it stops showing). It stops when
   the pointer leaves the video or the tab goes to the background.
 - It does not access Chrome's saved browsing history, and does not read comments, chat messages
@@ -43,6 +42,9 @@ storage, uploaded or shared.
 
 ## What it sends, and to whom
 
+Card hovers start in a tab when the pointer comes over a video there, with DuelSight
+switched on in the popup.
+
 | Request | To | When | What the host learns |
 | --- | --- | --- | --- |
 | The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
@@ -54,7 +56,7 @@ These requests carry no cookies, no account ID or per-user tracking identifier, 
 address of the page you watch. Settings, picture, details and release requests carry no `Referer` at all. Like any
 web request, they show the host your IP address, which file was asked for, and the headers your
 browser adds to every request. The extension sends nothing else to anyone, and it does not send
-the channels you turned on.
+which channels or videos you watch.
 
 The CDN is run by the maintainer on Cloudflare (R2 storage). No request logging is set up for it:
 the maintainer can see Cloudflare's aggregate traffic statistics, not a record of individual
@@ -75,9 +77,6 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
   - whether it is switched on;
   - the card size you set in the popup (70% to 130%);
   - whether card details are switched on in the popup;
-  - the channels you turned card hovers on for (their YouTube handle or id, Twitch name, or
-    video id), each with the time you turned it on, and that you have seen the button's
-    intro label;
   - the last settings file it fetched, and when;
   - if updated recognition data failed its checks, that release's id and why, so that it is not
     downloaded again for a day (after 24 hours it is ignored, and deleted the next time it is read);
@@ -89,8 +88,9 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
 Card pictures are kept in memory while the tab is open, and in your browser's ordinary cache, as
 are the files of updated recognition data.
 
-To clear the channel list: click the player button again on a channel to forget that one, or
-remove the extension, which deletes all of its storage.
+It keeps no list of the channels or videos you watch. Earlier versions kept the channels you
+turned card hovers on for; updating to this version deletes that list. Removing the extension
+deletes all of its storage.
 
 ## Questions
 

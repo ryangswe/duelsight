@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// The Chrome Web Store images' layouts (scripts/store-assets.mjs renders them): five 1280×800
+// The Chrome Web Store images' layouts (scripts/store-assets.mjs renders them): four 1280×800
 // screenshots, the 440×280 small promo tile and the 1400×560 marquee. Each is one HTML page with its
 // captures passed in as data: URLs, so nothing is fetched. The copy says what the extension does and
 // nothing more (docs/store-listing.md, "Rules for the description"); every image carries the
@@ -13,10 +13,9 @@ export const DISCLAIMER = "Unofficial fan project, not affiliated with or endors
 /** The screenshots, in listing order: what each shows and says. `capture` names the capture it uses. */
 export const SCREENSHOTS = [
   { name: "1-hover", layout: "side", capture: "md-hover", title: "Hover a card to see it", lead: "A larger picture of the card beside it, with its name, type, stats and text. Master Duel, Dueling Book and paper tables, on YouTube and Twitch." },
-  { name: "2-button", layout: "button", capture: "md-button", title: "Click the DuelSight button", lead: "It is at the top right of the video. One click turns card hovers on for that channel; then rest the pointer on a card." },
-  { name: "3-paper", layout: "side", capture: "paper-hover", title: "Paper tables too", lead: "Tournament streams with the camera above the table. It can miss a card or show a wrong one." },
-  { name: "4-card-alone", layout: "side", capture: "paper-card-only", title: "Just the card, if you prefer", lead: "Switch card details off in the toolbar popup to see the enlarged card on its own." },
-  { name: "5-popup", layout: "popup", capture: "popup", title: "Your settings, in the toolbar", lead: "Switch DuelSight off everywhere, choose the card size, show or hide the card details. No accounts, no tracking." },
+  { name: "2-paper", layout: "side", capture: "paper-hover", title: "Paper tables too", lead: "Tournament streams with the camera above the table. It can miss a card or show a wrong one." },
+  { name: "3-card-alone", layout: "side", capture: "paper-card-only", title: "Just the card, if you prefer", lead: "Switch card details off in the toolbar popup to see the enlarged card on its own." },
+  { name: "4-popup", layout: "popup", capture: "popup", title: "Your settings, in the toolbar", lead: "Switch DuelSight off everywhere, choose the card size, show or hide the card details. No accounts, no tracking." },
 ];
 
 /** The game's name never breaks at its hyphens. */
@@ -72,36 +71,6 @@ h1 { font-size: 46px; } .lead { margin-top: 18px; font-size: 22px; }
   `${brand(icon, 24, 56, 44, 12)}
 <div class="head"><h1>${esc(title)}</h1><p class="lead">${esc(lead)}</p></div>
 <div class="shot"><img src="${image}" alt=""></div>
-<p class="note">${esc(DISCLAIMER)}</p>`);
-}
-
-/** The button: one player, Off (hovers off, the button shown) over On (one click, a card shown), the button ringed. */
-export function buttonShot({ icon, title, lead, off, on, imageSize, offBox, onBox }) {
-  const width = 640;
-  const k = width / imageSize.width;
-  const height = Math.round(imageSize.height * k);
-  const PAD = 8;
-  const panel = (side, image, box) => {
-    const ring = { left: (box.x - PAD) * k, top: (box.y - PAD) * k, size: (box.width + 2 * PAD) * k };
-    return `<div class="panel ${side}" style="height:${height}px"><span class="label">${side === "on" ? "On" : "Off"}</span>
-<img src="${image}" alt="" style="width:${width}px;height:${height}px">
-<div class="ring" style="left:${ring.left}px;top:${ring.top}px;width:${ring.size}px;height:${ring.size}px"></div>
-<div class="tag" style="right:${width - ring.left + 8}px;top:${ring.top + ring.size / 2 - 13}px">DuelSight button</div></div>`;
-  };
-  return page(SHOT, `
-.head { position: absolute; left: 56px; top: 50%; width: 470px; transform: translateY(-50%); }
-h1 { font-size: 50px; } .lead { margin-top: 18px; font-size: 23px; }
-.panels { position: absolute; right: 48px; top: 50%; width: ${width}px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 26px; }
-.panel { position: relative; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 20px 52px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.3); }
-.panel img { display: block; }
-.label { position: absolute; left: 12px; top: 12px; z-index: 2; padding: 4px 14px; border-radius: 999px; font-size: 17px; font-weight: 700; line-height: 22px; background: #15122a; color: #a9a2c3; box-shadow: 0 0 0 1px rgba(167,139,250,.35), 0 2px 8px rgba(0,0,0,.5); }
-.on .label { color: #fff; background: #6d55d6; }
-.ring { position: absolute; border: 3px solid #ff8a1f; border-radius: 8px; box-shadow: 0 0 0 1px rgba(0,0,0,.55); }
-.tag { position: absolute; padding: 3px 9px; border-radius: 5px; background: #ff8a1f; color: #1a0b03; font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
-.note { left: 56px; bottom: 36px; font-size: 15px; }`,
-  `${brand(icon, 24, 56, 44, 12)}
-<div class="head"><h1>${esc(title)}</h1><p class="lead">${esc(lead)}</p></div>
-<div class="panels">${panel("off", off, offBox)}${panel("on", on, onBox)}</div>
 <p class="note">${esc(DISCLAIMER)}</p>`);
 }
 

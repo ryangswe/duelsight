@@ -49,7 +49,7 @@ const browser = await puppeteer.launch({
 const requests = [];
 const consoleLines = [];
 try {
-  const extOrigin = await turnOnTestPage(browser);
+  const extOrigin = await extensionOrigin(browser);
   const page = await browser.newPage();
   page.on("console", (m) => consoleLines.push(`[page ${m.type()}] ${m.text()}`));
   page.on("request", (r) => requests.push(r.url()));
@@ -176,14 +176,4 @@ async function tooltipState(page) {
 async function extensionOrigin(browser) {
   const target = await browser.waitForTarget((t) => t.type() === "service_worker" && t.url().startsWith("chrome-extension://"), { timeout: 15_000 });
   return target.url().split("/").slice(0, 3).join("/");
-}
-
-/** Turn card hovers on for the local test page (the in-player button's job, done directly). */
-async function turnOnTestPage(browser) {
-  const origin = await extensionOrigin(browser);
-  const p = await browser.newPage();
-  await p.goto(`${origin}/popup.html`);
-  await p.evaluate(() => chrome.storage.local.set({ "channel:local:/": Date.now() }));
-  await p.close();
-  return origin;
 }

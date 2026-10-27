@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error plain JavaScript build scripts
 import { clipsProblems, placeVideo } from "../scripts/store-assets.mjs";
 // @ts-expect-error plain JavaScript build scripts
-import { buttonShot, cropAround, DISCLAIMER, fit, MARQUEE, marquee, SCREENSHOTS, SHOT, sideShot, SMALL_TILE, smallTile } from "../scripts/store-templates.mjs";
+import { cropAround, DISCLAIMER, fit, MARQUEE, marquee, SCREENSHOTS, SHOT, sideShot, SMALL_TILE, smallTile } from "../scripts/store-templates.mjs";
 
 type Rect = { x: number; y: number; width: number; height: number };
 const IMG = "data:image/png;base64,AAAA";
@@ -43,10 +43,8 @@ describe("clipsProblems", () => {
 });
 
 describe("layouts", () => {
-  const box = { x: 1234, y: 58, width: 34, height: 34 };
   const pages: Array<[string, string, { width: number; height: number }]> = [
     ["side", sideShot({ icon: IMG, title: "T", lead: "L", image: IMG, imageSize: size }), SHOT],
-    ["button", buttonShot({ icon: IMG, title: "T", lead: "L", off: IMG, on: IMG, imageSize: size, offBox: box, onBox: box }), SHOT],
     ["small tile", smallTile({ icon: IMG, image: IMG, imageSize: size, tooltip }), SMALL_TILE],
     ["marquee", marquee({ icon: IMG, image: IMG, imageSize: size, tooltip }), MARQUEE],
   ];
@@ -69,8 +67,8 @@ describe("layouts", () => {
 });
 
 describe("screenshots", () => {
-  it("are five, in listing order, with the button and card-details-off shots", () => {
-    expect(SCREENSHOTS.map((s: { name: string }) => s.name)).toEqual(["1-hover", "2-button", "3-paper", "4-card-alone", "5-popup"]);
+  it("are four, in listing order, with the card-details-off shot and no button (there is none)", () => {
+    expect(SCREENSHOTS.map((s: { name: string }) => s.name)).toEqual(["1-hover", "2-paper", "3-card-alone", "4-popup"]);
   });
 
   it("say what the extension does and nothing more", () => {
