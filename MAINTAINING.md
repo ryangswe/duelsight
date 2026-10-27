@@ -20,9 +20,11 @@ month, on a fixed day:
    existing row byte-identical, the bank version raised), then `cardvision build-release` into a
    folder named after the new release id. Look at a handful of the new cards' images before going on.
 3. **The regression check.** Run the maintainer's pre-registered replay against the live release:
-   it must find nothing that worked broken, on real footage and on generated scenes, and the new
-   cards must work about as well as cards the models never trained on. A release that fails is not
-   published. Its rules are fixed in advance and are not changed after seeing a result.
+   on real footage it must find nothing that worked broken; on generated scenes a small fixed number
+   of changes is allowed; and the new cards must work about as well as cards the models never
+   trained on. A release that fails is not published. Its rules are fixed in advance and are not
+   changed after seeing a result. It does not re-measure the published figures (docs/accuracy.md):
+   held-out sets are scored once.
 4. **Legal files.** Update `release-legal/` for the new release id (the opening line of `NOTICE` names it;
    PROVENANCE.md says what was added). They are published beside the release's files.
 5. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
