@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// The Chrome Web Store images, from the real extension: five 1280×800 screenshots, the 440×280 small
+// The Chrome Web Store images, from the real extension: four 1280×800 screenshots, the 440×280 small
 // promo tile and the 1400×560 marquee. A dev build is loaded in Chrome for Testing and hovers cards
 // on two clips of your own (one Master Duel, one paper table) on a bare local page; the captures are
 // then laid out by scripts/store-templates.mjs (which holds the copy and the order).
@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { insideRepository } from "./card-details.mjs";
-import { buttonShot, MARQUEE, marquee, SCREENSHOTS, SHOT, sideShot, SMALL_TILE, smallTile } from "./store-templates.mjs";
+import { MARQUEE, marquee, SCREENSHOTS, SHOT, sideShot, SMALL_TILE, smallTile } from "./store-templates.mjs";
 
 const TYPES = { ".webm": "video/webm", ".mp4": "video/mp4", ".m4v": "video/mp4", ".ogv": "video/ogg" };
 export const CLIPS = ["master-duel", "paper"];
@@ -123,12 +123,6 @@ const tooltipRect = (page) => page.evaluate(() => {
   const r = f.getBoundingClientRect();
   return { x: r.x, y: r.y, width: r.width, height: r.height };
 });
-const buttonRect = (page) => page.evaluate(() => {
-  const h = document.querySelector('[data-duelsight="button"]');
-  const r = h?.getBoundingClientRect();
-  return r && r.width > 0 ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
-});
-
 /** Rest the pointer on the card until a tooltip shows; then let its picture and details arrive. */
 async function hoverCard(page, clip, place, name) {
   const x = clip.card[0] * place.scale;
@@ -154,34 +148,13 @@ async function openClip(browser, video) {
   return { page, server };
 }
 
-/** A hover capture: the clip at its shape, card hovers on, card details on or off. */
+/** A hover capture: the clip at its shape, card details on or off. */
 async function captureHover(ctx, clip, place, details, name) {
-  return withBrowser(ctx, { width: place.width, height: place.height }, { "channel:local:/": Date.now(), details }, async (browser) => {
+  return withBrowser(ctx, { width: place.width, height: place.height }, { details }, async (browser) => {
     const { page, server } = await openClip(browser, clip.video);
     try {
       const tooltip = await hoverCard(page, clip, place, name);
       return { png: await page.screenshot({ type: "png" }), size: { width: place.width, height: place.height }, tooltip };
-    } finally {
-      server.close();
-    }
-  });
-}
-
-/** Off (pointer over the video, hovers off: the button and its first-view label) and On (after a click on it, a card shown). */
-async function captureButton(ctx, clip, place) {
-  return withBrowser(ctx, { width: place.width, height: place.height }, {}, async (browser) => {
-    const { page, server } = await openClip(browser, clip.video);
-    try {
-      await page.mouse.move(place.width * 0.3, place.height * 0.3);
-      await sleep(900);
-      const offBox = await buttonRect(page);
-      if (!offBox) throw new Error("button: the DuelSight button did not show over the video");
-      const off = await page.screenshot({ type: "png" });
-      await page.mouse.click(offBox.x + offBox.width / 2, offBox.y + offBox.height / 2);
-      await sleep(800);
-      await hoverCard(page, clip, place, "button");
-      const onBox = await buttonRect(page);
-      return { off, on: await page.screenshot({ type: "png" }), offBox, onBox: onBox ?? offBox, size: { width: place.width, height: place.height } };
     } finally {
       server.close();
     }
@@ -250,7 +223,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const paper = clips.paper;
   const captures = {
     "md-hover": await captureHover(ctx, md, place["master-duel"], true, "md-hover"),
-    "md-button": await captureButton(ctx, md, place["master-duel"]),
     "paper-hover": await captureHover(ctx, paper, place.paper, true, "paper-hover"),
     "paper-card-only": await captureHover(ctx, paper, place.paper, false, "paper-card-only"),
     popup: await capturePopup(ctx),
@@ -258,9 +230,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const icon = dataUrl(readFileSync(join(root, "icons", "icon-128.png")));
   for (const s of SCREENSHOTS) {
     const c = captures[s.capture];
-    const html = s.layout === "button"
-      ? buttonShot({ icon, title: s.title, lead: s.lead, off: dataUrl(c.off), on: dataUrl(c.on), imageSize: c.size, offBox: c.offBox, onBox: c.onBox })
-      : sideShot({ icon, title: s.title, lead: s.lead, image: dataUrl(c.png), imageSize: c.size, ...(s.layout === "popup" ? { maxW: 460, maxH: 660 } : {}) });
+    const html = sideShot({ icon, title: s.title, lead: s.lead, image: dataUrl(c.png), imageSize: c.size, ...(s.layout === "popup" ? { maxW: 460, maxH: 660 } : {}) });
     await render(ctx, html, SHOT, join(out, `${s.name}-1280x800.jpg`));
   }
   const card = captures["paper-card-only"];

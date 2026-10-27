@@ -14,5 +14,4 @@ void readCardSize(chrome.storage.local).then((percent) => agent.setCardSize(perc
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && ENABLED_KEY in changes) agent.setEnabled(changes[ENABLED_KEY]?.newValue !== false);
   if (area === "local" && CARD_SIZE_KEY in changes) agent.setCardSize(clampCardSize(changes[CARD_SIZE_KEY]?.newValue));
-  if (area === "local") agent.onStorageChanged(changes);
 });

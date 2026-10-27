@@ -5,8 +5,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent, HIDE_DELAY_MS } from "../src/content/agent.js";
-import type { PlayerButton } from "../src/content/player-button.js";
-import { memoryStorage as memory } from "./helpers/memory-storage.js";
 import { tag } from "../src/shared/messages.js";
 
 const EXT = "chrome-extension://igfdjmpikcbplijnlpkligaafepgoaaa";
@@ -91,15 +89,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** A stand-in for chrome.storage.local, with card hovers on for the test page's "channel". */
-const memoryStorage = (data: Record<string, unknown> = { "channel:local:/": 1 }) => memory(data);
-
 const settle = async () => {
   for (let i = 0; i < 5; i += 1) await Promise.resolve();
 };
 
-async function startAgent(trusted = true, storage = memoryStorage()): Promise<Agent> {
-  const a = new Agent({ dev: true, isTrusted: () => trusted, storage });
+async function startAgent(trusted = true): Promise<Agent> {
+  const a = new Agent({ dev: true, isTrusted: () => trusted });
   a.start();
   a.setEnabled(true);
   await settle();
@@ -108,7 +103,7 @@ async function startAgent(trusted = true, storage = memoryStorage()): Promise<Ag
 
 describe("Agent", () => {
   it("ignores pointer events a page script made", async () => {
-    agent = new Agent({ dev: true, storage: memoryStorage() });
+    agent = new Agent({ dev: true });
     agent.start();
     agent.setEnabled(true);
     await settle();
@@ -373,90 +368,32 @@ describe("Agent", () => {
     expect(tooltip()!.style.visibility).toBe("hidden");
   });
 
-  it("is dormant on a channel that is not on: no frame, only the button", async () => {
-    const storage = memoryStorage({});
-    agent = await startAgent(true, storage);
+  it("is on for every video with nothing stored: no button, no per-channel switch", async () => {
+    // No opt-in entry anywhere: the first move over the picture starts the session.
+    agent = await startAgent();
     move(100, 100);
-    expect(frames()).toEqual([]);
-    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
-    expect(button.style.display).toBe("block");
-    const b = (agent as unknown as { button: PlayerButton }).button;
-    expect(b.element.getAttribute("aria-label")).toBe("Card hovers for this channel");
-    expect(b.element.getAttribute("aria-pressed")).toBe("false");
-    // One click turns it on for this channel: remembered, and the frames come with the next move.
-    b.press();
-    await settle();
-    expect(storage.data).toHaveProperty("channel:local:/");
-    expect(b.element.getAttribute("aria-pressed")).toBe("true");
-    move(110, 100);
-    expect(compute()).toBeDefined();
-    // Another click turns it off and removes the frames, as the main switch does.
-    b.press();
-    await settle();
-    expect(storage.data).not.toHaveProperty("channel:local:/");
-    expect(frames()).toEqual([]);
-    move(120, 100);
+    expect(frames()).toHaveLength(2);
+    expect(document.querySelector("[data-duelsight=button]")).toBeNull();
+  });
+
+  it("stays idle on a video nobody points at: no frame for moves off the picture", async () => {
+    agent = await startAgent();
+    move(100, 600);
+    move(2000, 2000);
     expect(frames()).toEqual([]);
   });
 
-  it("goes dormant when in-app navigation reaches a channel that is off, pointer resting", async () => {
+  it("keeps answering after in-app navigation, pointer resting (no channel to look up)", async () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
     fromFrame(compute(), { kind: "ready" });
-    expect(frames()).toHaveLength(2);
-    // The site changes video without a reload; the pointer does not move.
     vi.stubGlobal("location", new URL("http://127.0.0.1:8770/other"));
-    const frame = compute();
-    fromFrame(frame, { kind: "capture", requestId: 9, analysisWidth: { min: 720, max: 1920 } });
-    expect(sent.filter((m) => m.kind === "frame")).toEqual([]);
-    expect(frames()).toEqual([]);
-  });
-
-  it("toggles the channel of the video on screen, even right after navigation", async () => {
-    const storage = memoryStorage({});
-    agent = await startAgent(true, storage);
-    move(100, 100);
-    vi.stubGlobal("location", new URL("http://127.0.0.1:8770/next"));
-    (agent as unknown as { button: PlayerButton }).button.press();
+    window.dispatchEvent(new Event("popstate"));
+    fromFrame(compute(), { kind: "capture", requestId: 9, analysisWidth: { min: 720, max: 1920 } });
     await settle();
-    expect(storage.data).toHaveProperty("channel:local:/next");
-    expect(storage.data).not.toHaveProperty("channel:local:/");
-  });
-
-  it("a change that arrives during the first read of the channels is not undone by it", async () => {
-    const storage = memoryStorage({ "channel:local:/": 1 });
-    const a = new Agent({ dev: true, isTrusted: () => true, storage });
-    agent = a;
-    a.start();
-    a.setEnabled(true);
-    // Turned off in another tab before the first read has resolved.
-    delete storage.data["channel:local:/"];
-    a.onStorageChanged({ "channel:local:/": { newValue: undefined } });
-    await settle();
-    expect(a.channelIsOn).toBe(false);
-    move(100, 100);
-    expect(frames()).toEqual([]);
-  });
-
-  it("hides the button when the pointer leaves the player", async () => {
-    agent = await startAgent();
-    move(100, 100);
-    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
-    expect(button.style.display).toBe("block");
-    move(100, 700);
-    expect(button.style.display).toBe("none");
-  });
-
-  it("follows a channel turned off in another tab", async () => {
-    agent = await startAgent();
-    move(100, 100);
-    expect(compute()).toBeDefined();
-    agent.onStorageChanged({ "channel:local:/": { newValue: undefined } });
-    expect(frames()).toEqual([]);
-    agent.onStorageChanged({ "channel:local:/": { newValue: 2 } });
-    move(110, 100);
-    expect(compute()).toBeDefined();
+    expect(frames()).toHaveLength(2);
+    expect(sent.filter((m) => m.kind === "capture-failed" && /channel/.test(String(m.reason)))).toEqual([]);
   });
 
   it("hides the tooltip quickly, wherever the pointer is heading", async () => {
@@ -529,19 +466,17 @@ describe("Agent", () => {
     expect(outline()!.style.display).toBe("none");
   });
 
-  it("removes the outline when the channel or the extension is turned off", async () => {
-    const storage = memoryStorage();
-    agent = await startAgent(true, storage);
+  it("removes the outline when the extension is switched off, and brings it back when switched on", async () => {
+    agent = await startAgent();
     move(100, 100);
     showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(outline()).not.toBeNull();
-    agent.onStorageChanged({ "channel:local:/": { newValue: undefined } });
-    expect(outline()).toBeNull();
-    agent.onStorageChanged({ "channel:local:/": { newValue: 1 } });
-    move(110, 100);
-    expect(outline()).not.toBeNull();
     agent.setEnabled(false);
     expect(outline()).toBeNull();
+    agent.setEnabled(true);
+    move(110, 100);
+    showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    expect(outline()).not.toBeNull();
   });
 
   it("moves the outline and the tooltip with the page while a card is held (resize, scroll)", async () => {
@@ -563,12 +498,12 @@ describe("Agent", () => {
     expect(rect()).toEqual([228, 32, 128, 144]);
   });
 
-  it("re-places at most once per animation frame, and not at all with no card and no button shown", async () => {
+  it("re-places at most once per animation frame, and not at all with no card shown", async () => {
     const frames: Array<() => void> = [];
     const queue = (cb: FrameRequestCallback): number => (frames.push(() => cb(0)), frames.length);
     agent = await startAgent();
     move(100, 100);
-    move(2000, 2000); // off the player: no button, no card
+    move(2000, 2000); // off the player: no card
     vi.stubGlobal("requestAnimationFrame", queue);
     window.dispatchEvent(new Event("resize"));
     expect(frames).toHaveLength(0);
@@ -602,16 +537,16 @@ describe("Agent", () => {
     }
   });
 
-  it("keeps working across in-app navigation between two channels that are both on", async () => {
+  it("keeps working across in-app navigation to another video", async () => {
     vi.useFakeTimers();
-    agent = await startAgent(true, memoryStorage({ "channel:local:/": 1, "channel:local:/other": 1 }));
+    agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
     showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     const before = { compute: compute(), tooltip: tooltip() };
     vi.stubGlobal("location", new URL("http://127.0.0.1:8770/other"));
     window.dispatchEvent(new Event("popstate"));
-    // Still on: nothing is torn down.
+    // Nothing is torn down.
     expect(compute()).toBe(before.compute);
     expect(tooltip()).toBe(before.tooltip);
     // The new video's first answer clears the old card; both go together.
@@ -791,35 +726,12 @@ describe("Agent", () => {
     }
   });
 
-  it("moves the in-player button with the player on a resize", async () => {
-    agent = await startAgent();
-    move(100, 100);
-    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
-    expect(button.style.display).toBe("block");
-    const before = button.style.left;
-    video.getBoundingClientRect = () => ({ left: 100, top: 60, width: 1280, height: 720, right: 1380, bottom: 780, x: 100, y: 60, toJSON() {} }) as DOMRect;
-    window.dispatchEvent(new Event("resize"));
-    expect(button.style.left).not.toBe(before);
-    expect(Number.parseFloat(button.style.left)).toBeGreaterThan(Number.parseFloat(before));
-  });
-
-  it("hides the in-player button when the pointer leaves the window", async () => {
-    agent = await startAgent();
-    move(100, 100);
-    const button = document.querySelector("[data-duelsight=button]") as HTMLElement;
-    expect(button.style.display).toBe("block");
-    document.documentElement.dispatchEvent(new PointerEvent("pointerleave"));
-    expect(button.style.display).toBe("none");
-  });
-
   it("removes everything when switched off", async () => {
     agent = await startAgent();
     move(100, 100);
     expect(frames()).toHaveLength(2);
-    expect(document.querySelector("[data-duelsight=button]")).not.toBeNull();
     agent.setEnabled(false);
     expect(frames()).toHaveLength(0);
-    expect(document.querySelector("[data-duelsight=button]")).toBeNull();
     move(100, 100);
     expect(frames()).toHaveLength(0);
   });

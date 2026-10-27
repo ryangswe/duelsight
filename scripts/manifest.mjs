@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The extension's manifest, made from duelsight.config.json. Permissions are the least the
 // extension needs:
-//   - `storage`: the on/off switch, the card size, the channels turned on, the last good
+//   - `storage`: the on/off switch, the card size, the card details choice, the last good
 //     settings file, a dismissed update notice;
 //   - the video sites the config turns on (where the content script runs);
 //   - the image hosts the config names (the CDN), so the extension's pages can load pictures and

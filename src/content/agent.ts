@@ -13,9 +13,10 @@
 //     on to the card underneath.
 //   - It outlines the card the tooltip names (outline.ts): the same accepted box, shown and
 //     hidden with the tooltip, never taking the pointer.
-//   - It is dormant on every video until the viewer turns card hovers on for the video's channel
-//     with the in-player button (player-button.ts): until then no frame is made, no model loads
-//     and nothing is downloaded. Turning a channel off removes the frames again.
+//   - It is on for every video (owner, 2026-10-27: no per-channel switch; the popup's switch is
+//     the only control), but dormant until the pointer first comes over a picture: until then no
+//     frame is made, no model loads and nothing is downloaded, so a video nobody points at costs
+//     nothing. The popup's switch turned off removes the frames again.
 //   - A paused live Twitch stream resets its <video> (no current frame, time 0) but keeps the
 //     last frame on screen, and that frame can still be drawn. While a video is paused that way
 //     ("frozen"), pictures are taken from it anyway, at the time it showed before the pause.
@@ -27,10 +28,7 @@ import { captureAllowed } from "./gate.js";
 import { analysisSize, availableSpace, CARD_CORNER, fitBesideCard, fitsBesideCard, fitTooltipSize, fitWithPanel, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
 import { arrange } from "../shared/panel-layout.js";
 import { isActivePage } from "./site.js";
-import { channelKey, ownerHrefOf } from "./channel.js";
-import { PlayerButton } from "./player-button.js";
 import { CardOutline, outlineRect } from "./outline.js";
-import { applyChannelChanges, BUTTON_INTRO_KEY, type ChannelMap, channelOn, type ChannelStorage, readChannels, setChannel } from "../shared/channels.js";
 
 function sameSize(a: { width: number; height: number }, b: { width: number; height: number }): boolean {
   return a.width === b.width && a.height === b.height;
@@ -40,8 +38,6 @@ function sameSize(a: { width: number; height: number }, b: { width: number; heig
 const SIZE_HYSTERESIS_PX = 8;
 /** The tooltip goes this long after the card is no longer under the pointer. */
 export const HIDE_DELAY_MS = 120;
-/** How often the channel of the page is looked up again while the pointer moves. */
-const CHANNEL_RECHECK_MS = 1_000;
 /** A pointer position waits at most this long for an animation frame before it is sent. */
 const POINTER_FLUSH_MS = 50;
 
@@ -74,8 +70,6 @@ export interface AgentOptions {
   dev: boolean;
   /** Whether an event came from the user; replaceable for tests. Default: `event.isTrusted`. */
   isTrusted?: (event: Event) => boolean;
-  /** Where the channels turned on are kept. Default: chrome.storage.local. */
-  storage?: ChannelStorage;
 }
 
 export class Agent {
@@ -125,63 +119,27 @@ export class Agent {
   private outline: CardOutline | null = null;
   /** The video's time while it last played; what a frozen (paused live) picture is dated. */
   private lastPlayingTime: number | null = null;
-  /** The in-player button, and the channel it turns on or off. */
-  private button: PlayerButton | null = null;
-  private channels: ChannelMap = {};
-  private channelsLoaded = false;
-  /** Storage changes seen while the first read of the channels is in flight; null after it. */
-  private pendingChannelChanges: Array<Record<string, { newValue?: unknown } | undefined>> | null = null;
-  private channel: string | null = null;
-  private channelUrl = "";
-  private channelCheckedAt = -Infinity;
-  private introSeen = true;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */
   private readonly extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
 
   constructor(private readonly options: AgentOptions) {}
 
-  private get storage(): ChannelStorage {
-    return this.options.storage ?? (chrome.storage.local as unknown as ChannelStorage);
-  }
-
   private trusted(event: Event): boolean {
     return (this.options.isTrusted ?? ((e: Event) => e.isTrusted))(event);
   }
 
   start(): void {
-    // Changes that arrive while the first read is in flight are applied on top of it, so an
-    // older read never undoes a newer change.
-    this.pendingChannelChanges = [];
-    void readChannels(this.storage).then((map) => {
-      let channels = map;
-      for (const changes of this.pendingChannelChanges ?? []) channels = applyChannelChanges(channels, changes);
-      this.pendingChannelChanges = null;
-      this.channels = channels;
-      this.channelsLoaded = true;
-      this.applyChannel();
-    });
-    void this.storage.get(BUTTON_INTRO_KEY).then((v) => {
-      this.introSeen = v[BUTTON_INTRO_KEY] === true;
-    });
     document.addEventListener("pointermove", this.onPointer, { capture: true, passive: true });
     document.addEventListener("pointerdown", this.onPointer, { capture: true, passive: true });
     document.documentElement.addEventListener("pointerleave", this.onWindowLeave, { passive: true });
     window.addEventListener("message", this.onMessage);
     document.addEventListener("fullscreenchange", this.onFullscreen);
     document.addEventListener("visibilitychange", this.onVisibility);
-    // In-app navigation (YouTube's own event; back/forward); Twitch's route changes are caught
-    // by the address check on presented frames and pointer moves.
-    window.addEventListener("yt-navigate-finish", this.onNavigate);
-    window.addEventListener("popstate", this.onNavigate);
     // The page moving under a held card: the tooltip and the outline follow it.
     window.addEventListener("resize", this.onLayout, { passive: true });
     document.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
   }
-
-  private readonly onNavigate = (): void => {
-    this.refreshChannel(true);
-  };
 
   /** A scroll that can move the video: the page's own, or a box holding the player. Others (a
    *  chat that scrolls itself) are ignored, so they do not force a layout every frame. */
@@ -197,14 +155,12 @@ export class Agent {
   /** The window was resized or scrolled, or the video's box changed: while a card is shown,
    *  place its tooltip and outline again, at most once an animation frame. */
   private readonly onLayout = (): void => {
-    if ((this.displayedCardId === null && !this.button?.shown) || this.relayoutPending) return;
+    if (this.displayedCardId === null || this.relayoutPending) return;
     this.relayoutPending = true;
     requestAnimationFrame(() => {
       this.relayoutPending = false;
       const video = this.video;
       if (!video) return;
-      // The in-player button follows the player too (it is placed on pointer moves otherwise).
-      if (this.button?.shown) this.button.show(video.getBoundingClientRect(), this.pictureOf(video).top);
       const card = this.displayedCard;
       if (this.displayedCardId === null || !card) return;
       this.showTooltip(card, video);
@@ -224,81 +180,10 @@ export class Agent {
     window.removeEventListener("message", this.onMessage);
     document.removeEventListener("fullscreenchange", this.onFullscreen);
     document.removeEventListener("visibilitychange", this.onVisibility);
-    window.removeEventListener("yt-navigate-finish", this.onNavigate);
-    window.removeEventListener("popstate", this.onNavigate);
     window.removeEventListener("resize", this.onLayout);
     document.removeEventListener("scroll", this.onScroll, { capture: true });
     this.enabled = false;
     this.teardown();
-  }
-
-  /** Channels were turned on or off (here or in another tab): chrome.storage.onChanged. */
-  onStorageChanged(changes: Record<string, { newValue?: unknown } | undefined>): void {
-    this.pendingChannelChanges?.push(changes);
-    const next = applyChannelChanges(this.channels, changes);
-    if (next === this.channels) return;
-    this.channels = next;
-    this.applyChannel();
-  }
-
-  /** Whether card hovers are on for the page's channel. */
-  get channelIsOn(): boolean {
-    return this.channelsLoaded && channelOn(this.channels, this.channel);
-  }
-
-  private applyChannel(): void {
-    const on = this.channelIsOn;
-    this.button?.setOn(on);
-    if (!on) this.teardownFrames();
-  }
-
-  /** Look the page's channel up again: at once when the address changed or `force`, else at
-   *  most once a CHANNEL_RECHECK_MS. */
-  private refreshChannel(force = false): void {
-    const now = performance.now();
-    const href = location.href;
-    if (!force && href === this.channelUrl && now - this.channelCheckedAt < CHANNEL_RECHECK_MS) return;
-    this.channelUrl = href;
-    this.channelCheckedAt = now;
-    const url = new URL(href);
-    const key = channelKey(url, ownerHrefOf(document, url));
-    if (key !== this.channel) {
-      this.channel = key;
-      this.applyChannel();
-    }
-  }
-
-  private toggleChannel(): void {
-    // The channel of the video on screen now, not the one last looked up.
-    this.refreshChannel(true);
-    const key = this.channel;
-    if (key === null) return;
-    const on = !this.channelIsOn;
-    // At once on screen; storage follows (and tells the other tabs).
-    if (on) this.channels = { ...this.channels, [key]: Date.now() };
-    else {
-      const { [key]: _gone, ...rest } = this.channels;
-      this.channels = rest;
-    }
-    this.applyChannel();
-    void setChannel(this.storage, key, on).catch(() => undefined);
-  }
-
-  private ensureButton(): PlayerButton {
-    if (!this.button) {
-      this.button = new PlayerButton({
-        onToggle: () => this.toggleChannel(),
-        introSeen: () => this.introSeen,
-        markIntroSeen: () => {
-          this.introSeen = true;
-          void this.storage.set({ [BUTTON_INTRO_KEY]: true }).catch(() => undefined);
-        },
-        isTrusted: (e) => this.trusted(e),
-      });
-      this.button.setOn(this.channelIsOn);
-    }
-    if (!this.button.host.isConnected) this.mountHost().appendChild(this.button.host);
-    return this.button;
   }
 
   /** The popup's card size changed (a percentage, already clamped): a card on show is fitted
@@ -320,30 +205,16 @@ export class Agent {
   private readonly onPointer = (event: PointerEvent): void => {
     // Only the user's own pointer counts: events a page script makes are ignored.
     if (!this.trusted(event)) return;
-    const path = event.composedPath();
-    // On the in-player button: it stays; this is not a pointer over the picture either.
-    if (this.button && path.includes(this.button.host)) return;
     if (!this.enabled || !isActivePage(new URL(location.href), this.options.dev)) {
       if (this.inside) this.leave();
-      this.button?.hide();
       return;
     }
     const video = this.currentVideo();
     if (!video) {
       if (this.inside) this.leave();
-      this.button?.hide();
       return;
     }
-    // The button shows while the pointer is over the player at all.
-    this.refreshChannel();
-    const box = video.getBoundingClientRect();
-    if (this.channel !== null && fractionIn(box, event.clientX, event.clientY)) this.ensureButton().show(box, this.pictureOf(video).top);
-    else this.button?.hide();
-    // Dormant until card hovers are on for this channel: no frame, no model, no download.
-    if (!this.channelIsOn) {
-      if (this.inside) this.leave();
-      return;
-    }
+    // The first trusted move over a picture starts the page's session (the frames, the model).
     const at = fractionIn(this.pictureOf(video), event.clientX, event.clientY);
     if (!at) {
       if (this.inside) this.leave();
@@ -372,8 +243,6 @@ export class Agent {
 
   private readonly onWindowLeave = (): void => {
     if (this.inside) this.leave();
-    // The pointer left the window: the in-player button goes too.
-    this.button?.hide();
   };
 
   private leave(): void {
@@ -432,13 +301,11 @@ export class Agent {
     video.addEventListener("playing", ready);
     const newSource = (): void => {
       this.canvas = null;
-      this.refreshChannel(true);
       // Another source: the time it last played is not this picture's.
       this.lastPlayingTime = null;
       this.toCompute({ kind: "discontinuity", newSource: true });
     };
     const presented = (): void => {
-      if (location.href !== this.channelUrl) this.refreshChannel(true);
       if (!video.paused && video.readyState >= 2) this.lastPlayingTime = video.currentTime;
       this.toCompute({ kind: "presented", mediaTime: this.mediaTimeOf(video) });
     };
@@ -467,13 +334,6 @@ export class Agent {
     const video = this.video;
     // `retry`: the picture itself could not be had (not ready yet, or blank): worth asking again.
     const fail = (reason: string, retry = false): void => this.toCompute({ kind: "capture-failed", requestId, reason, retry });
-    // In-app navigation with a resting pointer: the channel may have changed under it.
-    if (location.href !== this.channelUrl) this.refreshChannel(true);
-    if (!this.channelIsOn) {
-      fail("card hovers are off for this channel");
-      this.teardownFrames();
-      return;
-    }
     const gate = {
       inside: this.inside,
       lastTrustedPointerAt: this.lastTrustedPointerAt,
@@ -583,8 +443,6 @@ export class Agent {
   }
 
   private readonly onFullscreen = (): void => {
-    // The button moves to where it will be drawn (a plain element: moving it costs nothing).
-    if (this.button?.host.isConnected) this.mountHost().appendChild(this.button.host);
     if (!this.tooltip) return;
     // Moving a frame reloads it: make a new one where it will be drawn.
     const held = this.displayedCardId !== null ? this.displayedCard : null;
@@ -783,30 +641,7 @@ export class Agent {
     this.outline?.hide();
   }
 
-  /** Remove everything but the button and the video it follows (a channel turned off). */
-  private teardownFrames(): void {
-    if (this.inside) this.leave();
-    this.inside = false;
-    this.lastTooltipAt = -Infinity;
-    this.shown = null;
-    this.displayedCardId = null;
-    this.sizedCardId = null;
-    if (this.hideTimer) clearTimeout(this.hideTimer);
-    this.hideTimer = null;
-    this.compute?.remove();
-    this.compute = null;
-    this.computeReady = false;
-    this.tooltip?.remove();
-    this.tooltip = null;
-    this.tooltipReady = false;
-    this.pendingTooltip = null;
-    this.outline?.remove();
-    this.outline = null;
-  }
-
   private teardown(): void {
-    this.button?.remove();
-    this.button = null;
     this.inside = false;
     this.lastTrustedPointerAt = -Infinity;
     this.lastTooltipAt = -Infinity;
