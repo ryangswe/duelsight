@@ -33,6 +33,7 @@ import { buildManifest, firefoxManifest } from "./manifest.mjs";
 import { buildCardTable } from "../src/shared/card-table.mjs";
 import { CONFIG_PATH, ICON_SIZES, loadForkConfig } from "./fork-config.mjs";
 import { LEGAL_FILES, releaseLegalProblem } from "./release-legal.mjs";
+import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const { values } = parseArgs({
@@ -211,3 +212,6 @@ console.log(`  release ${release.id} (${release.game}, ${release.bank.cardCount}
 console.log(`  runtime ${vendor.package} ${vendor.version} at ${vendor.commit.slice(0, 7)}, onnxruntime-web ${ortVersion}`);
 console.log(`  content.js ${kb("content.js")}, compute.js ${kb("compute.js")}, tooltip.js ${kb("tooltip.js")}, runtime/worker.js ${kb("runtime/worker.js")}`);
 console.log(`  ${Object.keys(table).length} cards in data/cards.json (names from the release catalog)`);
+// A dev build may hold them (a smoke on an unconverted release); `npm run package` refuses them.
+const big = oversizedTextFiles(out);
+if (big.length > 0) console.warn(`  warning: text files of ${TEXT_FILE_LIMIT / 1024 / 1024} MiB or more, which npm run package refuses: ${describeOversized(big)}`);

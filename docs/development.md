@@ -37,7 +37,11 @@ The result is `dist/`, an unpacked extension: load it with **Load unpacked**, as
 release page, with every file inside one `duelsight-<version>/` folder (the folder a user selects in
 "Load unpacked"). A `--store` build becomes `duelsight-<version>-store.zip` with `manifest.json` at the
 zip's top level, as the Chrome Web Store requires. It refuses a dev build, and a build that holds
-OpenCV.js, geometric-stage files (this build ships none) or a card details file.
+OpenCV.js, geometric-stage files (this build ships none) or a card details file. It also refuses a
+`.json`, `.js`, `.mjs`, `.css` or `.html` file of 4.5 MiB or more (`scripts/package-size.mjs`):
+addons.mozilla.org refuses an add-on with a text file of 5 MiB, and the card catalog grows with
+every set. Bundle a release converted with `cardvision convert-release` (a binary bank and a
+compact catalog); `npm run build` warns about such files, so a dev build still works.
 
 ## Firefox
 

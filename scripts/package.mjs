@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadForkConfig } from "./fork-config.mjs";
 import { firefoxAddonId } from "./manifest.mjs";
+import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";
 import { writeZip, zipLayout } from "./package-zip.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -49,6 +50,12 @@ if (stray.length > 0) {
 const text = readdirSync(dist, { recursive: true }).filter((f) => /(^|[\\/])details-[^\\/]*\.json$/i.test(String(f)));
 if (text.length > 0) {
   console.error(`dist/ holds a card details file, which is never packaged (it is served from the CDN): ${text.join(", ")}`);
+  process.exit(1);
+}
+// No text file near addons.mozilla.org's 5 MiB parse limit (scripts/package-size.mjs), in either store's package.
+const big = oversizedTextFiles(dist);
+if (big.length > 0) {
+  console.error(`dist/ holds text files of ${TEXT_FILE_LIMIT / 1024 / 1024} MiB or more (addons.mozilla.org refuses 5 MiB): ${describeOversized(big)}. Bundle a converted release (cardvision convert-release: bank.bin and a compact catalog).`);
   process.exit(1);
 }
 // A zip for a release page is loaded unpacked and carries the key; a Web Store build has none.
