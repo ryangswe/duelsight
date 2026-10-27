@@ -1,4 +1,4 @@
-DuelSight Yu-Gi-Oh! models, release T2 (id 0927859c6f18302f)
+DuelSight Yu-Gi-Oh! models, release T2 (id 387bdfb29b4b050f), converted losslessly from 0927859c6f18302f
 Copyright 2026 The DuelSight authors and the cardvision authors
 
 The files in the release folder (release.json, detector.onnx, recognizer.onnx, bank.json,

@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Release | T2, release document id `0927859c6f18302f`, game `yugioh`, 14,636 entries in the bank, 14,639 in the catalog |
+| Release | T2, release document id `387bdfb29b4b050f`: T2 (`0927859c6f18302f`) converted with `cardvision convert-release` (toolkit 0.4.0rc2) to a binary bank and a compact catalog. The models, the vectors and the catalog's values are unchanged, so it scores exactly as T2. Game `yugioh`, 14,636 entries in the bank, 14,639 in the catalog |
 | Status | Measured on a held-out test before release (docs/accuracy.md). Replaces the early preview release T (`6666477f410559ac`). |
 | License | Apache-2.0 (LICENSE beside this file); NOTICE says what it does not cover |
 | Trained by | the DuelSight project, with the open-source cardvision toolkit 0.2.0rc4 (https://github.com/ryangswe/riftsight-vision) |
@@ -24,9 +24,9 @@
 - Trained in three rounds on crops of official card art, synthetic composites and labeled frames of
   public videos.
 
-## Bank (`bank.json`, `identity-groups.json`) and catalog (`catalog.json`)
+## Bank (`bank.bin`, `identity-groups.json`) and catalog (`catalog.json`)
 
-- The bank holds one vector per entry: numerical embeddings computed by the recognizer from card
+- The bank (`bank.bin`, the binary form of the JSON bank: a JSON header, then the fp16 vectors) holds one vector per entry: numerical embeddings computed by the recognizer from card
   pictures, not the picture files. The pictures are the card images listed by YGOPRODeck; for 86
   Master Duel alternate artworks (82 cards), the vectors were computed from a card picture with
   the alternate artwork from Yugipedia placed over the card's own art.

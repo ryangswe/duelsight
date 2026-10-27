@@ -5,7 +5,9 @@
 
 DuelSight 0.2.0 ships the models of release T2 (`0927859c6f18302f`). They were measured once, on a
 held-out test whose rules were written down before any test label existed, and shipped because
-they passed it.
+they passed it. From 0.4.0 the package bundles `387bdfb29b4b050f`: T2 converted to a binary bank
+and a compact catalog, with the same models, vectors and card list, so it scores exactly as T2 and
+the figures below apply unchanged.
 
 ## The test, in short
 
