@@ -45,9 +45,8 @@ It takes a few minutes, and a zip install does not update itself.
 
    *TODO: screenshots.*
 
-8. Open a Yu-Gi-Oh! video on YouTube or Twitch, point at the player and click the round
-   DuelSight button in its top-right corner to turn card hovers on for that channel. Then rest
-   the pointer on a card: its picture appears beside it (see [Using DuelSight](using.md)).
+8. Open a Yu-Gi-Oh! video on YouTube or Twitch and rest the pointer on a card: its picture
+   appears beside it (see [Using DuelSight](using.md)).
 
    *TODO: screenshots.*
 

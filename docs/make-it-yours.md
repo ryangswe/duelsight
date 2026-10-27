@@ -121,8 +121,8 @@ nothing beyond the local server.
    ```
 
    In Chrome, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**
-   and choose `dist/`. Open the address the server prints (`http://127.0.0.1:8770/`), turn card
-   hovers on with the button in the player, and rest the pointer on a card.
+   and choose `dist/`. Open the address the server prints (`http://127.0.0.1:8770/`) and rest the
+   pointer on a card.
    `test/smoke/smoke.mjs` does the same headlessly (see [Manual check on a local video](development.md#manual-check-on-a-local-video)). Then
    try a video on the sites you turned on. A release build is the same command without
    `--dev`, and `npm run package` zips it.

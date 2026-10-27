@@ -20,15 +20,13 @@ How card hovers work once the extension is installed, what to expect, and how to
   otherwise. It can leave uncertain matches blank. It can also miss cards or show an incorrect
   match.
 
-## Turning card hovers on
+## Turning card hovers on and off
 
-Open a Yu-Gi-Oh! video on YouTube or Twitch and move the pointer over the video. A small round
-DuelSight button appears in the player's top-right corner: click it to turn card hovers on for
-that channel (on YouTube, for that video when no channel is shown, as in an embedded player).
-DuelSight remembers the channels you turned on. Video analysis starts after you turn card hovers
-on. The extension separately checks its settings file when it is installed or updated and when
-Chrome starts, and at most once an hour while you use it. Click the button again to turn card
-hovers off for that channel; that forgets it.
+Card hovers are on for all supported videos: open a Yu-Gi-Oh! video on YouTube or Twitch and
+point at a card. Nothing is analyzed before the pointer comes over a video, so a video you just
+watch costs nothing. To turn card hovers off everywhere, use the switch in DuelSight's toolbar
+popup; there is no per-channel switch. The extension separately checks its settings file when it
+is installed or updated and when Chrome starts, and at most once an hour while you use it.
 
 ## Hovering a card
 
@@ -95,6 +93,6 @@ your existing DuelSight folder with the contents of the new one, then click the 
 DuelSight's popup says "New version available" with a link.
 
 **To remove it**, click **Remove** on its card in `chrome://extensions`. Removing the extension
-deletes its saved settings (the on/off switch, the card size, the card details choice, the
-channels you turned card hovers on for and its copy of the card details file);
+deletes its saved settings (the on/off switch, the card size, the card details choice and its
+copy of the card details file);
 installing it again starts fresh.
