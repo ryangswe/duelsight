@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Wrong card
+description: A card was named wrong, a card was shown where there is no card, or a clear card was not named.
+title: "Wrong card: "
+labels: ["wrong-card"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Reports like this are how wrong cards get fixed.
+
+        **Please do not attach a frame or a screenshot.** The video's id and the time are enough to find the frame.
+  - type: dropdown
+    id: site
+    attributes:
+      label: Site
+      options:
+        - YouTube
+        - Twitch
+    validations:
+      required: true
+  - type: input
+    id: video-id
+    attributes:
+      label: Video id
+      description: The id only, not a link. On YouTube it is the 11 characters after `v=`. On Twitch it is the number after `/videos/`.
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: Time in the video
+      description: Hours, minutes and seconds, as exactly as you can.
+      placeholder: "1:02:37"
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where on the screen
+      description: In words.
+      placeholder: "Bottom row, third card from the left"
+    validations:
+      required: true
+  - type: dropdown
+    id: footage
+    attributes:
+      label: Kind of footage
+      options:
+        - Master Duel
+        - Dueling Book
+        - Paper cards, camera above the table
+        - Paper cards, camera at a steeper angle
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: what
+    attributes:
+      label: What happened
+      options:
+        - A card was named as a different card
+        - A card was shown on something that is not a card
+        - A card was shown on a card back
+        - A clear, readable card was not named
+    validations:
+      required: true
+  - type: input
+    id: shown
+    attributes:
+      label: What was shown
+      description: The name of the card that was shown, or "nothing".
+    validations:
+      required: true
+  - type: input
+    id: truth
+    attributes:
+      label: What the card is
+      description: The card's name, if you know it. Leave empty if there is no card there.
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: checkboxes
+    id: no-images
+    attributes:
+      label: No images
+      options:
+        - label: This issue contains no frame and no screenshot.
+          required: true

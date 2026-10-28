@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug
+description: The extension does not load, shows nothing, breaks a page, or the documentation is wrong.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami, kept by one person.
+
+        **Please do not attach screenshots of someone's video.** A video id and a time are enough to find the frame.
+
+        For a card named wrong, use the "Wrong card" form instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, and what the extension did.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: Shown on your browser's extensions page.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed from
+      options:
+        - Chrome Web Store
+        - Firefox Add-ons
+        - A release zip (Load unpacked)
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: "Chrome on Windows 11"
+    validations:
+      required: true
+  - type: dropdown
+    id: site
+    attributes:
+      label: Site
+      options:
+        - YouTube
+        - Twitch
+        - Both
+        - Not about a site
+    validations:
+      required: true
+  - type: textarea
+    id: video
+    attributes:
+      label: Video and time (if it happens on one video)
+      description: The video id and the time, for example `abcdEFGhijk at 12:34`.
+  - type: textarea
+    id: console
+    attributes:
+      label: Errors in the console (optional)
+      description: Any red lines from the browser's developer tools console. Remove anything you do not want public.
+      render: shell
+  - type: checkboxes
+    id: no-images
+    attributes:
+      label: No screenshots of videos
+      options:
+        - label: This issue contains no screenshot or frame of someone's video.
+          required: true

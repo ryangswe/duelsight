@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request cancels the run still in progress.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   tests:
     name: Node ${{ matrix.node }}

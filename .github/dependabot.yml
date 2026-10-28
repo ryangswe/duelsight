@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dependency updates: one grouped pull request a month per ecosystem. Each one goes through the
+# same checks as any other pull request, and a person reads it before merging.
+#
+# Held:
+#   - onnxruntime-web: it stays at exactly the version vendor/cardvision-browser/VENDOR.json
+#     records; the build refuses a mismatch. Moving it means re-vendoring the cardvision runtime
+#     and a store release, which is its own change.
+#   - @types/node 25 and later: the types stay on the Node versions CI runs (22 and 24).
+# tools/promo-video/ is not covered: Remotion, React and puppeteer-core are pinned there so the
+# reel re-renders identically.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm-dependencies:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: onnxruntime-web
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]

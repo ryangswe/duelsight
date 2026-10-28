@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The sign-off check. Every commit of a pull request must carry a line
+#
+#     Signed-off-by: Name <email>
+#
+# whose email is the commit's author email (or its committer email). By that line the
+# contributor certifies the Developer Certificate of Origin 1.1,
+# https://developercertificate.org/ . A persistent handle is accepted in place of a legal
+# name. Merge commits are not checked, and neither are commits authored by Dependabot, which
+# cannot sign off. A person reviews each of those pull requests before merging it. The check is
+# written out here; it uses no app.
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-off:
+    name: Every commit is signed off
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check Signed-off-by on every commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -u
+          lower() { tr '[:upper:]' '[:lower:]'; }
+          failed=0
+          checked=0
+          for commit in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            checked=$((checked + 1))
+            subject="$(git show -s --format='%h %s' "$commit")"
+            author="$(git show -s --format='%ae' "$commit" | lower)"
+            committer="$(git show -s --format='%ce' "$commit" | lower)"
+            case "$author" in
+              *+dependabot\[bot\]@users.noreply.github.com)
+                echo "exempt    $subject"
+                continue
+                ;;
+            esac
+            # The emails of the commit's Signed-off-by trailers, one per line.
+            signers="$(git show -s --format='%(trailers:key=Signed-off-by,valueonly=true)' "$commit" \
+              | sed -n 's/^.*<\([^<> ]*@[^<> ]*\)>[[:space:]]*$/\1/p' | lower)"
+            if [ -z "$signers" ]; then
+              echo "MISSING   $subject"
+              echo "          no Signed-off-by line of the form: Signed-off-by: Name <email>"
+              failed=1
+            elif printf '%s\n' "$signers" | grep -xF -e "$author" -e "$committer" > /dev/null; then
+              echo "ok        $subject"
+            else
+              echo "MISMATCH  $subject"
+              echo "          signed off by: $(printf '%s' "$signers" | tr '\n' ' ')"
+              echo "          but the author is $author and the committer is $committer"
+              failed=1
+            fi
+          done
+          echo
+          echo "$checked commit(s) checked"
+          if [ "$failed" -ne 0 ]; then
+            echo
+            echo "Each person signs off their own commits. To add your sign-off:"
+            echo "  the last commit:   git commit --amend --signoff"
+            echo "  every commit:      git rebase --signoff $BASE"
+            echo "then push with --force-with-lease. CONTRIBUTING.md says what the sign-off certifies."
+            exit 1
+          fi
