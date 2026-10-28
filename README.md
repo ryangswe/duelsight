@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # DuelSight
 
+<img src="docs/banner.webp" alt="DuelSight: hover a Yu-Gi-Oh! card in a video to see it. YouTube and Twitch. Free and open source. Unofficial fan project, not affiliated with or endorsed by Konami." width="100%">
+
 A Chrome extension for watching Yu-Gi-Oh! videos and streams. Hover a card in a YouTube or
 Twitch video and a larger picture of it appears, with its name, type, stats and text.
 
