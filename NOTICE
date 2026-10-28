@@ -24,9 +24,10 @@ Not affiliated
 DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami. Yu-Gi-Oh!,
 its card names and its card art belong to their owners. This repository and the extension's
 package contain no card image files and no card text: both are served from DuelSight's card CDN.
-The store images in docs/store/ show card art, card text and tournament broadcasts as they appear
-on video; that art, text and footage belong to their owners and are not covered by the Apache
-License.
+The store images in docs/store/ and the promo reel in docs/reel/ show card art, card text and
+other people's videos as they appear on video, and the reel carries a licensed music track ("Epic"
+by paulyudin); that art, text, footage and music belong to their owners and are not covered by the
+Apache License. tools/promo-video/ uses Remotion, which has its own license.
 
 Card text and images are copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment.
 Card data from YGOPRODeck.

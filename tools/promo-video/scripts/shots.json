@@ -1,0 +1,310 @@
+[
+ {
+  "id": "hero",
+  "capture": "live-hero",
+  "start": -0.512,
+  "frames": 404,
+  "crop": [
+   36,
+   0,
+   1884,
+   1060
+  ],
+  "masks": [
+   {
+    "rect": [
+     0,
+     172,
+     272,
+     318
+    ],
+    "why": "left player webcam"
+   },
+   {
+    "rect": [
+     1820,
+     172,
+     100,
+     320
+    ],
+    "why": "right player webcam (right part: never under a tooltip)"
+   },
+   {
+    "rect": [
+     1650,
+     172,
+     170,
+     256
+    ],
+    "why": "right player webcam (left part) (beside Dracotail Gulamel's tooltip)",
+    "on": [
+     [
+      5.112,
+      7.551
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1711,
+     428,
+     109,
+     64
+    ],
+    "why": "right player webcam (left part) (beside Dracotail Gulamel's tooltip)",
+    "on": [
+     [
+      5.112,
+      7.551
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1650,
+     172,
+     170,
+     320
+    ],
+    "why": "right player webcam (left part)",
+    "off": [
+     [
+      5.152,
+      7.511
+     ],
+     [
+      10.665999999999999,
+      14.45
+     ]
+    ]
+   },
+   {
+    "rect": [
+     548,
+     88,
+     156,
+     44
+    ],
+    "why": "player name banner"
+   },
+   {
+    "rect": [
+     1248,
+     88,
+     104,
+     40
+    ],
+    "why": "player name banner (beside Dracotail Mululu's tooltip)",
+    "on": [
+     [
+      10.626,
+      14.489999999999998
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1248,
+     88,
+     104,
+     44
+    ],
+    "why": "player name banner",
+    "off": [
+     [
+      10.665999999999999,
+      14.45
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1356,
+     144,
+     116,
+     30
+    ],
+    "why": "in-game player name",
+    "off": [
+     [
+      10.665999999999999,
+      14.45
+     ]
+    ]
+   },
+   {
+    "rect": [
+     392,
+     802,
+     124,
+     32
+    ],
+    "why": "in-game player name"
+   }
+  ],
+  "land": 153,
+  "tag": "Master Duel",
+  "card": "Dracotail Gulamel"
+ },
+ {
+  "id": "seg-db",
+  "capture": "live-db-dbgrinder",
+  "start": 3.515,
+  "frames": 209,
+  "crop": [
+   140,
+   0,
+   1640,
+   1060
+  ],
+  "masks": [
+   {
+    "rect": [
+     140,
+     786,
+     18,
+     125
+    ],
+    "why": "watcher username box (beside Granguignol the Dusk Dragon's tooltip)",
+    "on": [
+     [
+      0.696,
+      3.0010000000000003
+     ]
+    ]
+   },
+   {
+    "rect": [
+     140,
+     786,
+     109,
+     126
+    ],
+    "why": "watcher username box (beside Incredible Ecclesia, the Virtuous's tooltip)",
+    "on": [
+     [
+      6.059,
+      8.0
+     ]
+    ]
+   },
+   {
+    "rect": [
+     140,
+     786,
+     200,
+     126
+    ],
+    "why": "watcher username box",
+    "off": [
+     [
+      0.736,
+      2.9610000000000003
+     ],
+     [
+      6.099,
+      7.960000000000001
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1565,
+     0,
+     215,
+     104
+    ],
+    "why": "chat and player name (top) (beside The Fallen & The Virtuous's tooltip)",
+    "on": [
+     [
+      3.376,
+      5.601
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1565,
+     567,
+     215,
+     8
+    ],
+    "why": "chat and player name (top) (beside The Fallen & The Virtuous's tooltip)",
+    "on": [
+     [
+      3.376,
+      5.601
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1764,
+     104,
+     16,
+     463
+    ],
+    "why": "chat and player name (top) (beside The Fallen & The Virtuous's tooltip)",
+    "on": [
+     [
+      3.376,
+      5.601
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1565,
+     0,
+     215,
+     575
+    ],
+    "why": "chat and player name (top)",
+    "off": [
+     [
+      3.416,
+      5.561
+     ]
+    ]
+   },
+   {
+    "rect": [
+     1565,
+     575,
+     215,
+     486
+    ],
+    "why": "chat, player name and webcam (bottom: never under a tooltip)"
+   }
+  ],
+  "land": 21,
+  "tag": "Dueling Book",
+  "card": "Granguignol the Dusk Dragon"
+ },
+ {
+  "id": "seg-paper",
+  "capture": "live-paper-nawcq",
+  "start": 3.445,
+  "frames": 138,
+  "crop": [
+   500,
+   0,
+   1300,
+   1060
+  ],
+  "masks": [
+   {
+    "rect": [
+     1428,
+     60,
+     372,
+     350
+    ],
+    "why": "player webcam and name"
+   }
+  ],
+  "land": 21,
+  "tag": "Paper",
+  "card": "Futsu no Mitama no Mitsurugi"
+ }
+]

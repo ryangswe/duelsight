@@ -1,0 +1,185 @@
+[
+ {
+  "id": "hero-md-button",
+  "frame": "LX4yGLhQaQ0-11036p164",
+  "button": true,
+  "start": [
+   1500,
+   860
+  ],
+  "cards": [],
+  "after": [
+   1800,
+   160
+  ]
+ },
+ {
+  "id": "hero-md",
+  "frame": "LX4yGLhQaQ0-11036p164",
+  "start": [
+   1800,
+   160
+  ],
+  "cards": [
+   {
+    "name": "Dracotail Gulamel",
+    "at": [
+     1081,
+     482
+    ],
+    "travel": 1100
+   },
+   {
+    "name": "Dracotail Arthalion",
+    "at": [
+     960,
+     359
+    ]
+   }
+  ]
+ },
+ {
+  "id": "paper-nawcq",
+  "frame": "7l_ppqK18qM-23359p428",
+  "start": [
+   1300,
+   700
+  ],
+  "cards": [
+   {
+    "name": "S:P Little Knight",
+    "at": [
+     1107,
+     501
+    ]
+   },
+   {
+    "name": "Futsu no Mitama no Mitsurugi",
+    "at": [
+     1091,
+     753
+    ]
+   }
+  ]
+ },
+ {
+  "id": "paper-houston",
+  "frame": "5FKSc51un5I-1694p766",
+  "start": [
+   1150,
+   600
+  ],
+  "cards": [
+   {
+    "name": "Purification Power Patron",
+    "at": [
+     953,
+     386
+    ]
+   },
+   {
+    "name": "Arcanite Magician",
+    "at": [
+     803,
+     891
+    ]
+   }
+  ]
+ },
+ {
+  "id": "db-dbgrinder",
+  "frame": "RrY64M01FcY-242p918",
+  "start": [
+   1100,
+   820
+  ],
+  "cards": [
+   {
+    "name": "Granguignol the Dusk Dragon",
+    "at": [
+     822,
+     499
+    ]
+   },
+   {
+    "name": "Super Polymerization",
+    "at": [
+     1474,
+     649
+    ]
+   }
+  ]
+ },
+ {
+  "id": "db-retro",
+  "frame": "PNPQuvTMhVw-472p654",
+  "start": [
+   1200,
+   820
+  ],
+  "cards": [
+   {
+    "name": "Caius the Shadow Monarch",
+    "at": [
+     914,
+     987
+    ]
+   },
+   {
+    "name": "Gorz the Emissary of Darkness",
+    "at": [
+     973,
+     648
+    ]
+   }
+  ]
+ },
+ {
+  "id": "md-mrduels",
+  "frame": "eCAaYfVz1Fc-1084p480",
+  "start": [
+   1500,
+   860
+  ],
+  "cards": [
+   {
+    "name": "The Bystial Lubellion",
+    "at": [
+     1317,
+     677
+    ]
+   },
+   {
+    "name": "Fallen of Albaz",
+    "at": [
+     1136,
+     677
+    ]
+   }
+  ]
+ },
+ {
+  "id": "md-dkayed",
+  "frame": "Kd1jHhrBjPE-3959p321",
+  "start": [
+   900,
+   700
+  ],
+  "cards": [
+   {
+    "name": "S:P Little Knight",
+    "at": [
+     1133,
+     489
+    ]
+   },
+   {
+    "name": "D/D/D Wave High King Caesar",
+    "at": [
+     606,
+     668
+    ]
+   }
+  ]
+ }
+]

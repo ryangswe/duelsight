@@ -1,0 +1,181 @@
+{
+ "hero": {
+  "hovers": [
+   {
+    "card": "Dracotail Gulamel",
+    "shown_reel_s": 5.122,
+    "art_reel_s": 5.09,
+    "hide_reel_s": 7.541,
+    "box": [
+     1131,
+     428,
+     1711,
+     891
+    ],
+    "at": [
+     1081,
+     482
+    ]
+   },
+   {
+    "card": "Dracotail Arthalion",
+    "shown_reel_s": 7.886,
+    "art_reel_s": 7.857,
+    "hide_reel_s": 10.241,
+    "box": [
+     670,
+     420,
+     1250,
+     883
+    ],
+    "at": [
+     960,
+     359
+    ]
+   },
+   {
+    "card": "Dracotail Mululu",
+    "shown_reel_s": 10.636,
+    "art_reel_s": 10.59,
+    "hide_reel_s": null,
+    "box": [
+     1240,
+     128,
+     1820,
+     591
+    ],
+    "at": [
+     1194,
+     360
+    ]
+   }
+  ],
+  "crop": [
+   36,
+   0,
+   1884,
+   1060
+  ],
+  "r0": 0.0,
+  "r1": 13.45,
+  "click_reel_s": 3.223,
+  "click_at": [
+   1891,
+   75
+  ]
+ },
+ "seg-db": {
+  "hovers": [
+   {
+    "card": "Granguignol the Dusk Dragon",
+    "shown_reel_s": 14.156,
+    "art_reel_s": 14.14,
+    "hide_reel_s": 16.441,
+    "box": [
+     158,
+     448,
+     738,
+     911
+    ],
+    "at": [
+     822,
+     499
+    ]
+   },
+   {
+    "card": "The Fallen & The Virtuous",
+    "shown_reel_s": 16.836,
+    "art_reel_s": 16.807,
+    "hide_reel_s": 19.041,
+    "box": [
+     1184,
+     104,
+     1764,
+     567
+    ],
+    "at": [
+     1474,
+     649
+    ]
+   },
+   {
+    "card": "Incredible Ecclesia, the Virtuous",
+    "shown_reel_s": 19.519,
+    "art_reel_s": 19.473,
+    "hide_reel_s": null,
+    "box": [
+     249,
+     595,
+     829,
+     1058
+    ],
+    "at": [
+     931,
+     987
+    ]
+   }
+  ],
+  "crop": [
+   140,
+   0,
+   1640,
+   1060
+  ],
+  "r0": 13.45,
+  "r1": 20.41,
+  "click_reel_s": 12.622,
+  "click_at": [
+   1891,
+   75
+  ]
+ },
+ "seg-paper": {
+  "hovers": [
+   {
+    "card": "Futsu no Mitama no Mitsurugi",
+    "shown_reel_s": 21.157,
+    "art_reel_s": 21.11,
+    "hide_reel_s": null,
+    "box": [
+     1145,
+     597,
+     1725,
+     1060
+    ],
+    "at": [
+     1091,
+     753
+    ]
+   },
+   {
+    "card": "S:P Little Knight",
+    "shown_reel_s": 23.842,
+    "art_reel_s": 23.793,
+    "hide_reel_s": null,
+    "box": [
+     1173,
+     504,
+     1753,
+     967
+    ],
+    "at": [
+     1107,
+     501
+    ]
+   }
+  ],
+  "crop": [
+   500,
+   0,
+   1300,
+   1060
+  ],
+  "r0": 20.41,
+  "r1": 25.02,
+  "click_reel_s": 19.658,
+  "click_at": [
+   1891,
+   75
+  ]
+ }
+}

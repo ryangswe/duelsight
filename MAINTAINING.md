@@ -61,6 +61,8 @@ paste-ready, and how to make what it uploads:
   the real extension by `scripts/store-assets.mjs` (layouts and headlines in
   `scripts/store-templates.mjs`). New ones are written outside the repository, checked, then
   replace those in docs/store/.
+- the promo reel, if one goes with the release: [docs/reel/](docs/reel/README.md), made by
+  [tools/promo-video/](tools/promo-video/README.md).
 
 Submitting, and every declaration in the dashboard, is the owner's.
 

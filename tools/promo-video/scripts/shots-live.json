@@ -1,0 +1,227 @@
+[
+ {
+  "id": "hero",
+  "video": "LX4yGLhQaQ0",
+  "t": 11036,
+  "start": [
+   1500,
+   860
+  ],
+  "cards": [
+   {
+    "name": "Dracotail Gulamel",
+    "at": [
+     1081,
+     482
+    ],
+    "travel": 1100
+   },
+   {
+    "name": "Dracotail Arthalion",
+    "at": [
+     960,
+     359
+    ]
+   },
+   {
+    "name": "Dracotail Mululu",
+    "at": [
+     1194,
+     360
+    ]
+   }
+  ]
+ },
+ {
+  "id": "md-mrduels",
+  "video": "eCAaYfVz1Fc",
+  "t": 1084,
+  "start": [
+   1500,
+   860
+  ],
+  "cards": [
+   {
+    "name": "The Bystial Lubellion",
+    "at": [
+     1317,
+     677
+    ]
+   },
+   {
+    "name": "Fallen of Albaz",
+    "at": [
+     1136,
+     677
+    ]
+   },
+   {
+    "name": "Fallen of the White Dragon",
+    "at": [
+     606,
+     675
+    ]
+   }
+  ]
+ },
+ {
+  "id": "db-dbgrinder",
+  "video": "RrY64M01FcY",
+  "t": 242,
+  "start": [
+   1100,
+   820
+  ],
+  "cards": [
+   {
+    "name": "Granguignol the Dusk Dragon",
+    "at": [
+     822,
+     499
+    ]
+   },
+   {
+    "name": "Super Polymerization",
+    "at": [
+     1474,
+     649
+    ]
+   },
+   {
+    "name": "Incredible Ecclesia, the Virtuous",
+    "at": [
+     931,
+     987
+    ]
+   }
+  ]
+ },
+ {
+  "id": "paper-nawcq",
+  "video": "7l_ppqK18qM",
+  "t": 23359,
+  "start": [
+   1300,
+   700
+  ],
+  "cards": [
+   {
+    "name": "Futsu no Mitama no Mitsurugi",
+    "at": [
+     1091,
+     753
+    ]
+   },
+   {
+    "name": "S:P Little Knight",
+    "at": [
+     1107,
+     501
+    ]
+   },
+   {
+    "name": "Charmer Quartet in Bloom",
+    "at": [
+     971,
+     401
+    ]
+   }
+  ]
+ },
+ {
+  "id": "md-dkayed",
+  "video": "Kd1jHhrBjPE",
+  "t": 3959,
+  "start": [
+   900,
+   700
+  ],
+  "cards": [
+   {
+    "name": "S:P Little Knight",
+    "at": [
+     1133,
+     489
+    ]
+   },
+   {
+    "name": "D/D/D Wave High King Caesar",
+    "at": [
+     606,
+     668
+    ]
+   },
+   {
+    "name": "Tearlaments Kaleido-Heart",
+    "at": [
+     629,
+     324
+    ]
+   }
+  ]
+ },
+ {
+  "id": "db-retro",
+  "video": "PNPQuvTMhVw",
+  "t": 472,
+  "start": [
+   1200,
+   820
+  ],
+  "cards": [
+   {
+    "name": "Gorz the Emissary of Darkness",
+    "at": [
+     973,
+     648
+    ]
+   },
+   {
+    "name": "Caius the Shadow Monarch",
+    "at": [
+     914,
+     987
+    ]
+   },
+   {
+    "name": "Brain Control",
+    "at": [
+     1449,
+     649
+    ]
+   }
+  ]
+ },
+ {
+  "id": "paper-houston",
+  "video": "5FKSc51un5I",
+  "t": 1694,
+  "start": [
+   1150,
+   600
+  ],
+  "cards": [
+   {
+    "name": "Arcanite Magician",
+    "at": [
+     803,
+     891
+    ]
+   },
+   {
+    "name": "Purification Power Patron",
+    "at": [
+     953,
+     386
+    ]
+   },
+   {
+    "name": "Spell Shattering Sword",
+    "at": [
+     1117,
+     119
+    ]
+   }
+  ]
+ }
+]
