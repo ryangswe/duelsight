@@ -18,6 +18,10 @@ starts from the same files. How to make new ones is in
 
 The store icon is the extension's own `icons/icon-128.png`.
 
+The README's banner, `docs/banner.webp` (1400×560), has the marquee tile's layout over a hover on
+Dracotail Arthalion from the promo reel's footage. `scripts/banner.mjs` makes it; its header gives
+the commands.
+
 How they were made (2026-10-23, release T, by `scripts/store-assets.mjs`):
 - **Capture.** A dev build in Chrome for Testing, on a bare local page playing a short clip made from
   one frame of each broadcast. No video site was opened.

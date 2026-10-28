@@ -2,8 +2,8 @@
 #
 # Binary files only where they belong. Model files are release assets (the public model repository
 # and the CDN), never committed. Images, video and other binary files are kept only in the folders
-# below, which hold the store images, the promo reel and its footage, the icons and the vendored
-# runtime's WebAssembly.
+# below, which hold the store images, the README banner, the promo reel and its footage, the icons
+# and the vendored runtime's WebAssembly.
 #
 # In a pull request the files it adds or changes are checked. On main the whole tree is. A file is
 # refused when its name has the suffix of a model or an archive (anywhere), or, outside the allowed
@@ -37,7 +37,7 @@ jobs:
           import sys
 
           # Folders (and single files) where images, video and other binary files are allowed.
-          ALLOWED = ("docs/store/", "docs/reel/", "icons/", "tools/promo-video/public/footage/",
+          ALLOWED = ("docs/store/", "docs/reel/", "docs/banner.webp", "icons/", "tools/promo-video/public/footage/",
                      "vendor/cardvision-browser/")
           IMAGES = {"png", "jpg", "jpeg", "jpe", "webp", "gif", "bmp", "tif", "tiff", "avif", "heic", "heif",
                     "ico", "svg", "psd", "jp2", "jxl"}

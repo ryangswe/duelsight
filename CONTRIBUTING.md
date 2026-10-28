@@ -40,9 +40,9 @@ every card or working on any video.
 - **Clean room.** No code under the AGPL, and nothing copied from other card-recognition
   projects.
 - **Card art, card text, video frames and screenshots of someone's video**, in files, issues or
-  pull requests. The exceptions are the store images in `docs/store/`, the promo reel in
-  `docs/reel/` and its footage in `tools/promo-video/public/footage/`, which the maintainer
-  keeps.
+  pull requests. The exceptions are the store images in `docs/store/`, the README banner
+  `docs/banner.webp`, the promo reel in `docs/reel/` and its footage in
+  `tools/promo-video/public/footage/`, which the maintainer keeps.
 - **Model files and release data.** Release files and card text are served from the CDN, never
   committed.
 - A check refuses model files and archives anywhere, and images and videos outside the folders
