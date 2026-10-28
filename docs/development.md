@@ -15,6 +15,8 @@ npm test
 npm run build -- --release <release folder>
 ```
 
+- `npm test` also runs on GitHub for every pull request and every push to `main`, on Node 22 and 24
+  (`.github/workflows/tests.yml`).
 - `--release` is a release folder of the recognition models as the runtime's
   `cardvision build-release` writes it (`release.json` and the files it pins). The build checks
   it with the runtime's own verification (every file against its SHA-256 and size, the parts
