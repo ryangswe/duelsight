@@ -57,9 +57,12 @@ paste-ready, and how to make what it uploads:
 - the privacy page at `<cdnBase>/privacy.html`, generated from PRIVACY.md by
   `scripts/privacy-page.mjs` and published with `cdn/dscdn.py publish --page` (republish it
   whenever PRIVACY.md changes: the listing links to it);
-- the five screenshots and the two promo tiles, made from the real extension by
-  `scripts/store-assets.mjs` (layouts and headlines in `scripts/store-templates.mjs`), written
-  outside the repository (they hold card art and frames of others' videos).
+- the four screenshots and the two promo tiles, in [docs/store/](docs/store/README.md), made from
+  the real extension by `scripts/store-assets.mjs` (layouts and headlines in
+  `scripts/store-templates.mjs`). New ones are written outside the repository, checked, then
+  replace those in docs/store/.
+- the promo reel, if one goes with the release: [docs/reel/](docs/reel/README.md), made by
+  [tools/promo-video/](tools/promo-video/README.md).
 
 Submitting, and every declaration in the dashboard, is the owner's.
 

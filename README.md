@@ -43,6 +43,8 @@ Details: [PRIVACY.md](PRIVACY.md) and [docs/permissions.md](docs/permissions.md)
 | Build it, update the runtime, test on a local video | [docs/development.md](docs/development.md) |
 | Keep it up to date, or hand it over | [MAINTAINING.md](MAINTAINING.md) |
 | Submit it to the Chrome Web Store (every field, the privacy page, the store images) | [docs/store-listing.md](docs/store-listing.md) |
+| Find the images uploaded to the store listings | [docs/store/README.md](docs/store/README.md) |
+| Watch the promo reel, or make a new one | [docs/reel/README.md](docs/reel/README.md) |
 | Make the same extension for another card game | [docs/make-it-yours.md](docs/make-it-yours.md) |
 
 ## Built on cardvision

@@ -13,8 +13,9 @@
 //   { "master-duel": { "video": "/clips/md.webm", "card": [793, 351] },
 //     "paper": { "video": "/clips/paper.webm", "card": [576, 493] } }
 // Make each clip from one frame of an official broadcast, cropped to the game (no faces, no other
-// people's overlays), as docs/store-listing.md shows. The images hold card art and frames of others'
-// videos: they are written outside the repository and never committed. `puppeteer-core` is not a
+// people's overlays), as docs/store-listing.md shows. The images hold card art and broadcast frames:
+// write them outside the repository, check each one, then replace the files in docs/store/ (the
+// listing's images, not covered by the repository's license). `puppeteer-core` is not a
 // dependency of this repository; install it yourself as above. Branded Chrome does not load unpacked
 // extensions from the command line: use Chrome for Testing. It never opens a video site.
 
