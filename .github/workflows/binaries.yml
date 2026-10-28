@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Binary files only where they belong. Model files are release assets (the public model repository
+# and the CDN), never committed. Images, video and other binary files are kept only in the folders
+# below, which hold the store images, the promo reel and its footage, the icons and the vendored
+# runtime's WebAssembly.
+#
+# In a pull request the files it adds or changes are checked. On main the whole tree is. A file is
+# refused when its name has the suffix of a model or an archive (anywhere), or, outside the allowed
+# folders, of an image or a video, or when it is a symbolic link or holds a zero byte.
+name: Binaries
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Binary files only where they belong
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check binary files
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          # Folders (and single files) where images, video and other binary files are allowed.
+          ALLOWED = ("docs/store/", "docs/reel/", "icons/", "tools/promo-video/public/footage/",
+                     "vendor/cardvision-browser/")
+          IMAGES = {"png", "jpg", "jpeg", "jpe", "webp", "gif", "bmp", "tif", "tiff", "avif", "heic", "heif",
+                    "ico", "svg", "psd", "jp2", "jxl"}
+          VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm", "avi", "flv", "wmv", "mpg", "mpeg", "m2ts", "3gp"}
+          MODELS = {"onnx", "ort", "pt", "pth", "ckpt", "safetensors", "npy", "npz", "pkl", "pickle", "h5",
+                    "hdf5", "tflite", "pb", "gguf", "mlmodel", "engine", "weights"}
+          ARCHIVES = {"zip", "xpi", "crx", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar"}
+
+
+          def git(*arguments):
+              return subprocess.run(["git", *arguments], check=True, capture_output=True).stdout
+
+
+          def allowed(name):
+              return any(name == entry or (entry.endswith("/") and name.startswith(entry)) for entry in ALLOWED)
+
+
+          base, head = os.environ.get("BASE", ""), os.environ.get("HEAD", "")
+          if base and head:
+              listing = git("diff", "--name-only", "-z", "--diff-filter=ACMR", f"{base}...{head}")
+              scope = "added or changed by this pull request"
+          else:
+              listing = git("ls-files", "-z")
+              scope = "in the repository"
+          names = [name.decode("utf-8", "surrogateescape") for name in listing.split(b"\0") if name]
+
+          problems = []
+          for name in names:
+              if not os.path.lexists(name):
+                  continue  # deleted later in the same pull request
+              suffix = name.rsplit(".", 1)[-1].lower() if "." in os.path.basename(name) else ""
+              if suffix in MODELS:
+                  problems.append(f"{name}: a model or weights file (models are release assets)")
+              elif suffix in ARCHIVES:
+                  problems.append(f"{name}: an archive or a packaged extension")
+              elif allowed(name):
+                  continue
+              elif suffix in IMAGES or suffix in VIDEOS:
+                  problems.append(f"{name}: an image or a video outside the folders that hold them")
+              elif os.path.islink(name):
+                  problems.append(f"{name}: a symbolic link")
+              elif os.path.isfile(name):
+                  with open(name, "rb") as handle:
+                      if b"\0" in handle.read():
+                          problems.append(f"{name}: not a text file (it holds a zero byte)")
+
+          print(f"{len(names)} file(s) {scope} checked")
+          if problems:
+              print("\nThese files do not belong where they are:")
+              for line in problems:
+                  print(f"  - {line}")
+              print("\nAllowed binary folders: " + ", ".join(ALLOWED) + ". See CONTRIBUTING.md.")
+              sys.exit(1)
+          PY

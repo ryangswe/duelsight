@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Blank issues stay open: the extension and its docs name the issue tracker as the maintainer's
+# contact.
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/ryangswe/duelsight/security/policy
+    about: Do not open an issue. SECURITY.md says how to report it privately.
