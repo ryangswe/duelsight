@@ -8,13 +8,13 @@ already has permission for, and how new cards reach installed copies. A new imag
 extension release (see "Image hosts").
 
 This document states what the extension enforces (`src/settings/`, `src/images/chain.ts`); a
-file that `dscdn.py` accepts can still have parts the extension drops.
+file that `cardvision cdn` accepts can still have parts the extension drops.
 
 - **URL:** `<cdnBase>/config.json`, where `cdnBase` is the one value in `duelsight.config.json` that
   names the CDN host (`https://cdn.duelsight.com`).
 - **Served with:** `Content-Type: application/json`, `Cache-Control: public, max-age=300`,
   `Access-Control-Allow-Origin: *`.
-- **Written by:** `dscdn.py publish --config <file>`, last, after any images it references.
+- **Written by:** `cardvision cdn publish --config <file>`, last, after any images it references.
 
 ## Shape
 
@@ -118,7 +118,8 @@ New cards reach installed copies without a store update: the settings file may n
 card-recognition release published on this host, and a qualifying install loads it instead of the
 release bundled in the extension. The release is data only (JSON and ONNX files); code stays in the
 package. Anything wrong with it, at any step, loads the bundled release. The extension's side is
-`src/release/` and `src/compute/frame.ts`; the publishing side is `dscdn.py publish-release`.
+the vendored `remote-release.js` (the toolkit's `browser/src/remote/`) and `src/compute/frame.ts`;
+the publishing side is `cardvision cdn publish-release`.
 
 ```json
 "release": {
@@ -189,7 +190,7 @@ after loading, one restart).
 
 **Card facts.** The tooltip's table of names (`data/cards.json`) is built from the bundled catalog,
 so a card new in a remote release would be recognized and then shown as nothing. The compute frame
-therefore builds the same table (`src/shared/card-table.mjs`, the build's own rule) from the catalog
+therefore builds the same table (`buildCardTable` of the vendored `remote-release.js`, the build's own rule) from the catalog
 it hands the worker, before the load, and adopts it only when the worker confirms that release's
 id. With each card it shows from that release, it posts the card's facts (`{releaseId, cardId,
 facts: {name, set, art}}`) on `BroadcastChannel("duelsight-card-facts")`, then sends the card, with
@@ -233,12 +234,12 @@ compressed (the bank and catalog are most of a card-only update).
 
 ### Publishing a release
 
-`dscdn.py publish-release --release <folder named after its id> --min-version 0.3.0 [--details F]
+`cardvision cdn publish-release --release <folder named after its id> --min-version 0.3.0 [--data-file F]
 [--config cdn/config.json --set-pointer] [--sessions] [--dry-run]`:
 
 1. **Seal:** the document parses, its id is the folder's name, every pinned file is a flat name
    present with its size and SHA-256, and `release-legal/` names this release (`NOTICE`'s first
-   line, as for a build); then `scripts/verify-remote-release.mjs`, the vendored runtime's own
+   line, as for a build); then `vendor/cardvision-browser/node/verify-release.mjs`, the vendored runtime's own
    checks (`--sessions` also starts both ONNX Runtime sessions in Node: use it whenever a model
    changed).
 2. **Runtimes:** every extension version in `cdn/RUNTIMES.json` that the pointer would reach must
@@ -255,8 +256,8 @@ compressed (the bank and catalog are most of a card-only update).
 6. **Pointer:** the `release` block is computed from what was verified (`--set-pointer` writes it
    into the config file), and `config.json` is uploaded last.
 
-`dscdn.py publish --config F` refuses a `release` that does not verify live, so a pointer only ever
-moves to a verified folder, a rollback included. `dscdn.py verify-release-live` checks the live
+`cardvision cdn publish --config F` refuses a `release` that does not verify live, so a pointer only ever
+moves to a verified folder, a rollback included. `cardvision cdn verify-release-live` checks the live
 pointer at any time.
 
 ### What the pins do not guard against
@@ -280,7 +281,7 @@ holder's, like the art: the file is never committed or put in the extension's pa
 - **Key:** `data/details-<sha8>.json`, a new name for every change: a file is never replaced in
   place. **Served with** `Content-Type: application/json`, `Cache-Control: public,
   max-age=31536000, immutable`.
-- **Written by:** `dscdn.py publish --details <file> --config <file>`: the details file before
+- **Written by:** `cardvision cdn publish --data-file <file> --config <file>`: the details file before
   `config.json`, and `config.json` when it names that file (path and SHA-256), else nothing.
 - **The extension** fetches it while its details panel is on (never when it is off), from the settings file's own
   host, with no cookies and no referrer, once: it keeps the file in its own Cache Storage, keyed

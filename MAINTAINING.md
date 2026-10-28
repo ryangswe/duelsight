@@ -8,7 +8,9 @@ depends on sits in accounts of its own, so a new maintainer can take it over.
 
 New cards reach installed copies (0.3.0 and later) through the settings file's release pointer
 ([cdn/SETTINGS.md](cdn/SETTINGS.md), "The release pointer"), with no store update. About once a
-month, on a fixed day:
+month, on a fixed day. The steps are the cardvision toolkit's card-update playbook
+([playbooks/refresh-set.md](https://github.com/ryangswe/riftsight-vision/blob/main/playbooks/refresh-set.md)),
+with `cardvision refresh` for the checks and `cardvision cdn` for the host ([cdn/README.md](cdn/README.md)):
 
 1. **Catalog refresh.** Rebuild the catalog from the card source (YGOPRODeck's catalog, requested
    politely: one request for the list, each image once, throttled; never Konami's database, which
@@ -23,8 +25,9 @@ month, on a fixed day:
    on real footage it must find nothing that worked broken; on generated scenes a small fixed number
    of changes is allowed; and the new cards must work about as well as cards the models never
    trained on. A release that fails is not published. Its rules are fixed in advance and are not
-   changed after seeing a result. It does not re-measure the published figures (docs/accuracy.md):
-   held-out sets are scored once.
+   changed after seeing a result. A new rule is written from the toolkit's rule template and judged
+   by `cardvision refresh`; the rule already frozen keeps the scripts it was frozen with. It does
+   not re-measure the published figures (docs/accuracy.md): held-out sets are scored once.
 4. **Legal files.** Update `release-legal/` for the new release id (the opening line of `NOTICE` names it;
    PROVENANCE.md says what was added). They are published beside the release's files.
 5. **Card details file.** Rebuild it from the card list and the new release's catalog, into a
@@ -32,14 +35,15 @@ month, on a fixed day:
    --catalog <release folder>/catalog.json --out <folder>`. It prints the file's versioned name and
    the `details` entry for `cdn/config.json` (step 6 writes both entries with `--set-pointer`). Card
    text is the rights holder's: the file is never committed or packaged.
-6. **Publish.** The new art (`dscdn.py publish --catalog … --images …`), then the release:
-   `dscdn.py publish-release --release <folder> --min-version 0.3.0 --details <file> --config
+6. **Publish.** The new art (`cardvision cdn publish --catalog … --images …`), then the release:
+   `cardvision cdn publish-release --release <folder> --min-version 0.3.0 --data-file <file> --config
    cdn/config.json --set-pointer` (try it with `--dry-run` before). It uploads the release folder, verifies it
    live, publishes the details file, and moves the pointer in `config.json` last. Commit the changed
-   `cdn/config.json`. Publishing needs the CDN account's token: it is the owner's step, or the
+   `cdn/config.json` (as a pull request: `main` is protected). Publishing needs the CDN account's
+   token: it is the owner's step, or the
    maintainer's under a standing permission the owner gave for updates that add cards and nothing else, which
    applies once the owner has published the opening two pointer moves.
-7. **Confirm** after about an hour (`dscdn.py verify-release-live`; a hover on a new card). The hover can
+7. **Confirm** after about an hour (`cardvision cdn verify-release-live`; a hover on a new card). The hover can
    also be done headlessly on the local test page: `node test/smoke/remote-smoke.mjs --live --expect-id <id>`
    (its header says how). Rolling back is publishing the previous `release` block, or removing it.
 
@@ -55,7 +59,7 @@ paste-ready, and how to make what it uploads:
 
 - the package (`npm run package` on a `--store` build);
 - the privacy page at `<cdnBase>/privacy.html`, generated from PRIVACY.md by
-  `scripts/privacy-page.mjs` and published with `cdn/dscdn.py publish --page` (republish it
+  `scripts/privacy-page.mjs` and published with `cardvision cdn publish --page` (republish it
   whenever PRIVACY.md changes: the listing links to it);
 - the four screenshots and the two promo tiles, in [docs/store/](docs/store/README.md), made from
   the real extension by `scripts/store-assets.mjs` (layouts and headlines in

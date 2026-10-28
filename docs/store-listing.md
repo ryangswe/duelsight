@@ -29,7 +29,7 @@ Update this table with each submission (date submitted, date approved, store ite
    (the build refuses otherwise).
 2. **The privacy page** must be live at `<cdnBase>/privacy.html`, and match PRIVACY.md. After any
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
-   then `cdn/dscdn.py publish --page <that folder>/privacy.html` and `verify` (owner's step:
+   then `cardvision cdn publish --page <that folder>/privacy.html` and `verify` (owner's step:
    [cdn/README.md](../cdn/README.md)).
 3. **The images** (four screenshots, two promo tiles): the listing's are in
    [docs/store/](store/README.md). New ones are made as in [Store images](#store-images) below.

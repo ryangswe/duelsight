@@ -6,15 +6,14 @@
 //
 // This frame is made on the first pointer move over a video's picture, so the release loads then
 // and never at install. Which release:
-// the bundled one, or the one the settings file names (src/release/, cdn/SETTINGS.md "release"),
+// the bundled one, or the one the settings file names (the vendored remote-release module, cdn/SETTINGS.md "release"),
 // read once per page.
 
 import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
 import { readEffectiveSettings } from "../settings/store.js";
 import { allowedParentOrigin, FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
-import { buildCardTable } from "../shared/card-table.mjs";
-import { chooseRelease, decisionLine, recordSkip } from "../release/choose.js";
+import { buildCardTable, chooseRelease, decisionLine, recordSkip } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { type ReleaseDecision, startComputeFrame, type WorkerLike } from "./frame.js";
 import { DRIVER_TICK_MS } from "./host-session.js";

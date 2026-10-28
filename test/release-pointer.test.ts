@@ -3,7 +3,7 @@
 // skip-list (rule 2.1), and what a worker refusal means for it (rule 10).
 import { describe, expect, it } from "vitest";
 
-import { clearStaleSkip, decide, parsePointer, readSkip, refusalRecorded, SKIP_KEY, SKIP_TTL_MS, type SkipStorage, writeSkip } from "../src/release/pointer.js";
+import { clearStaleSkip, decide, parsePointer, readSkip, refusalRecorded, SKIP_KEY, SKIP_TTL_MS, type SkipStorage, writeSkip } from "../vendor/cardvision-browser/remote-release.js";
 import { validateSettings } from "../src/settings/schema.js";
 
 const ID = "0123456789abcdef";

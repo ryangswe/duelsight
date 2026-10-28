@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Zip the built extension (scripts/package-zip.mjs has the two layouts):
+// Zip the built extension (the vendored node/package-zip.mjs has the layouts):
 //   - a release build: <packageName>-<version>.zip (packageName from duelsight.config.json),
 //     holding one folder of the same name, which is what a user selects in Chrome's "Load unpacked";
 //   - a Web Store build (--store, no key): <packageName>-<version>-store.zip with manifest.json at
@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { loadForkConfig } from "./fork-config.mjs";
 import { firefoxAddonId } from "./manifest.mjs";
 import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";
-import { writeZip, zipLayout } from "./package-zip.mjs";
+import { writeZip, zipLayout } from "../vendor/cardvision-browser/node/package-zip.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const dist = join(root, "dist");

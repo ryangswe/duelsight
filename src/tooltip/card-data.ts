@@ -11,4 +11,4 @@ export interface CardFacts {
   printed?: string | null;
 }
 
-export type CardTable = Record<string, [string, string | null, string | null] | [string, string | null, string | null, string | null]>;
+export type { CardTable } from "../../vendor/cardvision-browser/remote-release.js";

@@ -76,9 +76,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   analysis size and transfers it as an `ImageBitmap`.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
   vendored runtime on the release bundled in the extension, or on a newer release the settings
-  file names (`src/release/`): the frame downloads that release's files once, checks each against
-  its SHA-256, reuses the bundled files that are the same, and falls back to the bundled release on
-  any problem. Frames, pictures and results never go to the network. With a newer release, the
+  file names (the vendored `remote-release.js`): the frame downloads that release's files once,
+  checks each against its SHA-256, reuses the bundled files that are the same, and falls back to
+  the bundled release on any problem. Frames, pictures and results never go to the network. With a newer release, the
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box.

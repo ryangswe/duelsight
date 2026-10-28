@@ -2,7 +2,7 @@
 // The card details file: each card's type, attribute, level, ATK/DEF and text, for the tooltip's
 // details panel. Card text is the rights holder's, like the art: it is never in this repository
 // or in the extension's package. scripts/card-details.mjs builds the file outside the
-// repository; the owner publishes it on the CDN beside the art (cdn/dscdn.py), and the settings
+// repository; the owner publishes it on the CDN beside the art (cardvision cdn), and the settings
 // file names it (`details`, cdn/SETTINGS.md). The tooltip frame fetches it once and caches it
 // (cache.ts).
 //

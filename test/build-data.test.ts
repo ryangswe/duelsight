@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 // @ts-expect-error plain JavaScript build scripts
 import { releaseLegalProblem } from "../scripts/release-legal.mjs";
-import { buildCardTable } from "../src/shared/card-table.mjs";
+import { buildCardTable } from "../vendor/cardvision-browser/remote-release.js";
 // @ts-expect-error plain JavaScript build scripts
 import { buildManifest, UNPACKED_EXTENSION_ID } from "../scripts/manifest.mjs";
 // @ts-expect-error plain JavaScript build scripts
@@ -260,7 +260,7 @@ describe("card data (names from our own catalog; no third-party card source)", (
   });
 
   it("has no reader of any third-party card source in the build or the extension", () => {
-    for (const path of ["../src/shared/card-table.mjs", "../scripts/build.mjs", "../src/tooltip/card-data.ts", "../src/settings/templates.ts"]) {
+    for (const path of ["../vendor/cardvision-browser/remote-release.js", "../scripts/build.mjs", "../src/tooltip/card-data.ts", "../src/settings/templates.ts"]) {
       const text = readFileSync(new URL(path, import.meta.url), "utf-8");
       expect(text).not.toMatch(/optcgapi|sourceFile|source-files/);
     }

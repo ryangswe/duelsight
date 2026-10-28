@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "source": "cardvision-browser, the browser runtime of the cardvision toolkit (source published with the toolkit release)",
-  "commit": "c90a81dd261d110ce7d632b24b49382082c608fe",
-  "toolkitRelease": "cardvision 0.4.0rc2",
+  "commit": "7e7913acc1bfb880eae4df6b9d92a702ea2989ac",
+  "toolkitRelease": "cardvision 0.5.0rc1",
   "onnxruntimeWeb": "1.29.0",
   "ortFiles": [
     "ort-wasm-simd-threaded.jsep.mjs",
@@ -76,9 +76,13 @@
     "cardvision.d.ts",
     "cardvision.js",
     "cardvision.js.LEGAL.txt",
+    "node/package-zip.mjs",
+    "node/verify-release.mjs",
     "opencv.mjs",
     "opencv.mjs.LEGAL.txt",
     "opencv_js.wasm",
+    "remote-release.d.ts",
+    "remote-release.js",
     "worker.js",
     "worker.js.LEGAL.txt"
   ]

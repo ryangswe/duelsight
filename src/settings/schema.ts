@@ -12,7 +12,7 @@
 // has a link; files may still carry it, of any type). The optional `update` field (an addition proposed for
 // unpacked installs) and the optional `details` field (the card details file) are read when they
 // are well formed and ignored otherwise. The optional `release` field (the remote release pointer,
-// SETTINGS.md) is kept as written: src/release/pointer.ts judges it where it is used, and a
+// SETTINGS.md) is kept as written: the vendored remote-release module judges it where it is used, and a
 // malformed one never makes the file unusable.
 
 import { IMAGE_HOSTS, UPDATE_URL_PREFIX } from "../constants.js";
@@ -45,7 +45,7 @@ export interface Settings {
   fallbacks: ImageSource[];
   update: UpdateNotice | null;
   details: DetailsSource | null;
-  /** The `release` field as written (null when absent); see src/release/pointer.ts. */
+  /** The `release` field as written (null when absent); see the vendored remote-release module. */
   release?: unknown;
 }
 

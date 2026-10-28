@@ -122,8 +122,8 @@ was shown (see the comment at its top; it needs `puppeteer-core`, which is not a
 ## Maintainer notes
 
 - **The card-art CDN** (card images and the settings file) is published from `cdn/` with
-  `cdn/dscdn.py` (plan, publish, verify; credentials from `cdn/.env`, never committed), by the
-  owner. [cdn/README.md](../cdn/README.md) has the setup and the steps;
+  the cardvision toolkit's `cardvision cdn` (plan, publish, verify; its settings in
+  `cdn/cdn.config.json`, credentials from `cdn/.env`, never committed), by the owner. [cdn/README.md](../cdn/README.md) has the setup and the steps;
   [cdn/SETTINGS.md](../cdn/SETTINGS.md) is the settings file's contract, and `cdn/config.json` is
   both the published settings and the extension's built-in default.
 - `duelsight.config.json` holds the extension's names, sites, CDN base, printed-number rule and

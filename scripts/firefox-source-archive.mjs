@@ -108,10 +108,10 @@ echo "1/3 the recognition runtime (cardvision-browser), from source"
 cd "$here/cardvision-browser/browser"
 npm ci
 npm run build
-for f in cardvision.js worker.js; do
+for f in cardvision.js worker.js remote-release.js node/verify-release.mjs node/package-zip.mjs; do
   cmp "dist/$f" "$here/duelsight/vendor/cardvision-browser/$f"
 done
-echo "    dist/cardvision.js and dist/worker.js are byte for byte the vendored copies"
+echo "    dist/cardvision.js, worker.js, remote-release.js and node/*.mjs are byte for byte the vendored copies"
 
 echo "2/3 the add-on"
 cd "$here/duelsight"
@@ -146,8 +146,9 @@ This archive rebuilds \`${packageZip}\`, the package uploaded to addons.mozilla.
 It does three things:
 
 1. Builds the recognition runtime from \`cardvision-browser/browser/\` (\`npm ci && npm run build\`)
-   and checks that \`dist/cardvision.js\` and \`dist/worker.js\` are byte for byte the copies in
-   \`duelsight/vendor/cardvision-browser/\` that the add-on bundles. The build prints that
+   and checks that \`dist/cardvision.js\`, \`dist/worker.js\` and \`dist/remote-release.js\` are
+   byte for byte the copies in \`duelsight/vendor/cardvision-browser/\` that the add-on bundles, and
+   \`dist/node/package-zip.mjs\` the copy step 2 zips the package with. The build prints that
    OpenCV.js was not copied: the add-on does not use it.
 2. Builds the add-on from \`duelsight/\` (\`npm ci\`, then
    \`npm run build -- --target firefox --release ../release/${releaseId}\` and \`npm run package\`).
@@ -158,7 +159,7 @@ It does three things:
 
 | In the package | From |
 | --- | --- |
-| \`background.js\`, \`content.js\`, \`compute.js\`, \`tooltip.js\`, \`popup.js\` | \`duelsight/src/\` (TypeScript), bundled and minified by esbuild (\`duelsight/scripts/build.mjs\`). \`compute.js\` includes the runtime's \`cardvision.js\`. |
+| \`background.js\`, \`content.js\`, \`compute.js\`, \`tooltip.js\`, \`popup.js\` | \`duelsight/src/\` (TypeScript), bundled and minified by esbuild (\`duelsight/scripts/build.mjs\`). \`compute.js\` includes the runtime's \`cardvision.js\` and \`remote-release.js\`. |
 | \`runtime/worker.js\` | the runtime's worker, built from \`cardvision-browser/browser/src/\` by esbuild (step 1). It includes ONNX Runtime Web's JavaScript. |
 | \`runtime/ort-wasm-simd-threaded.jsep.mjs\`, \`.wasm\` | ONNX Runtime Web ${vendor.onnxruntimeWeb} from npm (\`onnxruntime-web\`), unmodified. |
 | \`release/\` | the recognition release ${releaseId}: two ONNX models and JSON card data (a card list and reference vectors). Data, not code. |

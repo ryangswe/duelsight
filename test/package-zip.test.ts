@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// scripts/package-zip.mjs: the zip `npm run package` writes. A Chrome Web Store build has
+// The vendored node/package-zip.mjs: the zip `npm run package` writes. A Chrome Web Store build has
 // manifest.json at the zip's top level (the store refuses a zip that nests it); a release-page
 // build keeps one folder for Chrome's "Load unpacked". Made-up files only.
 import { execFileSync } from "node:child_process";
@@ -9,8 +9,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-// @ts-expect-error plain JavaScript build scripts
-import { writeZip, zipLayout } from "../scripts/package-zip.mjs";
+// @ts-expect-error the vendored Node tool has no declarations
+import { writeZip, zipLayout } from "../vendor/cardvision-browser/node/package-zip.mjs";
 
 type Layout = { file: string; folder: string | null; store: boolean };
 

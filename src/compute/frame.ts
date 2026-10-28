@@ -5,7 +5,7 @@
 //   - it hosts the runtime's worker. If the worker fails after the release loaded, it is ended
 //     and started again once; a second failure turns recognition off for this page (the
 //     content script is told, and nothing is shown).
-//   - With `chooseRelease` (src/release/), the page may run a remote release the settings name.
+//   - With `chooseRelease` (the vendored remote-release module), the page may run a remote release the settings name.
 //     A page tries it at most once: when the worker refuses it (rule 10), loads another id
 //     (rule 11) or fails to start, a new worker gets the bundled release, without using up the
 //     restart; a remote worker that fails after loading restarts once, on the bundled release
@@ -16,7 +16,7 @@
 import type { FrameAnalysis, WorkerReply, WorkerRequest } from "../../vendor/cardvision-browser/cardvision.js";
 import { allowedParentOrigin, type CardFactsMessage, type ComputeOut, parseComputeIn, TAG, tag } from "../shared/messages.js";
 import type { CardTable } from "../tooltip/card-data.js";
-import { refusalRecorded, type ReleasePointer } from "../release/pointer.js";
+import { refusalRecorded, type ReleaseDecision, type ReleasePointer, type RemoteReleaseChoice } from "../../vendor/cardvision-browser/remote-release.js";
 import { HostSession } from "./host-session.js";
 import type { LoadRequest } from "./load-request.js";
 
@@ -34,30 +34,9 @@ export interface FrameWindow {
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
 }
 
-/** What `chooseRelease` decided for this page. */
-export type ReleaseChoice =
-  | { source: "bundled"; reason: string; pointer: ReleasePointer | null; downloaded: number; ms: number }
-  | {
-      source: "remote";
-      pointer: ReleasePointer;
-      /** The load request with the release's files. */
-      request: LoadRequest;
-      /** The card facts of that release's catalog, built before the load (Addendum 1, A2). */
-      facts: CardTable;
-      reused: number;
-      downloaded: number;
-      ms: number;
-    };
-
-/** One decision, for the log line (SETTINGS.md, "Logging"). */
-export interface ReleaseDecision {
-  source: "remote" | "bundled";
-  reason: string;
-  pointer: string | null;
-  reused: number;
-  downloaded: number;
-  ms: number;
-}
+/** What `chooseRelease` decided for this page (the remote-release module's type). */
+export type ReleaseChoice = RemoteReleaseChoice;
+export type { ReleaseDecision };
 
 export interface ComputeEnv {
   win: FrameWindow;
@@ -72,7 +51,7 @@ export interface ComputeEnv {
   now(): number;
   /** A frame was analyzed. */
   onAnalysis?(analysis: FrameAnalysis): void;
-  /** Which release this page loads (src/release/choose.ts); absent: the bundled one, at once. */
+  /** Which release this page loads (the remote-release module's chooseRelease); absent: the bundled one, at once. */
   chooseRelease?(hooks: { onDownloading(): void }): Promise<ReleaseChoice>;
   /** A remote release failed in a way that will fail again: do not try it for a while. */
   recordSkip?(pointer: ReleasePointer, reason: string): void;

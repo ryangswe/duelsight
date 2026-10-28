@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "product": "duelsight",
+  "envPrefix": "DSCDN",
+  "forbiddenWords": ["riftsight", "riftbound", "riftatlas", "kenbunshoku", "onepiece"],
+  "settings": {"obsoleteCardLink": false},
+  "dataFiles": {
+    "details": {"prefix": "data/", "namePattern": "details-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards"], "maxBytes": 33554432}
+  },
+  "pages": ["privacy.html"],
+  "geometric": false
+}
