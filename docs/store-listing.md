@@ -31,8 +31,8 @@ Update this table with each submission (date submitted, date approved, store ite
    change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
    then `cdn/dscdn.py publish --page <that folder>/privacy.html` and `verify` (owner's step:
    [cdn/README.md](../cdn/README.md)).
-3. **The images** (four screenshots, two promo tiles), made as in [Store images](#store-images)
-   below, outside the repository.
+3. **The images** (four screenshots, two promo tiles): the listing's are in
+   [docs/store/](store/README.md). New ones are made as in [Store images](#store-images) below.
 4. **Links resolve.** The description, the privacy page and the URL fields link to the project's
    GitHub repository; a reviewer who clicks a dead link may reject the item. If the repository is
    not public yet, leave the URL fields empty and replace those links before submitting.
@@ -82,7 +82,8 @@ that it can miss a card or show a wrong one; no keyword lists (the store rejects
 
 **Store icon:** `icons/icon-128.png` (128×128).
 
-**Screenshots:** four, 1280×800, in listing order (see [Store images](#store-images)):
+**Screenshots:** four, 1280×800, in listing order, in [docs/store/](store/README.md) (see
+[Store images](#store-images)):
 1. `1-hover`: a hover on a Master Duel card, with the card details beside it;
 2. `2-paper`: a hover on a card on a paper table;
 3. `3-card-alone`: the same hover with card details switched off: the enlarged card on its own;
@@ -168,8 +169,10 @@ table) on a bare local page, and `scripts/store-templates.mjs` lays the captures
 headlines, in the store's sizes (1280×800, 440×280, 1400×560), as JPEG (the store takes JPEG, or
 PNG without alpha). The headlines and their order are in `SCREENSHOTS` in store-templates.mjs;
 change them there, under the description's rules above. Every image carries the
-unofficial-fan-project line. The images hold card art and frames of other people's videos, so they
-are **never committed**: the script writes them outside the repository, and the owner uploads them.
+unofficial-fan-project line. The images on the listing are kept in [docs/store/](store/README.md),
+which says what each shows; they hold card art, card text and broadcast frames, which are not
+covered by this repository's license. The script writes new images to a folder outside the
+repository; check each one, then replace the files in docs/store/ and upload them.
 
 1. **Pick two frames** from official publisher broadcasts (for example Konami's own tournament
    streams), not from other creators' videos: one Master Duel, one paper table, each with a card
