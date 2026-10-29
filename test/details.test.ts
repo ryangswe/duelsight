@@ -186,18 +186,25 @@ describe("a localized (French) details file", () => {
     expect(["1", "2", "3"].map((id) => localName(odd, id))).toEqual([null, null, null]);
   });
 
-  it("words the stats line in French: Niveau, Rang, Lien and Échelle Pendule", () => {
-    expect(detailLines(detailsFor(fr, "10000001")!, "fr")).toEqual({
+  it("words the stats line with the file's labels: Niveau, Rang, Lien and Échelle Pendule", () => {
+    expect(detailLines(detailsFor(fr, "10000001")!, fr.labels)).toEqual({
       type: "Robot / Effet",
       stats: "LUMIÈRE · Niveau 4",
       power: "ATK 1800 / DEF 1000",
       text: "Quand cette carte de test est invoquée, rien ne se passe.",
     });
-    expect(detailLines(detailsFor(fr, "10000002")!, "fr").stats).toBe("TÉNÈBRES · Rang 3");
-    expect(detailLines(detailsFor(fr, "10000003")!, "fr").stats).toBe("VENT · Lien 2");
-    expect(detailLines(detailsFor(fr, "10000004")!, "fr").stats).toBe("TERRE · Niveau 5 · Échelle Pendule 7");
-    // A language without words of its own is worded in English.
-    expect(detailLines(detailsFor(fr, "10000004")!, "xx").stats).toBe("TERRE · Level 5 · Scale 7");
+    expect(detailLines(detailsFor(fr, "10000002")!, fr.labels).stats).toBe("TÉNÈBRES · Rang 3");
+    expect(detailLines(detailsFor(fr, "10000003")!, fr.labels).stats).toBe("VENT · Lien 2");
+    expect(detailLines(detailsFor(fr, "10000004")!, fr.labels).stats).toBe("TERRE · Niveau 5 · Échelle Pendule 7");
+    // Without labels (the English file), the stats line is in English.
+    expect(detailLines(detailsFor(fr, "10000004")!).stats).toBe("TERRE · Level 5 · Scale 7");
+  });
+
+  it("keeps English for a label a file leaves out or gets wrong, and reads no labels in the English file", () => {
+    const partial = parseDetailsFile({ schemaVersion: 1, lang: "de", labels: { level: "Stufe", rank: 3, link: "", scale: "x".repeat(31), atk: " ANG " }, cards: {} })!;
+    expect(partial.labels).toEqual({ level: "Stufe", rank: "Rank", link: "Link", scale: "Scale", atk: "ANG", def: "DEF" });
+    expect(parseDetailsFile({ schemaVersion: 1, labels: { level: "Stufe" }, cards: {} })!.labels.level).toBe("Level");
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "de", labels: ["Stufe"], cards: {} })!.labels.level).toBe("Level");
   });
 });
 
@@ -213,14 +220,20 @@ describe("the browser's language picks the details file", () => {
     expect(browserLanguage([])).toBe("");
   });
 
-  it("is the French file for a French browser when the settings name one, else the English file", () => {
-    expect(chooseDetails({ details: en, detailsFr: french }, ["fr-BE"])).toEqual({ source: french, lang: "fr" });
-    expect(chooseDetails({ details: en, detailsFr: null }, ["fr-BE"])).toEqual({ source: en, lang: "en" });
-    expect(chooseDetails({ details: en, detailsFr: french }, ["en-GB", "fr"])).toEqual({ source: en, lang: "en" });
-    expect(chooseDetails({ details: en, detailsFr: french }, ["de-DE"])).toEqual({ source: en, lang: "en" });
+  const german = { path: "data/details-de-76543210.json", sha256: "c".repeat(64) };
+
+  it("is the file in the browser's language when the settings name one, else the English file", () => {
+    const localDetails = { fr: french, de: german };
+    expect(chooseDetails({ details: en, localDetails }, ["fr-BE"])).toEqual({ source: french, lang: "fr" });
+    expect(chooseDetails({ details: en, localDetails }, ["de-AT", "fr"])).toEqual({ source: german, lang: "de" });
+    expect(chooseDetails({ details: en, localDetails: {} }, ["fr-BE"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["en-GB", "fr"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["it-IT"])).toEqual({ source: en, lang: "en" });
+    // Never a key of the object's prototype.
+    expect(chooseDetails({ details: en, localDetails }, ["constructor"])).toEqual({ source: en, lang: "en" });
   });
 
   it("is none when the English file is not named: the maintainer has taken the details down", () => {
-    expect(chooseDetails({ details: null, detailsFr: french }, ["fr"])).toBeNull();
+    expect(chooseDetails({ details: null, localDetails: { fr: french } }, ["fr"])).toBeNull();
   });
 });

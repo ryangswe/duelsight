@@ -1,21 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
-// Build the card details file in another language (French) for the tooltip's details panel, from
-// the English details file, into a folder OUTSIDE this repository:
+// Build the card details file in another language (French, German, Italian, Spanish, Portuguese)
+// for the tooltip's details panel, from the English details file, into a folder OUTSIDE this
+// repository:
 //
 //   node scripts/localized-details.mjs --lang fr --details <English details-<sha8>.json> \
-//     --yugipedia <folder from scripts/yugipedia-fetch.mjs> --ygoprodeck <cardinfo JSON, language=fr> \
+//     --yugipedia <folder from scripts/yugipedia-fetch.mjs> [--ygoprodeck <cardinfo JSON, language=fr>] \
 //     --catalog <release catalog.json> --out <folder>
 //
-// It writes <out>/data/details-fr-<first 8 hex digits of its SHA-256>.json: the English file's
+// It writes <out>/data/details-<lang>-<first 8 hex digits of its SHA-256>.json: the English file's
 // rows (same cards, same frame and stats) with, for each card:
-//   - the type line and attribute in Konami's French words (scripts/localized-terms.mjs); a part
-//     the table lacks leaves that card's type line in English;
-//   - the text: Yugipedia's French (official printed text), else YGOPRODeck's French when it has
-//     no English in it, else the English text;
-//   - the name, in `names`: Yugipedia's French name, else YGOPRODeck's, else none (the tooltip
-//     shows the English name).
-// Only official texts are used: both sources record printed (or Konami database) text, and a card
-// with no official French has none in either, so it stays English. Never a fan translation.
+//   - the type line and attribute in Konami's words for the language (scripts/localized-terms.mjs);
+//     a part the table lacks leaves that card's type line in English;
+//   - the text: Yugipedia's (official printed text), else YGOPRODeck's when it has no English
+//     phrase in it, else the English text;
+//   - the name, in `names`: Yugipedia's, else YGOPRODeck's, else none (the tooltip shows the
+//     English name);
+// plus the stats line's words (`labels`). YGOPRODeck has no Spanish list, so --ygoprodeck is
+// optional. Only official texts are used: both sources record printed (or Konami database) text,
+// and a card with no official text in the language has none in either, so it stays English. Never
+// a fan translation. No card is compared with Konami's database here: the sources were checked on
+// a 24-card sample per language, and a language's words must be checked before it is built
+// (`checked` in localized-terms.mjs; --draft builds an unchecked one, never to be published).
 //
 // Yugipedia's text is CC BY-SA 4.0: the file says so in `attribution` and is offered under that
 // license; the credit is also in README.md and the privacy page. Card names and texts are the
@@ -35,9 +40,11 @@ import { TERMS } from "./localized-terms.mjs";
 /** The panel accepts at most this much text (src/details/details.ts MAX_TEXT). */
 const MAX_TEXT = 4000;
 
-export const ATTRIBUTION = {
-  fr: "French card names and texts: Yugipedia (https://yugipedia.com), CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), with wiki markup removed; a few from YGOPRODeck (https://ygoprodeck.com). Type lines and attributes worded with Konami's terms. This file is offered under CC BY-SA 4.0. Yu-Gi-Oh! card names and texts belong to Konami.",
-};
+/** The credit each file carries: Yugipedia's text is CC BY-SA 4.0. */
+export function attribution(lang) {
+  const language = { fr: "French", de: "German", it: "Italian", es: "Spanish", pt: "Portuguese" }[lang] ?? lang;
+  return `${language} card names and texts: Yugipedia (https://yugipedia.com), CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), with wiki markup removed; a few from YGOPRODeck (https://ygoprodeck.com). Type lines and attributes worded with Konami's terms. This file is offered under CC BY-SA 4.0. Yu-Gi-Oh! card names and texts belong to Konami.`;
+}
 
 /** Phrases that only English card text has: a "French" row with one of them is not French. */
 const ENGLISH = /\b(You can|your opponent|this card|Special Summon|Monster Effect|Pendulum Effect|from your|to your hand|cannot be)\b/;
@@ -183,7 +190,7 @@ export function buildLocalized({ lang, english, yugipedia, ygoprodeck, catalog }
     report.name[ypName && ypName.length <= 120 ? "yugipedia" : ygName ? "ygoprodeck" : "none"] += 1;
     cards[id] = out;
   }
-  return { file: { schemaVersion: 1, lang, attribution: ATTRIBUTION[lang], names, cards }, report };
+  return { file: { schemaVersion: 1, lang, attribution: attribution(lang), labels: terms.labels, names, cards }, report };
 }
 
 /** The file's bytes, its SHA-256 and its versioned path under the output folder. */
@@ -195,10 +202,10 @@ export function localizedBytes(file) {
 
 async function main() {
   const { values } = parseArgs({
-    options: { lang: { type: "string" }, details: { type: "string" }, yugipedia: { type: "string" }, ygoprodeck: { type: "string" }, catalog: { type: "string" }, out: { type: "string" } },
+    options: { lang: { type: "string" }, details: { type: "string" }, yugipedia: { type: "string" }, ygoprodeck: { type: "string" }, catalog: { type: "string" }, out: { type: "string" }, draft: { type: "boolean" } },
   });
-  if (!values.lang || !values.details || !values.yugipedia || !values.ygoprodeck || !values.catalog || !values.out) {
-    console.error("usage: node scripts/localized-details.mjs --lang fr --details <English details file> --yugipedia <fetched folder> --ygoprodeck <cardinfo JSON for that language> --catalog <release catalog.json> --out <folder outside the repository>");
+  if (!values.lang || !values.details || !values.yugipedia || !values.catalog || !values.out) {
+    console.error("usage: node scripts/localized-details.mjs --lang fr --details <English details file> --yugipedia <fetched folder> [--ygoprodeck <cardinfo JSON for that language>] --catalog <release catalog.json> --out <folder outside the repository> [--draft]");
     process.exit(2);
   }
   const root = fileURLToPath(new URL("..", import.meta.url));
@@ -211,9 +218,14 @@ async function main() {
     console.error(`--lang ${values.lang}: no terms for it in scripts/localized-terms.mjs`);
     process.exit(2);
   }
+  if (!terms.checked && !values.draft) {
+    console.error(`--lang ${values.lang}: its words in scripts/localized-terms.mjs are not yet checked against Konami's database (24-card sample). Check them and set \`checked\`, or pass --draft for a file that is not to be published.`);
+    process.exit(2);
+  }
+  if (!terms.checked) console.warn(`DRAFT: ${values.lang}'s words are not checked against Konami's database. Do not publish this file.`);
   const { cards: yugipedia, pages } = readYugipedia(values.yugipedia, terms);
   const read = (p) => JSON.parse(readFileSync(p, "utf-8"));
-  const { file, report } = buildLocalized({ lang: values.lang, english: read(values.details), yugipedia, ygoprodeck: read(values.ygoprodeck), catalog: read(values.catalog) });
+  const { file, report } = buildLocalized({ lang: values.lang, english: read(values.details), yugipedia, ygoprodeck: values.ygoprodeck ? read(values.ygoprodeck) : [], catalog: read(values.catalog) });
   const { bytes, sha256, path } = localizedBytes(file);
   const target = join(resolve(values.out), path);
   mkdirSync(dirname(target), { recursive: true });

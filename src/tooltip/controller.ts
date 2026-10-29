@@ -320,7 +320,7 @@ export class TooltipController {
       return null;
     }
     const lang = this.details?.lang ?? null;
-    const lines = detailLines(details, lang);
+    const lines = detailLines(details, this.details?.labels);
     const local = localName(this.details, card.id);
     // Text only: nothing in a card's details is ever read as markup.
     p.root.lang = lang ?? "en";

@@ -10,8 +10,8 @@
 //   - a template whose host is not one the extension may request images from (IMAGE_HOSTS);
 // Unknown extra fields are ignored, among them the obsolete `cardLink` (the tooltip no longer
 // has a link; files may still carry it, of any type). The optional `update` field (an addition proposed for
-// unpacked installs) and the optional `details` and `detailsFr` fields (the card details file, and
-// its French version) are read when they are well formed and ignored otherwise. The optional `release` field (the remote release pointer,
+// unpacked installs) and the optional `details` field and the `details<Lang>` fields (the card details file,
+// and its versions in other languages: `detailsFr`, `detailsDe`, ...) are read when they are well formed and ignored otherwise. The optional `release` field (the remote release pointer,
 // SETTINGS.md) is kept as written: the vendored remote-release module judges it where it is used, and a
 // malformed one never makes the file unusable.
 
@@ -45,8 +45,9 @@ export interface Settings {
   fallbacks: ImageSource[];
   update: UpdateNotice | null;
   details: DetailsSource | null;
-  /** The French card details file (`detailsFr`), for browsers whose language is French. */
-  detailsFr: DetailsSource | null;
+  /** The card details file in other languages, by language code: `detailsFr` is `localDetails.fr`.
+   *  A language is added on the CDN alone, with no new extension version. */
+  localDetails: Readonly<Record<string, DetailsSource>>;
   /** The `release` field as written (null when absent); see the vendored remote-release module. */
   release?: unknown;
 }
@@ -138,6 +139,21 @@ function detailsField(value: unknown, problems: string[], key = "details"): Deta
   return { path: value.path, sha256: value.sha256 };
 }
 
+/** A `details<Lang>` key: "details", then a language code of two or three letters, capitalized. */
+const LOCAL_DETAILS_KEY = /^details([A-Z][a-z]{1,2})$/;
+
+/** The well-formed `details<Lang>` fields, by lowercase language code. English is `details`. */
+function localDetailsFields(raw: Record<string, unknown>, problems: string[]): Readonly<Record<string, DetailsSource>> {
+  const out: Record<string, DetailsSource> = {};
+  for (const key of Object.keys(raw)) {
+    const lang = LOCAL_DETAILS_KEY.exec(key)?.[1]?.toLowerCase();
+    if (!lang || lang === "en") continue;
+    const source = detailsField(raw[key], problems, key);
+    if (source) out[lang] = source;
+  }
+  return out;
+}
+
 /** The details file's address: its path on the settings file's own host. Null without a settings
  *  address (a build that never fetches), or when it would leave that host. */
 export function detailsUrl(details: DetailsSource, settingsUrl: string | null): string | null {
@@ -191,7 +207,7 @@ export function validateSettings(raw: unknown, allowedHosts: readonly string[] =
       fallbacks: kept,
       update: updateField(raw.update, problems),
       details: detailsField(raw.details, problems),
-      detailsFr: detailsField(raw.detailsFr, problems, "detailsFr"),
+      localDetails: localDetailsFields(raw, problems),
       release: raw.release === undefined ? null : raw.release,
     },
     problems,

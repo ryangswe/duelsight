@@ -22,6 +22,7 @@ export const DETAILS_FIXTURE = {
 export const DETAILS_FR_FIXTURE = {
   schemaVersion: 1,
   lang: "fr",
+  labels: { level: "Niveau", rank: "Rang", link: "Lien", scale: "Échelle Pendule" },
   names: { "10000001": "Robot de Test", "10000003": "Robot Lien de Test", "10000004": "Robot Pendule de Test" },
   cards: {
     "10000001": ["effect", "Quand cette carte de test est invoquée, rien ne se passe.", "Robot / Effet", "LUMIÈRE", 4, 1800, 1000],

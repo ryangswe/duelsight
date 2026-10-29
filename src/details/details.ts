@@ -26,13 +26,16 @@
 //
 // A localized file (for example `details-fr-<sha8>.json`, scripts/localized-details.mjs) has the
 // same rows, with the type line, attribute and text in its language where an official one exists
-// and English where not, plus two fields:
+// and English where not, plus three fields:
 //
 //   lang    its language, "fr"
 //   names   { "<card id>": "<the card's name in that language>" }, for the cards that have one
+//   labels  the stats line's words in that language: { "level": "Niveau", "rank": "Rang",
+//           "link": "Lien", "scale": "Échelle Pendule", "atk": "ATK", "def": "DEF" }
 //
 // The tooltip shows that name, with the catalog's English name under it, and words its stats line
-// in that language (Niveau, Rang, Lien, Échelle Pendule).
+// with those labels (English for a label the file leaves out). Because the words come with the
+// file, a new language needs no new extension version.
 
 export interface CardDetails {
   frame: string;
@@ -54,6 +57,32 @@ export interface DetailsTable {
   readonly lang: string | null;
   /** A localized file's card names by card id, checked one at a time; null for none. */
   readonly names: Readonly<Record<string, unknown>> | null;
+  /** The stats line's words; English for the English file and for any word a file leaves out. */
+  readonly labels: StatLabels;
+}
+
+/** The stats line's words. */
+export interface StatLabels {
+  readonly level: string;
+  readonly rank: string;
+  readonly link: string;
+  readonly scale: string;
+  readonly atk: string;
+  readonly def: string;
+}
+
+export const ENGLISH_LABELS: StatLabels = { level: "Level", rank: "Rank", link: "Link", scale: "Scale", atk: "ATK", def: "DEF" };
+
+/** A file's labels over the English ones, each a short string or left English. */
+function parseLabels(raw: unknown): StatLabels {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return ENGLISH_LABELS;
+  const given = raw as Record<string, unknown>;
+  const out: Record<string, string> = { ...ENGLISH_LABELS };
+  for (const key of Object.keys(ENGLISH_LABELS)) {
+    const v = Object.hasOwn(given, key) ? given[key] : undefined;
+    if (typeof v === "string" && v.trim().length > 0 && v.length <= 30) out[key] = v.trim();
+  }
+  return out as unknown as StatLabels;
 }
 
 export const DETAILS_SCHEMA_VERSION = 1;
@@ -67,7 +96,8 @@ export function parseDetailsFile(raw: unknown): DetailsTable | null {
   if (typeof rows !== "object" || rows === null || Array.isArray(rows)) return null;
   const lang = typeof file.lang === "string" && /^[a-z]{2,3}$/.test(file.lang) && file.lang !== "en" ? file.lang : null;
   const names = lang !== null && typeof file.names === "object" && file.names !== null && !Array.isArray(file.names) ? (file.names as Record<string, unknown>) : null;
-  return { rows: rows as Record<string, unknown>, lang, names };
+  const labels = lang !== null ? parseLabels(file.labels) : ENGLISH_LABELS;
+  return { rows: rows as Record<string, unknown>, lang, names, labels };
 }
 
 const ARROWS: Readonly<Record<string, string>> = {
@@ -129,14 +159,7 @@ export interface DetailLines {
 
 const stat = (v: number | null): string => (v === null ? "?" : v < 0 ? "?" : String(v));
 
-/** The stats line's words, by language: Konami's own terms. ATK and DEF are the same in French. */
-const LABELS: Readonly<Record<string, { level: string; rank: string; link: string; scale: string }>> = {
-  en: { level: "Level", rank: "Rank", link: "Link", scale: "Scale" },
-  fr: { level: "Niveau", rank: "Rang", link: "Lien", scale: "Échelle Pendule" },
-};
-
-export function detailLines(d: CardDetails, lang: string | null = null): DetailLines {
-  const words = LABELS[lang ?? "en"] ?? LABELS.en!;
+export function detailLines(d: CardDetails, words: StatLabels = ENGLISH_LABELS): DetailLines {
   const monster = d.frame !== "spell" && d.frame !== "trap";
   const isLink = d.link !== null || d.frame === "link";
   const isXyz = d.frame.startsWith("xyz");
@@ -151,8 +174,8 @@ export function detailLines(d: CardDetails, lang: string | null = null): DetailL
   if (monster && (d.atk !== null || d.def !== null || isLink)) {
     if (isLink) {
       const arrows = d.arrows.map((a) => ARROWS[a]).join(" ");
-      power = `ATK ${stat(d.atk)}` + (arrows ? `  ${arrows}` : "");
-    } else power = `ATK ${stat(d.atk)} / DEF ${stat(d.def)}`;
+      power = `${words.atk} ${stat(d.atk)}` + (arrows ? `  ${arrows}` : "");
+    } else power = `${words.atk} ${stat(d.atk)} / ${words.def} ${stat(d.def)}`;
   }
   return { type: d.type, stats: stats.length > 0 ? stats.join(" · ") : null, power, text: d.text };
 }

@@ -24,7 +24,7 @@ const defaultSettings = (): Settings => ({
   fallbacks: [],
   update: null,
   details: null,
-  detailsFr: null,
+  localDetails: {},
 });
 
 const table = {

@@ -106,8 +106,9 @@ another source, or off, without a new extension release:
 - Card ids are Yu-Gi-Oh! passcodes (digits, up to 8). One card name with several artworks is one
   identity in the release's groups.
 - `details` names the card details file (a path on the same host and its SHA-256); without it,
-  the tooltip shows pictures alone. `detailsFr` names the French one, which a browser whose top
-  preferred language is French loads instead (`src/details/language.ts`). See
+  the tooltip shows pictures alone. `detailsFr`, `detailsDe`, ... name the file in another language,
+  which a browser whose top preferred language is that one loads instead
+  (`src/details/language.ts`). See
   [cdn/SETTINGS.md](../cdn/SETTINGS.md).
 - `release` names a newer card-recognition release on the same host (its id, path and SHA-256, and
   the lowest extension version that may load it), so that new cards reach installs without a store

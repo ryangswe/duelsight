@@ -128,8 +128,37 @@ describe("buildLocalized (French)", () => {
     const table = parseDetailsFile(JSON.parse(JSON.stringify(file)))!;
     expect(table.lang).toBe("fr");
     expect(localName(table, "30000002")).toBe("Deux de Test");
-    expect(detailLines(detailsFor(table, "30000002")!, "fr").stats).toBe("TÉNÈBRES · Niveau 7 · Échelle Pendule 4");
+    expect(detailLines(detailsFor(table, "30000002")!, table.labels).stats).toBe("TÉNÈBRES · Niveau 7 · Échelle Pendule 4");
     expect(localizedBytes(file).path).toMatch(/^data\/details-fr-[0-9a-f]{8}\.json$/);
+  });
+});
+
+describe("the terms tables", () => {
+  it("give every language the same terms as French, and the stats line's words", () => {
+    for (const lang of ["de", "it", "es", "pt"]) {
+      const t = TERMS[lang];
+      expect(Object.keys(t.monsterParts).sort(), lang).toEqual(Object.keys(fr.monsterParts).sort());
+      expect(Object.keys(t.spellTrap).sort(), lang).toEqual(Object.keys(fr.spellTrap).sort());
+      expect(Object.keys(t.attributes).sort(), lang).toEqual(Object.keys(fr.attributes).sort());
+      expect(Object.keys(t.labels).sort(), lang).toEqual(["atk", "def", "level", "link", "rank", "scale"]);
+      expect(Object.values(t.monsterParts).every((w) => typeof w === "string" && w.length > 0), lang).toBe(true);
+    }
+  });
+
+  it("mark a language usable only once checked against Konami's database", () => {
+    expect(fr.checked).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(TERMS.de.yugipedia).toEqual({ name: "German name", lore: "German lore", pendulum: "German Pendulum Effect" });
+  });
+
+  it("put the language's labels in its file, which the tooltip reads", () => {
+    const { file } = buildLocalized({ lang: "de", english: ENGLISH, yugipedia: new Map(), ygoprodeck: [], catalog: { cards: [] } });
+    expect(file.lang).toBe("de");
+    expect(file.attribution).toMatch(/^German card names and texts: Yugipedia.*CC BY-SA 4\.0/);
+    const table = parseDetailsFile(JSON.parse(JSON.stringify(file)))!;
+    expect(detailLines(detailsFor(table, "30000002")!, table.labels).stats).toBe("FINSTERNIS · Stufe 7 · Pendelbereich 4");
+    expect(detailsFor(table, "30000002")!.type).toBe("Drache / Pendel / Effekt");
+    // No source had German for any card: every text stays English.
+    expect(detailsFor(table, "30000001")!.text).toBe("Invented English line.");
   });
 });
 

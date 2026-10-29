@@ -31,9 +31,9 @@ describe("validateSettings", () => {
   it.runIf(IS_DUELSIGHT)("accepts DuelSight's bundled default as it ships", () => {
     const { settings, problems } = validateWithHosts(DEFAULT_CONFIG);
     expect(problems).toEqual([]);
-    const { release, detailsFr, ...rest } = settings!;
-    // The French details file, once published, is named the same way (details-fr-<sha8>.json).
-    if (detailsFr !== null) expect(detailsFr).toEqual({ path: expect.stringMatching(/^data\/details-fr-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) });
+    const { release, localDetails, ...rest } = settings!;
+    // The details files in other languages, once published, are named the same way (details-fr-<sha8>.json).
+    for (const [lang, source] of Object.entries(localDetails)) expect(source).toEqual({ path: expect.stringMatching(new RegExp(`^data/details-${lang}-[0-9a-f]{8}\\.json$`)), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) });
     expect(rest).toEqual({
       schemaVersion: 1,
       updatedAt: "2026-10-18T00:00:00Z",
@@ -209,23 +209,32 @@ describe("validateSettings", () => {
       expect(problems.some((p) => p.startsWith("details: ignored"))).toBe(true);
     });
   });
-  describe("the optional detailsFr field (the French card details file)", () => {
+  describe("the optional details<Lang> fields (the card details file in other languages)", () => {
     const sha = "fedcba9876543210".repeat(4);
-    it("is absent (null) in a file that does not have it", () => {
-      expect(validateSettings(base()).settings?.detailsFr).toBeNull();
+    it("are none in a file that has none", () => {
+      expect(validateSettings(base()).settings?.localDetails).toEqual({});
     });
 
-    it("reads a path on the settings host and the file's SHA-256, like details", () => {
-      const { settings, problems } = validateSettings({ ...base(), detailsFr: { path: "data/details-fr-01234567.json", sha256: sha } });
+    it("read each language's path on the settings host and SHA-256, like details, by language code", () => {
+      const fr = { path: "data/details-fr-01234567.json", sha256: sha };
+      const de = { path: "data/details-de-89abcdef.json", sha256: sha };
+      const { settings, problems } = validateSettings({ ...base(), detailsFr: fr, detailsDe: de });
       expect(problems).toEqual([]);
-      expect(settings?.detailsFr).toEqual({ path: "data/details-fr-01234567.json", sha256: sha });
+      expect(settings?.localDetails).toEqual({ fr, de });
     });
 
-    it("ignores a malformed one without refusing the file, and names it in the problem", () => {
-      const { settings, problems } = validateSettings({ ...base(), detailsFr: { path: "../x.json", sha256: sha } });
+    it("ignore a malformed one without refusing the file, and name it in the problem", () => {
+      const { settings, problems } = validateSettings({ ...base(), detailsFr: { path: "../x.json", sha256: sha }, detailsIt: { path: "data/details-it-01234567.json", sha256: sha } });
       expect(settings).not.toBeNull();
-      expect(settings?.detailsFr).toBeNull();
+      expect(Object.keys(settings!.localDetails)).toEqual(["it"]);
       expect(problems.some((p) => p.startsWith("detailsFr: ignored"))).toBe(true);
+    });
+
+    it("ignore keys that are not details<Lang>, and detailsEn (English is details)", () => {
+      const source = { path: "data/details-xx-01234567.json", sha256: sha };
+      const { settings, problems } = validateSettings({ ...base(), detailsEn: source, detailsFR: source, detailsFrench: source, details_fr: source, detailsDE1: source });
+      expect(settings?.localDetails).toEqual({});
+      expect(problems).toEqual([]);
     });
   });
 });
