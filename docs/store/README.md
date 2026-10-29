@@ -29,6 +29,13 @@ How they were made (2026-10-23, release T, by `scripts/store-assets.mjs`):
   broadcast's own overlay (score bar, news ticker) are kept.
 - **Hovers.** Each card named was checked by eye against the card under the pointer.
 
+The icon changed on 2026-10-29 (the "Ancient eye" tile, [icons/README.md](../../icons/README.md)):
+- `4-popup` was captured again from the built extension, so it shows the popup as it is now (the
+  disclaimer paragraph left the popup in 0.2.1).
+- In the other five images only the icon was replaced: each layout was rendered again with the new
+  icon and that square was copied over the old one. The captures in them are the 2026-10-23 ones.
+- The README banner was made again with `scripts/banner.mjs`, as its header says.
+
 The paper screenshots (2 and 3) show, at the top right of the clip, the small in-player button of
 versions before 0.4.0. A fifth screenshot, "Click the DuelSight button", was retired with the button
 in 0.4.0 and is not kept.
