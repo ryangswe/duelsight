@@ -307,7 +307,13 @@ is added on the CDN alone: its file, its `dataFiles` entry in `cdn.config.json` 
 | Language | Key | Status |
 | --- | --- | --- |
 | French | `detailsFr` | Checked against Konami's database on 24 cards (2026-10-29) |
-| German, Italian, Spanish, Portuguese | `detailsDe`, `detailsIt`, `detailsEs`, `detailsPt` | Words drafted; not to be published until the 24-card check passes |
+| German, Italian, Spanish, Portuguese | `detailsDe`, `detailsIt`, `detailsEs`, `detailsPt` | Checked against Konami's database on 24 cards (2026-10-29) |
+
+The check (2026-10-29): in each language, the names and texts of all 24 cards matched Konami's
+word for word, and so did every monster's type line, attribute and stats words. A spell's or a
+trap's type line is Konami's term ("Magie Normale"); the database shows the icon and the kind side
+by side instead ("Normale Magie"), which is not a printed line. YGOPRODeck, the fallback, matched
+on 13 of the 24 in each language.
 
 - **Its sources:** Yugipedia's names and texts (official printed texts; CC BY-SA 4.0, so the file
   carries an `attribution` and is offered under that license), else YGOPRODeck's when it has no
