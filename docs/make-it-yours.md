@@ -40,7 +40,8 @@ nothing beyond the local server.
    - `name`, `shortName`, `description`: your extension's names (manifest, popup, store);
      `packageName`: the release zip's name.
    - `icons`: a folder holding `icon-16.png`, `icon-32.png`, `icon-48.png` and `icon-128.png`
-     (`node scripts/icons.mjs` redraws DuelSight's placeholder).
+     (`node scripts/icons.mjs <folder>` draws a plain placeholder into a folder). DuelSight's eye
+     identifies DuelSight: give your copy its own icons.
    - `videoSites`: `{ "youtube": true|false, "twitch": true|false }`. The manifest's sites
      and the pages the extension's frames accept follow it.
    - `cdnBase`: the CDN and settings origin, written once (`https://host`, no path). The

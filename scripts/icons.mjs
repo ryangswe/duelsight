@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-// DuelSight's placeholder icon: a plain light card, tilted, with a violet picture box, on a dark
-// rounded square, PNG encoded by hand with zlib. Deliberately generic: no publisher imagery, no
-// card-back art. Replace it when the project has a real mark.
-// `node scripts/icons.mjs` writes it to icons/ (the folder duelsight.config.json names); the
-// build copies whatever PNG files that folder holds.
+// A plain placeholder icon for a copy of DuelSight that has no mark yet (docs/make-it-yours.md): a
+// light card, tilted, with a violet picture box, on a dark rounded square, PNG encoded by hand with
+// zlib. Deliberately generic: no publisher imagery, no card-back art. DuelSight's own icons are in
+// icons/ (icons/README.md); this script does not make them.
+// `node scripts/icons.mjs <folder>` writes icon-16/32/48/128.png into that folder (the one your
+// duelsight.config.json names in `icons`); the build copies those four files.
 
 import { mkdirSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
@@ -108,8 +110,13 @@ export function iconPng(size) {
 export const ICON_SIZES = [16, 32, 48, 128];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const dir = new URL("../icons/", import.meta.url);
+  const target = process.argv[2];
+  if (!target) {
+    console.error("usage: node scripts/icons.mjs <folder>   (it overwrites icon-16/32/48/128.png there)");
+    process.exit(2);
+  }
+  const dir = resolve(target);
   mkdirSync(dir, { recursive: true });
-  for (const size of ICON_SIZES) writeFileSync(new URL(`icon-${size}.png`, dir), iconPng(size));
-  console.log(`icons/: ${ICON_SIZES.map((s) => `icon-${s}.png`).join(", ")}`);
+  for (const size of ICON_SIZES) writeFileSync(join(dir, `icon-${size}.png`), iconPng(size));
+  console.log(`${dir}: ${ICON_SIZES.map((s) => `icon-${s}.png`).join(", ")}`);
 }
