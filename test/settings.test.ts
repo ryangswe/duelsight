@@ -36,7 +36,8 @@ describe("validateSettings", () => {
     for (const [lang, source] of Object.entries(localDetails)) expect(source).toEqual({ path: expect.stringMatching(new RegExp(`^data/details-${lang}-[0-9a-f]{8}\\.json$`)), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) });
     expect(rest).toEqual({
       schemaVersion: 1,
-      updatedAt: "2026-10-18T00:00:00Z",
+      // It changes with every publish: an ISO-8601 UTC time, not a fixed one.
+      updatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/),
       namesOnly: false,
       primary: { id: "cdn", template: `${CDN}/art/{art}` },
       fallbacks: [],
