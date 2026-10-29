@@ -67,6 +67,11 @@ body { width: 280px; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto
 .slider:disabled { cursor: default; }
 .slider:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
+/* While card hovers are off, the options that only shape a hover are grayed out (view.ts). */
+.panel[data-ready] .needs-hovers { transition: opacity 0.15s ease; }
+.panel[data-hovers-off] .needs-hovers { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) { .panel[data-ready] .needs-hovers { transition: none; } }
+
 .update {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--notice-bg); font-size: 13px;

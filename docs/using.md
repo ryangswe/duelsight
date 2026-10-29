@@ -60,6 +60,10 @@ off). Off, the tooltip is the picture alone.
 (100% unless you change it). A card on show changes size at once. The picture still stays inside
 the window and beside the card, so in a small window it can be smaller than the size you set.
 
+While the main switch is off, **Card details** and **Card size** are grayed out and can't be
+changed. Your choices for them are kept, and they come back as they were when you turn the main
+switch on again.
+
 Below them are two links, to the project page and to the open-source toolkit it is built on.
 
 ## When recognition runs

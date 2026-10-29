@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // The popup: one switch (the master on/off), the card details switch (details-control.ts), the
-// card-size dial (card-size-control.ts), a "New version available" line only when the settings
+// card-size dial (card-size-control.ts; both grayed out and still while the master switch is off), a "New version available" line only when the settings
 // file names a newer version (installs that never update by themselves; never in Firefox, which
 // installs only signed add-ons and updates them itself), and two links (the
 // project page, and the open-source toolkit it is built on). The logic is apart from the browser
@@ -41,6 +41,16 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
   $<HTMLAnchorElement>("runtime").href = RUNTIME_URL;
 
   const toggle = $<HTMLButtonElement>("enabled");
+  const cardSize = initCardSize(env.doc, env.local);
+  const details = initDetailsSwitch(env.doc, env.local);
+  // The card details switch and the size dial only matter while card hovers are on: off, they
+  // are grayed out and still, and their stored choices wait for the master switch.
+  const panel = env.doc.querySelector(".panel");
+  const showActive = (on: boolean): void => {
+    details.setActive(on);
+    cardSize.setActive(on);
+    panel?.toggleAttribute("data-hovers-off", !on);
+  };
   // Disabled, without transitions, until the stored state is first read: the knob does not slide
   // on open, and a press cannot invert a state that was never shown.
   let ready = false;
@@ -48,6 +58,7 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
     // A storage that cannot be read shows the default (on) rather than a switch stuck disabled.
     const on = await readEnabled(env.local).catch(() => true);
     toggle.setAttribute("aria-checked", on ? "true" : "false");
+    showActive(on);
     if (ready) return;
     ready = true;
     toggle.disabled = false;
@@ -58,13 +69,17 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
     if (knob) void env.doc.defaultView?.getComputedStyle(knob).transform;
     const win = env.doc.defaultView;
     const frame = win?.requestAnimationFrame ? (f: () => void) => win.requestAnimationFrame(() => f()) : (f: () => void) => setTimeout(f, 16);
-    frame(() => frame(() => toggle.setAttribute("data-ready", "")));
+    frame(() => frame(() => {
+      toggle.setAttribute("data-ready", "");
+      panel?.setAttribute("data-ready", "");
+    }));
   };
   // A button with role="switch": Enter and Space press it like a click.
   toggle.addEventListener("click", () => {
     if (!ready) return;
     const on = toggle.getAttribute("aria-checked") !== "true";
     toggle.setAttribute("aria-checked", on ? "true" : "false");
+    showActive(on);
     void env.local.set({ [ENABLED_KEY]: on });
   });
 
@@ -86,8 +101,6 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
 
   void renderSwitch();
   void renderUpdate();
-  const cardSize = initCardSize(env.doc, env.local);
-  const details = initDetailsSwitch(env.doc, env.local);
   env.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (LAST_GOOD_KEY in changes || DISMISSED_UPDATE_KEY in changes) void renderUpdate();

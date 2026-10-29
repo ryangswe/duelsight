@@ -2,7 +2,8 @@
 // The popup's card-size dial (shared/card-size.ts): a slider from 70 % to 130 % in steps of 10 %,
 // with its value beside it. It is still until the stored size is read, so that a drag never
 // starts from a value that was never shown; each step is stored at once, and the tooltip on show
-// follows it.
+// follows it. While card hovers are off (setActive(false)) it cannot be moved; it keeps showing
+// the stored size.
 
 import { CARD_SIZE_KEY, clampCardSize, describeCardSize, MAX_CARD_SIZE, MIN_CARD_SIZE, readCardSize, CARD_SIZE_STEP } from "../shared/card-size.js";
 
@@ -12,7 +13,7 @@ interface Area {
 }
 
 /** Fill the dial and keep it current. Returns its render function, for storage changes. */
-export function initCardSize(doc: Document, local: Area): { render(): Promise<void> } {
+export function initCardSize(doc: Document, local: Area): { render(): Promise<void>; setActive(active: boolean): void } {
   const slider = doc.getElementById("card-size") as HTMLInputElement;
   const value = doc.getElementById("card-size-value") as HTMLElement;
   slider.min = String(MIN_CARD_SIZE);
@@ -25,20 +26,27 @@ export function initCardSize(doc: Document, local: Area): { render(): Promise<vo
     slider.setAttribute("aria-valuetext", label);
   };
   let ready = false;
+  // Unknown (null) until the popup has read the master switch: still until then.
+  let active: boolean | null = null;
   const render = async (): Promise<void> => {
     // A storage that cannot be read shows the default rather than a dial stuck disabled.
     const percent = await readCardSize(local).catch(() => clampCardSize(undefined));
     show(percent);
-    if (ready) return;
     ready = true;
-    slider.disabled = false;
+    slider.disabled = active !== true;
   };
   slider.addEventListener("input", () => {
-    if (!ready) return;
+    if (!ready || !active) return;
     const percent = clampCardSize(Number(slider.value));
     show(percent);
     void local.set({ [CARD_SIZE_KEY]: percent }).catch(() => undefined);
   });
   void render();
-  return { render };
+  return {
+    render,
+    setActive(next: boolean): void {
+      active = next;
+      slider.disabled = !ready || !active;
+    },
+  };
 }
