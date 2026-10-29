@@ -2,7 +2,7 @@ import { type AABB } from "./boxes.js";
 import { type AnalysisMode } from "./cadence.js";
 import { type FrameSource } from "./capture.js";
 import { type AnalysisState } from "./frame-scheduler.js";
-import type { GeometricStatus, ReleaseProgress, ReleaseStatus } from "./messages.js";
+import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus } from "./messages.js";
 import { type FrameAnalysis } from "./pipeline.js";
 import type { ExecutionProvider } from "./providers.js";
 export interface SessionOptions {

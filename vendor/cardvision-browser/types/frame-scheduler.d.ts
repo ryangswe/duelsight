@@ -20,6 +20,9 @@ export declare const HOVER_MAX_AGE_MS = 2000;
 export declare const HOVER_TRIGGER_MIN_GAP_MS = 250;
 /** An analysis with no reply after this long is given up on, so that the next frame can go. */
 export declare const ANALYSIS_WATCHDOG_MS = 5000;
+/** After a look comes back with the picture not analyzed, the same picture is due again after
+ *  these delays, one per unanswered look in a row, then the last one each time. */
+export declare const LOOK_RETRY_MS: readonly number[];
 /** Why an analysis ran: the cadence (a newly presented frame), a repeat of a still picture, the
  *  staleness rule, or a cut under a showing tooltip. */
 export type AnalysisTrigger = "cadence" | "repeat" | "hover" | "cut";
@@ -80,6 +83,10 @@ export declare class FrameScheduler {
     private lastTriggerKind;
     /** A look was asked for at once: `due` ignores the cadence until the next start. */
     private lookRequested;
+    /** Looks in a row that came back with the picture not analyzed. */
+    private unanswered;
+    /** When the picture counts as newly presented again after an unanswered look; null if not. */
+    private retryAt;
     /**
      * @param intervalMs The cadence of the mode: the fast cadence in pointer mode, the slow one
      *   in always-on mode (cadence.ts `cadenceMs`).
@@ -102,6 +109,20 @@ export declare class FrameScheduler {
     /** The picture under a showing tooltip changed without a seek: look at the current picture as
      *  soon as nothing is in flight, whatever the cadence (still only while analysis may run). */
     requestLook(): void;
+    /**
+     * A look came back with the picture not analyzed: the picture could not be captured, the
+     * worker was still busy with an earlier picture, or no reply came within
+     * `ANALYSIS_WATCHDOG_MS`. The still picture's other repeats are dropped, and the same picture
+     * counts as newly presented again after a back-off, so that a paused video is looked at again
+     * (with its repeats). This is not `requestLook`, which would also make the picture stale and
+     * let every pointer move look again at once, past the back-off.
+     */
+    lookUnanswered(now: number): void;
+    /** A look came back analyzed: no retry is waiting, and the back-off starts over (as after
+     *  `discontinuity`). */
+    lookAnswered(): void;
+    /** Has the back-off of an unanswered look run out? */
+    private retryReady;
     /** Is a look asked for by `requestLook` still waiting to start? */
     get lookPending(): boolean;
     /** The pointer moved over the picture, or was pressed on it. Call it for real movement only:
@@ -140,6 +161,7 @@ export declare class FrameScheduler {
     get lastTrigger(): AnalysisTrigger | null;
     /** Time since the last analysis was started, in ms; null before the first. */
     msSinceLastAnalysis(now: number): number | null;
-    /** Is there nothing left to do until a new frame is presented? */
+    /** Is there nothing left to do until a new frame is presented? False while the retry of an
+     *  unanswered look is waiting. */
     get idle(): boolean;
 }
