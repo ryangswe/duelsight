@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "product": "duelsight",
+  "envPrefix": "DSCDN",
+  "forbiddenWords": ["riftsight", "riftbound", "riftatlas", "kenbunshoku", "onepiece"],
+  "settings": {"obsoleteCardLink": false},
+  "dataFiles": {
+    "details": {"prefix": "data/", "namePattern": "details-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards"], "maxBytes": 33554432},
+    "detailsFr": {"prefix": "data/", "namePattern": "details-fr-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432},
+    "detailsDe": {"prefix": "data/", "namePattern": "details-de-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432},
+    "detailsIt": {"prefix": "data/", "namePattern": "details-it-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432},
+    "detailsEs": {"prefix": "data/", "namePattern": "details-es-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432},
+    "detailsPt": {"prefix": "data/", "namePattern": "details-pt-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432}
+  },
+  "pages": ["privacy.html"],
+  "geometric": false
+}

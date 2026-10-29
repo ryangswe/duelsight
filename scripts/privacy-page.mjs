@@ -4,7 +4,7 @@
 // so the page and the repository never disagree. Self-contained: no script, no external file.
 //
 //   node scripts/privacy-page.mjs --out <folder outside the repository>
-//   cd cdn && .venv/bin/python dscdn.py publish --env-file .env --page <that folder>/privacy.html
+//   cdn/.venv/bin/cardvision cdn publish --env-file cdn/.env --page <that folder>/privacy.html
 //
 // It handles the Markdown PRIVACY.md uses: # and ## headings, paragraphs, "- " lists (nested by two
 // spaces, continued on indented lines), pipe tables, **bold**, `code`, [text](https://…) and bare
@@ -138,5 +138,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   mkdirSync(values.out, { recursive: true });
   const file = join(resolve(values.out), "privacy.html");
   writeFileSync(file, page);
-  console.log(`wrote ${file} (${Buffer.byteLength(page)} bytes); publish it with cdn/dscdn.py publish --page ${file}`);
+  console.log(`wrote ${file} (${Buffer.byteLength(page)} bytes); publish it with cardvision cdn publish --page ${file}`);
 }

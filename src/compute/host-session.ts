@@ -34,16 +34,19 @@ import { POINTER_GRACE_MS } from "../constants.js";
 export const DRIVER_TICK_MS = 250;
 /** A capture or an analysis with no answer after this long is given up on (the runtime's value). */
 export const WATCHDOG_MS = 5_000;
-/** Hysteresis of a shown card (see `HostSession.shown`). */
-/** After a capture fails for want of a picture, try again after these delays, then every 2 s,
- *  while the pointer is over the player and has moved within POINTER_GRACE_MS. */
+/** After a capture fails for want of a picture, or a look comes back with the picture not
+ *  analyzed (`retryLook`), try again after these delays, then every 2 s, while the pointer is
+ *  over the player and has moved within POINTER_GRACE_MS. */
 export const CAPTURE_RETRY_MS = [250, 500, 1_000, 2_000] as const;
+/** Hysteresis of a shown card (see `HostSession.shown`). */
 export const HOLD_MISSES = 2;
 export const HOLD_MAX_MS = 5_000;
 /** A box detected at the pointer is the held card's box when they overlap at least this much. */
 export const SAME_BOX_IOU = 0.5;
 /** Other cards' boxes sent with a shown card, for placing the tooltip off them. */
 export const MAX_OTHER_BOXES = 40;
+/** The worker's answer to a picture sent while it is still analyzing another. */
+const BUSY = "busy";
 
 export interface HostDeps {
   now(): number;
@@ -84,8 +87,12 @@ export class HostSession {
   private pointer: { x: number; y: number } | null = null;
   private mediaTime = 0;
   private lastShownKey = "null";
-  /** Captures that failed in a row, and when to try again. */
+  /** Captures that failed in a row, and when to try again; reset by a picture received, a seek
+   *  or a new source, not by the pointer leaving. */
   private captureFailures = 0;
+  /** Looks in a row that came back with the picture not analyzed (see `retryLook`); reset by an
+   *  analysis, a seek or a new source, not by the pointer leaving. */
+  private lookRetries = 0;
   private lastPointerMoveAt = -Infinity;
   private retryAt: number | null = null;
   /** The card shown, held through short gaps (see `shown`). */
@@ -109,7 +116,7 @@ export class HostSession {
         this.lastPointerMoveAt = now;
         // The last picture could not be had and the retries had stopped (a resting pointer):
         // moving again asks once more at the next tick.
-        if (this.captureFailures > 0 && this.retryAt === null && !this.inFlight) this.retryAt = now;
+        if ((this.captureFailures > 0 || this.lookRetries > 0) && this.retryAt === null && !this.inFlight) this.retryAt = now;
         this.mediaTime = message.mediaTime;
         if (message.touch) this.scheduler.tapped(now);
         else this.scheduler.pointerMoved(now);
@@ -117,7 +124,8 @@ export class HostSession {
         break;
       case "leave":
         this.pointer = null;
-        this.captureFailures = 0;
+        // The counts of failed captures and unanalyzed looks are kept: those looks still used up
+        // the still picture's looks, so the pointer coming back must start the retries again.
         this.retryAt = null;
         this.scheduler.pointerLeft(now);
         break;
@@ -132,6 +140,7 @@ export class HostSession {
         this.result = null;
         this.held = null;
         this.captureFailures = 0;
+        this.lookRetries = 0;
         if (message.newSource) this.scheduler.framePresented();
         break;
       case "frame":
@@ -202,7 +211,9 @@ export class HostSession {
     this.lastAcceptedRequestId = reply.envelope.requestId;
     this.lastFrameError = reply.error ?? null;
     this.lastWorkerMs = reply.workerMs;
+    if (reply.error === BUSY) this.retryLook(this.deps.now());
     if (reply.analysis) {
+      this.lookRetries = 0;
       this.framesAnalyzed += 1;
       this.result = { analysis: reply.analysis, videoTimeSec: reply.videoTimeSec };
       this.deps.onAnalysis?.(reply.analysis);
@@ -222,20 +233,41 @@ export class HostSession {
       // recognized by its request number and dropped.
       this.inFlight = null;
       this.lastFrameError = "no reply";
+      this.retryLook(now);
     }
     if (this.retryAt !== null && now >= this.retryAt) {
       this.retryAt = null;
       // Only while the pointer is over the player and has moved within the runtime's grace
       // period: a resting pointer does not keep it trying for ever.
       if (this.pointer && now - this.lastPointerMoveAt < POINTER_GRACE_MS) {
-        // A look as soon as nothing is in flight, whatever the cadence (the runtime's way of
-        // asking for one now).
-        this.scheduler.requestLook();
+        if (this.captureFailures === 0 && this.lookRetries > 0) {
+          // A look that came back unanalyzed: the same picture is due again at the cadence, with
+          // its repeats. Not `requestLook`, which would also mark the picture as changed and let
+          // every pointer move look again at once, past the back-off.
+          this.scheduler.framePresented();
+        } else {
+          // A look as soon as nothing is in flight, whatever the cadence (the runtime's way of
+          // asking for one now).
+          this.scheduler.requestLook();
+        }
       }
     }
     this.scheduler.setTooltipShowing(this.shown() !== null, now);
     if (this.state === "ready" && !this.inFlight && this.scheduler.due(now)) this.requestCapture();
     this.publishShown();
+  }
+
+  /**
+   * A look came back with the picture not analyzed: the worker was still busy with an earlier
+   * picture, or gave no answer in time. The look still used up the scheduler's new frame and
+   * one of a still picture's repeats, and a paused video presents no other, so without this a
+   * slow first analysis on a paused video (a busy computer) leaves nothing analyzed until the
+   * video moves. Look again after a back-off, as after a failed capture.
+   */
+  private retryLook(now: number): void {
+    const backoff = CAPTURE_RETRY_MS[Math.min(this.lookRetries, CAPTURE_RETRY_MS.length - 1)]!;
+    this.lookRetries += 1;
+    this.retryAt = now + backoff;
   }
 
   private requestCapture(trigger?: "hover"): void {

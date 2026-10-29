@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { ReleaseStatus } from "../vendor/cardvision-browser/cardvision.js";
 import { type ComputeEnv, type ReleaseChoice, type ReleaseDecision, startComputeFrame, type WorkerLike } from "../src/compute/frame.js";
 import type { CardFactsMessage } from "../src/shared/messages.js";
-import type { ReleasePointer } from "../src/release/pointer.js";
+import type { ReleasePointer } from "../vendor/cardvision-browser/remote-release.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 
 const ID = "0123456789abcdef";

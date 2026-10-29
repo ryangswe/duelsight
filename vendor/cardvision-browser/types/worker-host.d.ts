@@ -1,6 +1,6 @@
 import { type GeometricStage, GeometricWatchdog } from "./geometric/stage.js";
 import type { LoadedRelease, LoadOptions } from "./load.js";
-import type { WorkerReply, WorkerRequest } from "./messages.js";
+import { type WorkerReply, type WorkerRequest } from "./messages.js";
 /** The pixels of a frame, as the pipeline takes them. */
 export interface FramePixels {
     data: Uint8ClampedArray;

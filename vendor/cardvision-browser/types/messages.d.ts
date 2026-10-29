@@ -116,6 +116,8 @@ export type WorkerRequest = {
     videoTimeSec: number;
     envelope: FrameEnvelope;
 };
+/** A frame result's `error` when the frame arrived while another was still being analyzed. */
+export declare const BUSY_ERROR = "busy";
 /** The worker's answer to one frame. Every frame gets one. */
 export interface FrameResult {
     kind: "frame-result";

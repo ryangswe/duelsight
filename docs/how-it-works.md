@@ -76,9 +76,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   analysis size and transfers it as an `ImageBitmap`.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
   vendored runtime on the release bundled in the extension, or on a newer release the settings
-  file names (`src/release/`): the frame downloads that release's files once, checks each against
-  its SHA-256, reuses the bundled files that are the same, and falls back to the bundled release on
-  any problem. Frames, pictures and results never go to the network. With a newer release, the
+  file names (the vendored `remote-release.js`): the frame downloads that release's files once,
+  checks each against its SHA-256, reuses the bundled files that are the same, and falls back to
+  the bundled release on any problem. Frames, pictures and results never go to the network. With a newer release, the
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box.
@@ -106,7 +106,10 @@ another source, or off, without a new extension release:
 - Card ids are Yu-Gi-Oh! passcodes (digits, up to 8). One card name with several artworks is one
   identity in the release's groups.
 - `details` names the card details file (a path on the same host and its SHA-256); without it,
-  the tooltip shows pictures alone. See [cdn/SETTINGS.md](../cdn/SETTINGS.md).
+  the tooltip shows pictures alone. `detailsFr`, `detailsDe`, ... name the file in another language,
+  which a browser whose top preferred language is that one loads instead
+  (`src/details/language.ts`). See
+  [cdn/SETTINGS.md](../cdn/SETTINGS.md).
 - `release` names a newer card-recognition release on the same host (its id, path and SHA-256, and
   the lowest extension version that may load it), so that new cards reach installs without a store
   update. See "The release pointer" in [cdn/SETTINGS.md](../cdn/SETTINGS.md).

@@ -3,9 +3,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { chooseRelease, decisionLine } from "../src/release/choose.js";
-import { SKIP_KEY } from "../src/release/pointer.js";
-import { buildCardTable } from "../src/shared/card-table.mjs";
+import { buildCardTable, chooseRelease, decisionLine, SKIP_KEY } from "../vendor/cardvision-browser/remote-release.js";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const hex = (b: Uint8Array | ArrayBuffer) => createHash("sha256").update(Buffer.from(b instanceof Uint8Array ? b : new Uint8Array(b))).digest("hex");

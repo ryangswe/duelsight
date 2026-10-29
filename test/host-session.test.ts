@@ -437,3 +437,167 @@ describe("HostSession hysteresis (a live stream)", () => {
     expect(lastShown()).toBeNull();
   });
 });
+
+describe("HostSession on a paused video when the first analysis is slow", () => {
+  /** The pointer moves over the paused picture (video time 3 s) and the session runs a tick. */
+  const wiggle = (i: number) => {
+    session.fromContent({ kind: "pointer", x: 0.2 + (i % 2) * 0.001, y: 0.5, mediaTime: 3, touch: false });
+    session.tick();
+  };
+  /** Hands the worker the picture of the newest capture, if it was not handed over yet. */
+  const handOver = (): WorkerRequest | null => {
+    const capture = captures().at(-1);
+    if (!capture || toWorker.some((w) => w.request.kind === "frame" && w.request.envelope.requestId === capture.requestId)) return null;
+    session.fromContent({ kind: "frame", requestId: capture.requestId, bitmap: bitmap(), mediaTime: 3 });
+    return toWorker.at(-1)!.request;
+  };
+
+  it("looks again after busy answers and a late answer, and shows the card", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    // The worker takes 9 s for the first picture; each picture sent meanwhile is answered busy.
+    let slow: WorkerRequest | null = null;
+    let busyUntil = 0;
+    for (let i = 0; i < 60; i += 1) {
+      wiggle(i);
+      const sent = handOver();
+      if (sent && slow === null) {
+        slow = sent;
+        busyUntil = clock + 9_000;
+      } else if (sent && clock < busyUntil) {
+        session.fromWorker(reply(sent, { analysis: null as never, error: "busy" }));
+      } else if (sent) {
+        session.fromWorker(reply(sent));
+      }
+      if (slow && clock >= busyUntil && busyUntil > 0) {
+        // The slow answer arrives after the session gave up on it, and is dropped.
+        session.fromWorker(reply(slow));
+        busyUntil = 0;
+      }
+      clock += 250;
+    }
+    expect(toWorker.filter((w) => w.request.kind === "frame").length).toBeGreaterThan(3);
+    expect(session.framesAnalyzed).toBeGreaterThan(0);
+    expect(lastShown()).toMatchObject({ cardId: "89631139" });
+  });
+
+  it("backs off between looks while the worker stays busy", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    const sentAt: number[] = [];
+    for (let i = 0; i < 120; i += 1) {
+      wiggle(i);
+      const sent = handOver();
+      if (sent) {
+        sentAt.push(clock);
+        // The first picture never comes back; every later one is answered busy.
+        if (sentAt.length > 1) session.fromWorker(reply(sent, { analysis: null as never, error: "busy" }));
+      }
+      clock += 250;
+    }
+    const gaps = sentAt.slice(1).map((t, i) => t - sentAt[i]!);
+    // Each retry gives the still picture its usual looks a tick apart, then waits 2 s: about
+    // one look a second while the worker is busy, not one every tick.
+    expect(Math.max(...gaps.slice(-3))).toBeGreaterThanOrEqual(2_000);
+    const lastTen = sentAt.filter((t) => t > clock - 10_000).length;
+    expect(lastTen).toBeGreaterThan(0);
+    expect(lastTen).toBeLessThanOrEqual(15);
+  });
+
+  it("looks again when the pointer leaves during the retries and comes back", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    // The first picture takes 9 s; the still picture's other looks are answered busy meanwhile.
+    let slow: WorkerRequest | null = null;
+    let busy = 0;
+    for (let i = 0; busy < 2; i += 1) {
+      wiggle(i);
+      const sent = handOver();
+      if (sent && slow === null) slow = sent;
+      else if (sent) {
+        session.fromWorker(reply(sent, { analysis: null as never, error: "busy" }));
+        busy += 1;
+      }
+      clock += 250;
+    }
+    // The slow answer comes late and is dropped; the pointer leaves, then comes back.
+    session.fromWorker(reply(slow!));
+    expect(session.framesAnalyzed).toBe(0);
+    session.fromContent({ kind: "leave" });
+    clock += 3_000;
+    session.tick();
+    let shown = false;
+    for (let i = 0; i < 12 && !shown; i += 1) {
+      wiggle(i);
+      const sent = handOver();
+      if (sent) session.fromWorker(reply(sent));
+      shown = lastShown()?.cardId === "89631139";
+      clock += 250;
+    }
+    expect(shown).toBe(true);
+  });
+
+  it("looks again when the pointer leaves after failed captures and comes back", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    // Every capture fails for want of a picture until the still picture's looks are used up.
+    let failed = 0;
+    for (let i = 0; i < 40; i += 1) {
+      wiggle(i);
+      const capture = captures().at(-1);
+      if (capture && capture.requestId > failed) {
+        session.fromContent({ kind: "capture-failed", requestId: capture.requestId, reason: "no picture", retry: true });
+        failed = capture.requestId;
+      }
+      clock += 250;
+    }
+    expect(failed).toBeGreaterThan(0);
+    session.fromContent({ kind: "leave" });
+    clock += 3_000;
+    session.tick();
+    const lastFailed = failed;
+    let shown = false;
+    for (let i = 0; i < 12 && !shown; i += 1) {
+      wiggle(i);
+      const capture = captures().at(-1);
+      if (capture && capture.requestId > lastFailed) {
+        const sent = handOver();
+        if (sent) session.fromWorker(reply(sent));
+      }
+      shown = lastShown()?.cardId === "89631139";
+      clock += 250;
+    }
+    expect(shown).toBe(true);
+  });
+
+  it("stops looking once the pointer has rested past the grace period, and starts again when it moves", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    wiggle(0);
+    const first = handOver()!;
+    clock += WATCHDOG_MS + 1;
+    session.tick();
+    expect(session.lastFrameError).toBe("no reply");
+    // The pointer rests: no move for a long time.
+    for (let i = 0; i < 200; i += 1) {
+      clock += 250;
+      session.tick();
+      const sent = handOver();
+      if (sent) session.fromWorker(reply(sent, { analysis: null as never, error: "busy" }));
+    }
+    const before = captures().length;
+    for (let i = 0; i < 40; i += 1) {
+      clock += 250;
+      session.tick();
+    }
+    expect(captures().length).toBe(before);
+    session.fromWorker(reply(first));
+    wiggle(1);
+    clock += 250;
+    session.tick();
+    const sent = handOver();
+    expect(sent).not.toBeNull();
+    session.fromWorker(reply(sent!));
+    expect(lastShown()).toMatchObject({ cardId: "89631139" });
+  });
+});

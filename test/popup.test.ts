@@ -10,11 +10,11 @@ import { CONFIG } from "./helpers/fork.js";
 import { initPopup } from "../src/popup/view.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
-const HTML = `<span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
+const HTML = `<main class="panel"><span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <button id="details" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <input id="card-size" type="range" disabled><output id="card-size-value"></output>
 <p id="update" hidden><a id="update-link"></a><button id="update-dismiss"></button></p>
-<a id="project"></a><a id="runtime"></a>`;
+<a id="project"></a><a id="runtime"></a></main>`;
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const listenersOf = () => {
@@ -212,6 +212,65 @@ describe("popup", () => {
     listeners[0]!({ details: { newValue: true } }, "local");
     await settle();
     expect(toggle.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("grays out the details switch and the size dial while card hovers are off, keeping their stored choices", async () => {
+    const local = memoryStorage({ cardSize: 120 });
+    initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0" });
+    await settle();
+    await settle();
+    const master = document.getElementById("enabled")!;
+    const details = document.getElementById("details") as HTMLButtonElement;
+    const slider = document.getElementById("card-size") as HTMLInputElement;
+    const panel = document.querySelector(".panel")!;
+    expect([details.getAttribute("aria-checked"), details.disabled, slider.disabled, panel.hasAttribute("data-hovers-off")]).toEqual(["true", false, false, false]);
+    master.click();
+    await settle();
+    expect([details.getAttribute("aria-checked"), details.disabled, slider.disabled, panel.hasAttribute("data-hovers-off")]).toEqual(["false", true, true, true]);
+    expect(slider.value).toBe("120");
+    // A press that gets through anyway changes nothing.
+    details.disabled = false;
+    details.click();
+    slider.disabled = false;
+    slider.value = "70";
+    slider.dispatchEvent(new Event("input"));
+    await settle();
+    expect(local.data.details).toBeUndefined();
+    expect(local.data.cardSize).toBe(120);
+    master.click();
+    await settle();
+    expect([details.getAttribute("aria-checked"), details.disabled, slider.disabled, panel.hasAttribute("data-hovers-off")]).toEqual(["true", false, false, false]);
+  });
+
+  it("opens grayed out when card hovers are off, with the details switch drawn off from the start", async () => {
+    const local = memoryStorage({ enabled: false, details: true });
+    const details = document.getElementById("details") as HTMLButtonElement;
+    const seen: Array<string | null> = [];
+    new MutationObserver(() => seen.push(details.getAttribute("aria-checked"))).observe(details, { attributes: true, attributeFilter: ["aria-checked"] });
+    initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0" });
+    await settle();
+    await settle();
+    expect(seen).not.toContain("true");
+    expect([details.getAttribute("aria-checked"), details.disabled, (document.getElementById("card-size") as HTMLInputElement).disabled]).toEqual(["false", true, true]);
+  });
+
+  it("follows the master switch changed elsewhere, and a details change made elsewhere while it is off", async () => {
+    const local = memoryStorage();
+    const { listeners, onChanged } = listenersOf();
+    initPopup({ doc: document, local, onChanged, version: "0.1.0" });
+    await settle();
+    const details = document.getElementById("details") as HTMLButtonElement;
+    await local.set({ enabled: false });
+    listeners.forEach((l) => l({ enabled: { newValue: false } }, "local"));
+    await settle();
+    expect([details.getAttribute("aria-checked"), details.disabled]).toEqual(["false", true]);
+    await local.set({ details: false });
+    listeners.forEach((l) => l({ details: { newValue: false } }, "local"));
+    await settle();
+    await local.set({ enabled: true });
+    listeners.forEach((l) => l({ enabled: { newValue: true } }, "local"));
+    await settle();
+    expect([details.getAttribute("aria-checked"), details.disabled]).toEqual(["false", false]);
   });
 
   it("names the extension as the config does", () => {

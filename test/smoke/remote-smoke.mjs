@@ -87,7 +87,7 @@ if (live) {
   const id = config.release?.id ?? null;
   console.log(`live config.json: release ${id ?? "none"}; the build bundles ${bundledId}; extension ${manifest.version}`);
   if (id !== values["expect-id"]) {
-    console.error(`the live pointer names ${id ?? "no release"}, not ${values["expect-id"]}: run dscdn.py verify-release-live first`);
+    console.error(`the live pointer names ${id ?? "no release"}, not ${values["expect-id"]}: run cardvision cdn verify-release-live first`);
     process.exit(1);
   }
   const expect = id === bundledId ? { source: "bundled", reason: "same-as-bundled" } : { source: "remote", reason: "ok" };

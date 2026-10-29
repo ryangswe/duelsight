@@ -8,13 +8,13 @@ already has permission for, and how new cards reach installed copies. A new imag
 extension release (see "Image hosts").
 
 This document states what the extension enforces (`src/settings/`, `src/images/chain.ts`); a
-file that `dscdn.py` accepts can still have parts the extension drops.
+file that `cardvision cdn` accepts can still have parts the extension drops.
 
 - **URL:** `<cdnBase>/config.json`, where `cdnBase` is the one value in `duelsight.config.json` that
   names the CDN host (`https://cdn.duelsight.com`).
 - **Served with:** `Content-Type: application/json`, `Cache-Control: public, max-age=300`,
   `Access-Control-Allow-Origin: *`.
-- **Written by:** `dscdn.py publish --config <file>`, last, after any images it references.
+- **Written by:** `cardvision cdn publish --config <file>`, last, after any images it references.
 
 ## Shape
 
@@ -25,7 +25,8 @@ file that `dscdn.py` accepts can still have parts the extension drops.
   "namesOnly": false,
   "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
   "fallbacks": [],
-  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" }
+  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" },
+  "detailsFr": { "path": "data/details-fr-9c0d5bb2.json", "sha256": "9c0d5bb2…(64 hex digits)" }
 }
 ```
 
@@ -37,6 +38,7 @@ file that `dscdn.py` accepts can still have parts the extension drops.
 | `primary` | source object or `null` | Our own CDN. **Required** (`null` is a value). `null` skips it (e.g. after a complaint), leaving the fallbacks. |
 | `fallbacks` | array of source objects | Tried in order after `primary` fails or is `null`. May be empty. |
 | `details` | object, optional | The card details file for the tooltip's details panel (see "The card details file"). `{ "path": "data/details-<sha8>.json", "sha256": "<64 hex digits>" }`: `path` is relative to this file's address (so on the same host), a clean relative path to a `.json` file (no leading `/`, no `.` or `..` segment); `sha256` is the file's SHA-256 in lowercase hex. Absent or `null`: no details panel, pictures alone, and a copy the extension kept is deleted. Malformed: ignored, the rest of the file still used. It does not bump `schemaVersion`; an older extension ignores it. |
+| `details<Lang>` | object, optional | The card details file in another language (see "Card details in other languages"): `detailsFr` for French, `detailsDe` for German, `detailsIt`, `detailsEs`, `detailsPt`; the key is `details` and the language code with a capital first letter. For browsers whose top preferred language is that one. The same shape and rules as `details`. Used only while `details` is named too; absent, `null` or malformed: those browsers get the English file. A new language needs no new extension version (0.5.0 and later read any such key). An older extension ignores them. They do not bump `schemaVersion`. |
 | `release` | object, optional | The card-recognition release installs run instead of their bundled one; see "The release pointer". Absent, `null` or malformed: the bundled release (a malformed one never makes the file unusable). It does not bump `schemaVersion`; an older extension ignores it. |
 | `update` | object, optional | For installs that never update by themselves (an unpacked folder from a release zip). `{ "latest": "x.y.z", "url": "https://…" }`: when the running extension's version is lower than `latest`, the popup shows one dismissible "New version available" line linking to `url`. Dismissed per version; a later `latest` shows it again. `latest` must be three dot-separated integers, and `url` must be the project's releases page or an address below it (`https://github.com/ryangswe/duelsight/releases`, `…/releases/…`). Absent, `null` or malformed: the field is ignored and the rest of the file is still used. It does not bump `schemaVersion`. |
 
@@ -118,7 +120,8 @@ New cards reach installed copies without a store update: the settings file may n
 card-recognition release published on this host, and a qualifying install loads it instead of the
 release bundled in the extension. The release is data only (JSON and ONNX files); code stays in the
 package. Anything wrong with it, at any step, loads the bundled release. The extension's side is
-`src/release/` and `src/compute/frame.ts`; the publishing side is `dscdn.py publish-release`.
+the vendored `remote-release.js` (the toolkit's `browser/src/remote/`) and `src/compute/frame.ts`;
+the publishing side is `cardvision cdn publish-release`.
 
 ```json
 "release": {
@@ -189,7 +192,7 @@ after loading, one restart).
 
 **Card facts.** The tooltip's table of names (`data/cards.json`) is built from the bundled catalog,
 so a card new in a remote release would be recognized and then shown as nothing. The compute frame
-therefore builds the same table (`src/shared/card-table.mjs`, the build's own rule) from the catalog
+therefore builds the same table (`buildCardTable` of the vendored `remote-release.js`, the build's own rule) from the catalog
 it hands the worker, before the load, and adopts it only when the worker confirms that release's
 id. With each card it shows from that release, it posts the card's facts (`{releaseId, cardId,
 facts: {name, set, art}}`) on `BroadcastChannel("duelsight-card-facts")`, then sends the card, with
@@ -233,12 +236,12 @@ compressed (the bank and catalog are most of a card-only update).
 
 ### Publishing a release
 
-`dscdn.py publish-release --release <folder named after its id> --min-version 0.3.0 [--details F]
+`cardvision cdn publish-release --release <folder named after its id> --min-version 0.3.0 [--data-file F]
 [--config cdn/config.json --set-pointer] [--sessions] [--dry-run]`:
 
 1. **Seal:** the document parses, its id is the folder's name, every pinned file is a flat name
    present with its size and SHA-256, and `release-legal/` names this release (`NOTICE`'s first
-   line, as for a build); then `scripts/verify-remote-release.mjs`, the vendored runtime's own
+   line, as for a build); then `vendor/cardvision-browser/node/verify-release.mjs`, the vendored runtime's own
    checks (`--sessions` also starts both ONNX Runtime sessions in Node: use it whenever a model
    changed).
 2. **Runtimes:** every extension version in `cdn/RUNTIMES.json` that the pointer would reach must
@@ -255,8 +258,8 @@ compressed (the bank and catalog are most of a card-only update).
 6. **Pointer:** the `release` block is computed from what was verified (`--set-pointer` writes it
    into the config file), and `config.json` is uploaded last.
 
-`dscdn.py publish --config F` refuses a `release` that does not verify live, so a pointer only ever
-moves to a verified folder, a rollback included. `dscdn.py verify-release-live` checks the live
+`cardvision cdn publish --config F` refuses a `release` that does not verify live, so a pointer only ever
+moves to a verified folder, a rollback included. `cardvision cdn verify-release-live` checks the live
 pointer at any time.
 
 ### What the pins do not guard against
@@ -280,7 +283,7 @@ holder's, like the art: the file is never committed or put in the extension's pa
 - **Key:** `data/details-<sha8>.json`, a new name for every change: a file is never replaced in
   place. **Served with** `Content-Type: application/json`, `Cache-Control: public,
   max-age=31536000, immutable`.
-- **Written by:** `dscdn.py publish --details <file> --config <file>`: the details file before
+- **Written by:** `cardvision cdn publish --data-file <file> --config <file>`: the details file before
   `config.json`, and `config.json` when it names that file (path and SHA-256), else nothing.
 - **The extension** fetches it while its details panel is on (never when it is off), from the settings file's own
   host, with no cookies and no referrer, once: it keeps the file in its own Cache Storage, keyed
@@ -289,6 +292,50 @@ holder's, like the art: the file is never committed or put in the extension's pa
   list, the tooltip shows the picture alone.
 - **Switching it off:** remove `details` (or set it to `null`) and publish `config.json`.
   Installed extensions stop showing details and delete their copy within about an hour.
+
+## Card details in other languages
+
+One file per language, with the same rows as the card details file, and each card's name, type
+line, attribute and text in that language where an official text exists, English where not, plus
+the stats line's words (`lang`, `names` and `labels` fields; the format is in
+`src/details/details.ts`). A browser whose top preferred language is that language (`fr`,
+`fr-CA`, ...) loads it in place of the English file; the tooltip then shows the card's name in
+that language with the English name under it. Because the file carries its own words, a language
+is added on the CDN alone: its file, its `dataFiles` entry in `cdn.config.json` and its
+`details<Lang>` entry here.
+
+| Language | Key | Status |
+| --- | --- | --- |
+| French | `detailsFr` | Checked against Konami's database on 24 cards (2026-10-29) |
+| German, Italian, Spanish, Portuguese | `detailsDe`, `detailsIt`, `detailsEs`, `detailsPt` | Checked against Konami's database on 24 cards (2026-10-29) |
+
+The check (2026-10-29): in each language, the names and texts of all 24 cards matched Konami's
+word for word, and so did every monster's type line, attribute and stats words. A spell's or a
+trap's type line is Konami's term ("Magie Normale"); the database shows the icon and the kind side
+by side instead ("Normale Magie"), which is not a printed line. YGOPRODeck, the fallback, matched
+on 13 of the 24 in each language.
+
+- **Its sources:** Yugipedia's names and texts (official printed texts; CC BY-SA 4.0, so the file
+  carries an `attribution` and is offered under that license), else YGOPRODeck's when it has no
+  English phrase in it (YGOPRODeck has no Spanish), else English. Type lines, attributes and
+  labels use Konami's terms for the language (`scripts/localized-terms.mjs`). Never a fan
+  translation: a card with no official text in the language stays English.
+- **Before a language's first file is published:** compare 24 cards (20 across card kinds and
+  years, 4 recent) with Konami's database in that language: name, text, type line and the stats
+  line's words, word for word. Then set the language's `checked` date in
+  `scripts/localized-terms.mjs`; the builder refuses a language without one (`--draft` builds
+  one for checking, never for publishing).
+- **Made by:** `node scripts/yugipedia-fetch.mjs --lang <code> --out <folder>` (at most once
+  every 30 days into the same folder, as Yugipedia asks: about 35 requests, 3 seconds apart,
+  through its API), then `node scripts/localized-details.mjs --lang <code> --details <the English
+  details file> --yugipedia <that folder> [--ygoprodeck <cardinfo JSON with language=<code>>]
+  --catalog <the release's catalog.json> --out <folder outside the repository>`. It writes
+  `data/details-<code>-<sha8>.json` and prints the `details<Lang>` entry.
+- **Key, serving and writing:** as the card details file (`dataFiles.details<Lang>` in
+  `cdn.config.json`): `cardvision cdn publish --data-file <file> --config <file>` uploads it
+  before `config.json`.
+- **Switching one off:** remove its `details<Lang>` entry and publish `config.json`: those
+  browsers get the English file within about an hour.
 
 ## Images on our CDN
 

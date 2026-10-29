@@ -9,7 +9,9 @@ Twitch video and a larger picture of it appears, with its name, type, stats and 
 **DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.**
 Yu-Gi-Oh!, its card names and its card art belong to their owners. Card text and images are
 copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment. Card data from
-YGOPRODeck.
+YGOPRODeck. Card names and texts in other languages from [Yugipedia](https://yugipedia.com), under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); those card details files are
+offered under that license too.
 
 It is aimed at Master Duel, Dueling Book and paper tables, with the camera above the table.
 Master Duel and Dueling Book are measured and promised; paper is supported but not promised.

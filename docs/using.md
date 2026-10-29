@@ -42,6 +42,12 @@ there is room, under it in a narrow window. The text keeps a readable size; when
 has no room for all of a long text, it ends in "…". On a new install, the details take a moment to
 load, and pictures show alone until then. Pausing works too, on recorded videos and on live streams.
 
+The details follow your browser's language. When its top preferred language is French, German,
+Italian, Spanish or Portuguese, the panel shows the card's official name in that language (with
+the English name under it), type line and text; a card with no official text in that language
+yet shows its English text. Other languages show English. There is nothing to set in DuelSight:
+change the browser's language to change it.
+
 ## The toolbar popup
 
 DuelSight's toolbar popup has the main on/off switch: turned off, it shows no button in the
@@ -54,6 +60,10 @@ off). Off, the tooltip is the picture alone.
 **Card size** sets how large the card's picture is shown, from 70% to 130% of its usual size
 (100% unless you change it). A card on show changes size at once. The picture still stays inside
 the window and beside the card, so in a small window it can be smaller than the size you set.
+
+While the main switch is off, **Card details** and **Card size** are grayed out and can't be
+changed. Your choices for them are kept, and they come back as they were when you turn the main
+switch on again.
 
 Below them are two links, to the project page and to the open-source toolkit it is built on.
 

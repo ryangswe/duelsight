@@ -80,8 +80,8 @@ nothing beyond the local server.
      contract. Serve each picture at a path made from the catalog's `art` value (for example
      `https://<your host>/art/{art}`), serve `config.json` beside it with
      `Access-Control-Allow-Origin: *`, set `primary` to that template. Put the host in
-     `cdnBase`. `cdn/dscdn.py` publishes to Cloudflare R2 ([cdn/README.md](../cdn/README.md)); read its
-     guards before you reuse it, since they name other projects. Any static host that serves
+     `cdnBase`. The toolkit's `cardvision cdn` publishes to Cloudflare R2 ([cdn/README.md](../cdn/README.md));
+     set your own `envPrefix` and `forbiddenWords` in `cdn/cdn.config.json` before you use it. Any static host that serves
      the same files works too.
 
 5. **No extra-accuracy stage.** This build has none: no `geometric` key, no settings file, no
@@ -110,7 +110,7 @@ nothing beyond the local server.
 
 7. **Delete the text of the game you copied** that no longer applies: the README and the pages in
    `docs/` (accuracy figures are for one game's models only: measure your own), `PRIVACY.md`
-   (rewrite it for your host), and `cdn/README.md` if you do not use `cdn/dscdn.py`. Delete the
+   (rewrite it for your host), and `cdn/README.md` if you do not use `cardvision cdn`. Delete the
    install screenshots (they show the extension you copied). Rename the package in
    `package.json` and `package-lock.json`. Keep `LICENSE` and
    the attributions in `NOTICE`, and add your own.

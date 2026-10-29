@@ -3,8 +3,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { DOCUMENT_MAX_BYTES, loadRemoteRelease, type RemoteLoadDeps } from "../src/release/remote-load.js";
-import type { ReleasePointer } from "../src/release/pointer.js";
+import { DOCUMENT_MAX_BYTES, loadRemoteRelease, type ReleasePointer, type RemoteLoadDeps } from "../vendor/cardvision-browser/remote-release.js";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const hex = (b: ArrayBuffer | Uint8Array) => createHash("sha256").update(Buffer.from(b instanceof Uint8Array ? b : new Uint8Array(b))).digest("hex");

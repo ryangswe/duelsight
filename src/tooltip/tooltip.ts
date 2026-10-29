@@ -10,6 +10,7 @@ import { loadImage } from "../images/chain.js";
 import { detailsUrl, type Settings } from "../settings/schema.js";
 import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
 import { forgetDetails, loadDetails, sha256Hex } from "../details/cache.js";
+import { chooseDetails } from "../details/language.js";
 import { DETAILS_KEY, readDetailsOn } from "../shared/details-pref.js";
 import { fitPanelText, measurePanel } from "./panel-dom.js";
 import { SETTINGS_URL } from "../constants.js";
@@ -46,7 +47,7 @@ void (async () => {
       img: $<HTMLImageElement>("img"),
       placeholder: $("placeholder"),
       pill: $("pill"),
-      panel: { root: $("panel"), name: $("panel-name"), type: $("panel-type"), stats: $("panel-stats"), power: $("panel-power"), text: $("panel-text") },
+      panel: { root: $("panel"), name: $("panel-name"), alt: $("panel-alt"), type: $("panel-type"), stats: $("panel-stats"), power: $("panel-power"), text: $("panel-text") },
     },
     table: (cards ?? {}) as CardTable,
     load: (url) => loadImage(url, { fetch: (...args) => fetch(...args), decode }),
@@ -74,23 +75,26 @@ void (async () => {
     if (m) controller.addFacts(m.releaseId, { id: m.cardId, ...m.facts });
   };
   // The details file: fetched (once, then from the cache) only while the panel is on and the
-  // settings name one; until it is loaded, pictures show alone.
+  // settings name one; until it is loaded, pictures show alone. The browser's language picks the
+  // French file when the settings name one (language.ts).
   let detailsOn = await readDetailsOn(chrome.storage.local).catch(() => true);
   let detailsKey: string | null = null;
+  const languages = (): readonly string[] => (navigator.languages?.length ? navigator.languages : [navigator.language]);
   const syncDetails = (settings: Settings): void => {
     controller.setDetailsOn(detailsOn);
-    const url = settings.details ? detailsUrl(settings.details, SETTINGS_URL) : null;
-    if (!url || !settings.details) {
+    const chosen = chooseDetails(settings, languages());
+    const url = chosen ? detailsUrl(chosen.source, SETTINGS_URL) : null;
+    if (!url || !chosen) {
       detailsKey = null;
       controller.setDetails(null);
       // No details file named any more: none is kept either.
       if (settings.details === null) void forgetDetails(caches);
       return;
     }
-    const key = `${url}#${settings.details.sha256}`;
+    const key = `${url}#${chosen.source.sha256}`;
     if (!detailsOn || key === detailsKey) return;
     detailsKey = key;
-    void loadDetails(url, settings.details.sha256, { caches, fetch: (...args) => fetch(...args), sha256: sha256Hex }).then((table) => {
+    void loadDetails(url, chosen.source.sha256, { caches, fetch: (...args) => fetch(...args), sha256: sha256Hex }).then((table) => {
       if (detailsKey === key) controller.setDetails(table);
     });
   };
@@ -112,6 +116,8 @@ void (async () => {
       syncDetails(settingsNow);
     }
   });
+  // The browser's language changed: the details follow it.
+  window.addEventListener("languagechange", () => syncDetails(settingsNow));
   // The pill's size follows its text's layout (fonts can arrive late).
   const pill = $("pill");
   new ResizeObserver(() => {

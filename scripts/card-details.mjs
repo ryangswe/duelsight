@@ -13,7 +13,7 @@
 //
 // Card text and stats are the rights holder's, like the art: the file is never written inside
 // this repository (the script refuses), committed or put in the extension's package. The owner
-// publishes it on the CDN beside the art (cdn/dscdn.py publish --details), and the settings file
+// publishes it on the CDN beside the art (cardvision cdn publish --data-file), and the settings file
 // names it (`details`, cdn/SETTINGS.md); the script prints that entry.
 //
 // Each catalog card is matched to the card list by its id, or by an artwork id of a card (the

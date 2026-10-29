@@ -30,7 +30,7 @@ import { parseArgs } from "node:util";
 import { build } from "esbuild";
 
 import { buildManifest, firefoxManifest } from "./manifest.mjs";
-import { buildCardTable } from "../src/shared/card-table.mjs";
+import { buildCardTable } from "../vendor/cardvision-browser/remote-release.js";
 import { CONFIG_PATH, ICON_SIZES, loadForkConfig } from "./fork-config.mjs";
 import { LEGAL_FILES, releaseLegalProblem } from "./release-legal.mjs";
 import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";

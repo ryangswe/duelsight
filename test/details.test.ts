@@ -5,9 +5,10 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { DETAILS_CACHE, forgetDetails, loadDetails } from "../src/details/cache.js";
-import { detailLines, detailsFor, parseDetailsFile } from "../src/details/details.js";
+import { detailLines, detailsFor, localName, parseDetailsFile } from "../src/details/details.js";
+import { browserLanguage, chooseDetails } from "../src/details/language.js";
 import { readDetailsOn } from "../src/shared/details-pref.js";
-import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
+import { DETAILS_FIXTURE, DETAILS_FR_FIXTURE } from "./helpers/details-fixture.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const table = parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FIXTURE)))!;
@@ -161,5 +162,78 @@ describe("loadDetails", () => {
     await loadDetails(URL1, digest, { caches, ...fetcher({ [URL1]: () => new Response(body) }), sha256 });
     await forgetDetails(caches);
     expect(caches.stores.has(DETAILS_CACHE)).toBe(false);
+  });
+});
+
+describe("a localized (French) details file", () => {
+  const fr = parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE)))!;
+
+  it("is read with its language and its names; the English file has neither", () => {
+    expect(fr.lang).toBe("fr");
+    expect(localName(fr, "10000001")).toBe("Robot de Test");
+    expect(localName(fr, "10000002")).toBeNull();
+    expect(table.lang).toBeNull();
+    expect(localName(table, "10000001")).toBeNull();
+    expect(localName(null, "10000001")).toBeNull();
+  });
+
+  it("ignores names without a language, a bad language, and a name that is not short text", () => {
+    const noLang = parseDetailsFile({ schemaVersion: 1, names: { "1": "Nom" }, cards: {} })!;
+    expect([noLang.lang, localName(noLang, "1")]).toEqual([null, null]);
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "French", cards: {} })!.lang).toBeNull();
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "en", names: { "1": "Name" }, cards: {} })!.names).toBeNull();
+    const odd = parseDetailsFile({ schemaVersion: 1, lang: "fr", names: { "1": 7, "2": "", "3": "x".repeat(121) }, cards: {} })!;
+    expect(["1", "2", "3"].map((id) => localName(odd, id))).toEqual([null, null, null]);
+  });
+
+  it("words the stats line with the file's labels: Niveau, Rang, Lien and Échelle Pendule", () => {
+    expect(detailLines(detailsFor(fr, "10000001")!, fr.labels)).toEqual({
+      type: "Robot / Effet",
+      stats: "LUMIÈRE · Niveau 4",
+      power: "ATK 1800 / DEF 1000",
+      text: "Quand cette carte de test est invoquée, rien ne se passe.",
+    });
+    expect(detailLines(detailsFor(fr, "10000002")!, fr.labels).stats).toBe("TÉNÈBRES · Rang 3");
+    expect(detailLines(detailsFor(fr, "10000003")!, fr.labels).stats).toBe("VENT · Lien 2");
+    expect(detailLines(detailsFor(fr, "10000004")!, fr.labels).stats).toBe("TERRE · Niveau 5 · Échelle Pendule 7");
+    // Without labels (the English file), the stats line is in English.
+    expect(detailLines(detailsFor(fr, "10000004")!).stats).toBe("TERRE · Level 5 · Scale 7");
+  });
+
+  it("keeps English for a label a file leaves out or gets wrong, and reads no labels in the English file", () => {
+    const partial = parseDetailsFile({ schemaVersion: 1, lang: "de", labels: { level: "Stufe", rank: 3, link: "", scale: "x".repeat(31), atk: " ANG " }, cards: {} })!;
+    expect(partial.labels).toEqual({ level: "Stufe", rank: "Rank", link: "Link", scale: "Scale", atk: "ANG", def: "DEF" });
+    expect(parseDetailsFile({ schemaVersion: 1, labels: { level: "Stufe" }, cards: {} })!.labels.level).toBe("Level");
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "de", labels: ["Stufe"], cards: {} })!.labels.level).toBe("Level");
+  });
+});
+
+describe("the browser's language picks the details file", () => {
+  const en = { path: "data/details-01234567.json", sha256: "a".repeat(64) };
+  const french = { path: "data/details-fr-89abcdef.json", sha256: "b".repeat(64) };
+
+  it("is the first preferred language's base subtag", () => {
+    expect(browserLanguage(["fr-CA", "en-US"])).toBe("fr");
+    expect(browserLanguage(["FR"])).toBe("fr");
+    expect(browserLanguage(["en-US", "fr-FR"])).toBe("en");
+    expect(browserLanguage(["", "de-DE"])).toBe("de");
+    expect(browserLanguage([])).toBe("");
+  });
+
+  const german = { path: "data/details-de-76543210.json", sha256: "c".repeat(64) };
+
+  it("is the file in the browser's language when the settings name one, else the English file", () => {
+    const localDetails = { fr: french, de: german };
+    expect(chooseDetails({ details: en, localDetails }, ["fr-BE"])).toEqual({ source: french, lang: "fr" });
+    expect(chooseDetails({ details: en, localDetails }, ["de-AT", "fr"])).toEqual({ source: german, lang: "de" });
+    expect(chooseDetails({ details: en, localDetails: {} }, ["fr-BE"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["en-GB", "fr"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["it-IT"])).toEqual({ source: en, lang: "en" });
+    // Never a key of the object's prototype.
+    expect(chooseDetails({ details: en, localDetails }, ["constructor"])).toEqual({ source: en, lang: "en" });
+  });
+
+  it("is none when the English file is not named: the maintainer has taken the details down", () => {
+    expect(chooseDetails({ details: null, localDetails: { fr: french } }, ["fr"])).toBeNull();
   });
 });
