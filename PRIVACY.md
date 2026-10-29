@@ -11,8 +11,9 @@ what it sends, and what it keeps.
 - Video frames are processed temporarily in memory, inside your browser. They are not saved to
   storage and never uploaded.
 - The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a
-  settings file, card pictures, a card details file (in French when your browser's language is
-  French) and, when new cards are published, updated card-recognition data.
+  settings file, card pictures, a card details file (in your browser's language when DuelSight has
+  that language, otherwise in English) and, when new cards are published, updated
+  card-recognition data.
 
 ## What it reads
 
@@ -28,9 +29,9 @@ what it sends, and what it keeps.
   analyzes is the whole video frame, so anything drawn into the video itself (such as an overlay
   showing chat) is part of that picture; the extension looks for cards in it and does not read
   text or identify people.
-- Your browser's preferred language, to choose the card details file's language: the French file
-  when your top preferred language is French, the English one otherwise. It is not stored or
-  sent; it just decides which of the two files is requested.
+- Your browser's preferred language, to choose the card details file's language: the file in
+  your top preferred language when DuelSight has one, the English one otherwise. It is not stored
+  or sent; it just decides which file is requested.
 - Nothing on other sites.
 
 With the toolbar switch off, the extension shows no button and reads no video on any page. The
@@ -52,7 +53,7 @@ switched on in the popup.
 | --- | --- | --- | --- |
 | The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
-| The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover). A browser whose language is French asks for the French file instead, so the host also learns that, as it does from the language every browser sends with its requests |
+| The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover). A browser in another language DuelSight has asks for that language's file instead, so the host also learns that, as it does from the language every browser sends with its requests |
 | Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card hovers start in a tab and the settings file names a release other than the one built into your version of the extension: a newer one, or an earlier one after a rollback (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
 
 These requests carry no cookies, no account ID or per-user tracking identifier, and not the

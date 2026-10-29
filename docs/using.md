@@ -42,10 +42,11 @@ there is room, under it in a narrow window. The text keeps a readable size; when
 has no room for all of a long text, it ends in "…". On a new install, the details take a moment to
 load, and pictures show alone until then. Pausing works too, on recorded videos and on live streams.
 
-The details follow your browser's language. When its top preferred language is French, the
-panel shows the card's official French name (with the English name under it), type line and
-text; a card with no official French text yet shows its English text. Other languages show
-English. There is nothing to set in DuelSight: change the browser's language to change it.
+The details follow your browser's language. When its top preferred language is French, German,
+Italian, Spanish or Portuguese, the panel shows the card's official name in that language (with
+the English name under it), type line and text; a card with no official text in that language
+yet shows its English text. Other languages show English. There is nothing to set in DuelSight:
+change the browser's language to change it.
 
 ## The toolbar popup
 

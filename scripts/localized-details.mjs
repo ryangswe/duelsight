@@ -23,8 +23,8 @@
 // (`checked` in localized-terms.mjs; --draft builds an unchecked one, never to be published).
 //
 // Yugipedia's text is CC BY-SA 4.0: the file says so in `attribution` and is offered under that
-// license; the credit is also in README.md and the privacy page. Card names and texts are the
-// rights holder's, like the art: the file is never written inside this repository (the script
+// license; the credit is also in NOTICE, README.md and the store listing. Card names and texts are
+// the rights holder's, like the art: the file is never written inside this repository (the script
 // refuses), committed or put in the extension's package.
 
 import { createHash } from "node:crypto";

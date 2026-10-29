@@ -30,10 +30,11 @@ by paulyudin); that art, text, footage and music belong to their owners and are 
 Apache License. tools/promo-video/ uses Remotion, which has its own license.
 
 Card text and images are copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment.
-Card data from YGOPRODeck. French card names and texts, in the French card details file served from
-the CDN (not in this package), from Yugipedia (https://yugipedia.com), under the Creative Commons
-Attribution-ShareAlike 4.0 license (https://creativecommons.org/licenses/by-sa/4.0/), with wiki
-markup removed; that file is offered under the same license.
+Card data from YGOPRODeck. Card names and texts in languages other than English, in the card
+details files served from the CDN (not in this package), from Yugipedia (https://yugipedia.com),
+under the Creative Commons Attribution-ShareAlike 4.0 license
+(https://creativecommons.org/licenses/by-sa/4.0/), with wiki markup removed; those files are offered
+under the same license.
 
 ------------------------------------------------------------------------------
 cardvision-browser (vendored in vendor/cardvision-browser/)
