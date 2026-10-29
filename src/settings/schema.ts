@@ -10,8 +10,8 @@
 //   - a template whose host is not one the extension may request images from (IMAGE_HOSTS);
 // Unknown extra fields are ignored, among them the obsolete `cardLink` (the tooltip no longer
 // has a link; files may still carry it, of any type). The optional `update` field (an addition proposed for
-// unpacked installs) and the optional `details` field (the card details file) are read when they
-// are well formed and ignored otherwise. The optional `release` field (the remote release pointer,
+// unpacked installs) and the optional `details` and `detailsFr` fields (the card details file, and
+// its French version) are read when they are well formed and ignored otherwise. The optional `release` field (the remote release pointer,
 // SETTINGS.md) is kept as written: the vendored remote-release module judges it where it is used, and a
 // malformed one never makes the file unusable.
 
@@ -45,6 +45,8 @@ export interface Settings {
   fallbacks: ImageSource[];
   update: UpdateNotice | null;
   details: DetailsSource | null;
+  /** The French card details file (`detailsFr`), for browsers whose language is French. */
+  detailsFr: DetailsSource | null;
   /** The `release` field as written (null when absent); see the vendored remote-release module. */
   release?: unknown;
 }
@@ -119,18 +121,18 @@ function updateField(value: unknown, problems: string[]): UpdateNotice | null {
 const DETAILS_PATH = /^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.json$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
-function detailsField(value: unknown, problems: string[]): DetailsSource | null {
+function detailsField(value: unknown, problems: string[], key = "details"): DetailsSource | null {
   if (value === undefined || value === null) return null;
   if (!isObject(value) || typeof value.path !== "string" || typeof value.sha256 !== "string") {
-    problems.push("details: ignored (not { path, sha256 })");
+    problems.push(`${key}: ignored (not { path, sha256 })`);
     return null;
   }
   if (value.path.length > 200 || !DETAILS_PATH.test(value.path) || value.path.split("/").some((part) => part === "." || part === "..")) {
-    problems.push("details: ignored (path is not a clean relative path to a .json file)");
+    problems.push(`${key}: ignored (path is not a clean relative path to a .json file)`);
     return null;
   }
   if (!SHA256.test(value.sha256)) {
-    problems.push("details: ignored (sha256 is not 64 lowercase hex digits)");
+    problems.push(`${key}: ignored (sha256 is not 64 lowercase hex digits)`);
     return null;
   }
   return { path: value.path, sha256: value.sha256 };
@@ -189,6 +191,7 @@ export function validateSettings(raw: unknown, allowedHosts: readonly string[] =
       fallbacks: kept,
       update: updateField(raw.update, problems),
       details: detailsField(raw.details, problems),
+      detailsFr: detailsField(raw.detailsFr, problems, "detailsFr"),
       release: raw.release === undefined ? null : raw.release,
     },
     problems,

@@ -31,7 +31,9 @@ describe("validateSettings", () => {
   it.runIf(IS_DUELSIGHT)("accepts DuelSight's bundled default as it ships", () => {
     const { settings, problems } = validateWithHosts(DEFAULT_CONFIG);
     expect(problems).toEqual([]);
-    const { release, ...rest } = settings!;
+    const { release, detailsFr, ...rest } = settings!;
+    // The French details file, once published, is named the same way (details-fr-<sha8>.json).
+    if (detailsFr !== null) expect(detailsFr).toEqual({ path: expect.stringMatching(/^data\/details-fr-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) });
     expect(rest).toEqual({
       schemaVersion: 1,
       updatedAt: "2026-10-18T00:00:00Z",
@@ -205,6 +207,25 @@ describe("validateSettings", () => {
       expect(settings).not.toBeNull();
       expect(settings?.details).toBeNull();
       expect(problems.some((p) => p.startsWith("details: ignored"))).toBe(true);
+    });
+  });
+  describe("the optional detailsFr field (the French card details file)", () => {
+    const sha = "fedcba9876543210".repeat(4);
+    it("is absent (null) in a file that does not have it", () => {
+      expect(validateSettings(base()).settings?.detailsFr).toBeNull();
+    });
+
+    it("reads a path on the settings host and the file's SHA-256, like details", () => {
+      const { settings, problems } = validateSettings({ ...base(), detailsFr: { path: "data/details-fr-01234567.json", sha256: sha } });
+      expect(problems).toEqual([]);
+      expect(settings?.detailsFr).toEqual({ path: "data/details-fr-01234567.json", sha256: sha });
+    });
+
+    it("ignores a malformed one without refusing the file, and names it in the problem", () => {
+      const { settings, problems } = validateSettings({ ...base(), detailsFr: { path: "../x.json", sha256: sha } });
+      expect(settings).not.toBeNull();
+      expect(settings?.detailsFr).toBeNull();
+      expect(problems.some((p) => p.startsWith("detailsFr: ignored"))).toBe(true);
     });
   });
 });

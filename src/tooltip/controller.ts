@@ -20,7 +20,7 @@ import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain
 import type { Settings } from "../settings/schema.js";
 import { allowedParentOrigin, parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
 import type { CardFacts, CardTable } from "./card-data.js";
-import { type DetailsTable, detailLines, detailsFor } from "../details/details.js";
+import { type DetailsTable, detailLines, detailsFor, localName } from "../details/details.js";
 import { arrange } from "../shared/panel-layout.js";
 
 /** Pictures kept for cards shown in this page, oldest dropped first. */
@@ -58,6 +58,8 @@ export interface TooltipElements {
 export interface PanelElements {
   root: HTMLElement;
   name: HTMLElement;
+  /** The catalog's English name, under a name in another language (empty otherwise). */
+  alt: HTMLElement;
   type: HTMLElement;
   stats: HTMLElement;
   power: HTMLElement;
@@ -314,12 +316,16 @@ export class TooltipController {
     const details = this.detailsOn && this.deps.measurePanel ? detailsFor(this.details, card.id) : null;
     p.root.hidden = true;
     if (!details) {
-      for (const el of [p.name, p.type, p.stats, p.power, p.text]) el.textContent = "";
+      for (const el of [p.name, p.alt, p.type, p.stats, p.power, p.text]) el.textContent = "";
       return null;
     }
-    const lines = detailLines(details);
+    const lang = this.details?.lang ?? null;
+    const lines = detailLines(details, lang);
+    const local = localName(this.details, card.id);
     // Text only: nothing in a card's details is ever read as markup.
-    p.name.textContent = card.name;
+    p.root.lang = lang ?? "en";
+    p.name.textContent = local ?? card.name;
+    p.alt.textContent = local !== null && local !== card.name ? card.name : "";
     p.type.textContent = lines.type;
     p.stats.textContent = lines.stats ?? "";
     p.power.textContent = lines.power ?? "";

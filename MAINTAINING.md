@@ -35,10 +35,21 @@ with `cardvision refresh` for the checks and `cardvision cdn` for the host ([cdn
    --catalog <release folder>/catalog.json --out <folder>`. It prints the file's versioned name and
    the `details` entry for `cdn/config.json` (step 6 writes both entries with `--set-pointer`). Card
    text is the rights holder's: the file is never committed or packaged.
+   Then the French file from it: fetch Yugipedia's French texts when the last fetch is 30 days
+   old or more (`node scripts/yugipedia-fetch.mjs --lang fr --out <folder>`; it refuses sooner and
+   stops at any error or block, never retrying around one), take YGOPRODeck's French list
+   (`cardinfo.php?language=fr`), and run `node scripts/localized-details.mjs --lang fr --details
+   <the new details file> --yugipedia <folder> --ygoprodeck <list> --catalog <release
+   folder>/catalog.json --out <folder>`. It prints how many cards have French text from each
+   source and the `detailsFr` entry. New cards without an official French text yet show English
+   until a later refresh. Read a few new cards' French against Konami's French database before
+   publishing.
 6. **Publish.** The new art (`cardvision cdn publish --catalog … --images …`), then the release:
    `cardvision cdn publish-release --release <folder> --min-version 0.3.0 --data-file <file> --config
    cdn/config.json --set-pointer` (try it with `--dry-run` before). It uploads the release folder, verifies it
-   live, publishes the details file, and moves the pointer in `config.json` last. Commit the changed
+   live, publishes the details file, and moves the pointer in `config.json` last. Publish the
+   French file with `cardvision cdn publish --data-file <file> --config cdn/config.json` after
+   setting its `detailsFr` entry. Commit the changed
    `cdn/config.json` (as a pull request: `main` is protected). Publishing needs the CDN account's
    token: it is the owner's step, or the
    maintainer's under a standing permission the owner gave for updates that add cards and nothing else, which

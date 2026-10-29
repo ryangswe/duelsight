@@ -25,7 +25,8 @@ file that `cardvision cdn` accepts can still have parts the extension drops.
   "namesOnly": false,
   "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
   "fallbacks": [],
-  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" }
+  "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" },
+  "detailsFr": { "path": "data/details-fr-be968315.json", "sha256": "be968315…(64 hex digits)" }
 }
 ```
 
@@ -37,6 +38,7 @@ file that `cardvision cdn` accepts can still have parts the extension drops.
 | `primary` | source object or `null` | Our own CDN. **Required** (`null` is a value). `null` skips it (e.g. after a complaint), leaving the fallbacks. |
 | `fallbacks` | array of source objects | Tried in order after `primary` fails or is `null`. May be empty. |
 | `details` | object, optional | The card details file for the tooltip's details panel (see "The card details file"). `{ "path": "data/details-<sha8>.json", "sha256": "<64 hex digits>" }`: `path` is relative to this file's address (so on the same host), a clean relative path to a `.json` file (no leading `/`, no `.` or `..` segment); `sha256` is the file's SHA-256 in lowercase hex. Absent or `null`: no details panel, pictures alone, and a copy the extension kept is deleted. Malformed: ignored, the rest of the file still used. It does not bump `schemaVersion`; an older extension ignores it. |
+| `detailsFr` | object, optional | The French card details file (see "The French card details file"), for browsers whose top preferred language is French. The same shape and rules as `details`. Used only while `details` is named too; absent, `null` or malformed: every browser gets the English file. An older extension ignores it. It does not bump `schemaVersion`. |
 | `release` | object, optional | The card-recognition release installs run instead of their bundled one; see "The release pointer". Absent, `null` or malformed: the bundled release (a malformed one never makes the file unusable). It does not bump `schemaVersion`; an older extension ignores it. |
 | `update` | object, optional | For installs that never update by themselves (an unpacked folder from a release zip). `{ "latest": "x.y.z", "url": "https://…" }`: when the running extension's version is lower than `latest`, the popup shows one dismissible "New version available" line linking to `url`. Dismissed per version; a later `latest` shows it again. `latest` must be three dot-separated integers, and `url` must be the project's releases page or an address below it (`https://github.com/ryangswe/duelsight/releases`, `…/releases/…`). Absent, `null` or malformed: the field is ignored and the rest of the file is still used. It does not bump `schemaVersion`. |
 
@@ -290,6 +292,31 @@ holder's, like the art: the file is never committed or put in the extension's pa
   list, the tooltip shows the picture alone.
 - **Switching it off:** remove `details` (or set it to `null`) and publish `config.json`.
   Installed extensions stop showing details and delete their copy within about an hour.
+
+## The French card details file
+
+The same rows as the card details file, with each card's name, type line, attribute and text in
+French where an official French text exists, and English where not (`lang` and `names` fields;
+the format is in `src/details/details.ts`). Browsers whose top preferred language is French
+(`fr`, `fr-CA`, ...) load it in place of the English file; the tooltip then shows the French name
+with the English name under it.
+
+- **Its sources:** Yugipedia's French names and texts (official printed texts; CC BY-SA 4.0, so
+  the file carries an `attribution` and is offered under that license), else YGOPRODeck's French
+  when it has no English in it, else English. Type lines and attributes use Konami's French terms
+  (`scripts/localized-terms.mjs`). Never a fan translation: a card with no official French stays
+  English.
+- **Made by:** `node scripts/yugipedia-fetch.mjs --lang fr --out <folder>` (at most once every 30
+  days into the same folder, as Yugipedia asks: about 35 requests, 3 seconds apart, through its
+  API), then `node scripts/localized-details.mjs --lang fr --details <the English details file>
+  --yugipedia <that folder> --ygoprodeck <cardinfo JSON with language=fr> --catalog <the release's
+  catalog.json> --out <folder outside the repository>`. It writes `data/details-fr-<sha8>.json`
+  and prints the `detailsFr` entry.
+- **Key, serving and writing:** as the card details file (`dataFiles.detailsFr` in
+  `cdn.config.json`): `cardvision cdn publish --data-file <file> --config <file>` uploads it
+  before `config.json`.
+- **Switching it off:** remove `detailsFr` and publish `config.json`: French browsers get the
+  English file within about an hour.
 
 ## Images on our CDN
 

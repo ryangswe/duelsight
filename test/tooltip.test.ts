@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Settings } from "../src/settings/schema.js";
 import { artSize, connectTooltipFrame, FACTS_LIMIT, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
 import { parseDetailsFile } from "../src/details/details.js";
-import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
+import { DETAILS_FIXTURE, DETAILS_FR_FIXTURE } from "./helpers/details-fixture.js";
 import { parseCardFacts, tag, type TooltipSize } from "../src/shared/messages.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 import { startComputeFrame } from "../src/compute/frame.js";
@@ -24,6 +24,7 @@ const defaultSettings = (): Settings => ({
   fallbacks: [],
   update: null,
   details: null,
+  detailsFr: null,
 });
 
 const table = {
@@ -59,7 +60,7 @@ function build(extra: Partial<TooltipDeps> = {}): TooltipController {
     img: $("img") as HTMLImageElement,
     placeholder: $("placeholder"),
     pill: $("pill"),
-    panel: { root: $("panel"), name: $("panel-name"), type: $("panel-type"), stats: $("panel-stats"), power: $("panel-power"), text: $("panel-text") },
+    panel: { root: $("panel"), name: $("panel-name"), alt: $("panel-alt"), type: $("panel-type"), stats: $("panel-stats"), power: $("panel-power"), text: $("panel-text") },
   };
   refreshes = 0;
   loads = [];
@@ -342,6 +343,31 @@ describe("the details panel", () => {
     controller.layout();
     expect([elements.art.style.width, elements.art.style.height]).toEqual(["300px", "437px"]);
     expect([elements.panel.root.style.top, elements.panel.root.style.height]).toEqual(["437px", "283px"]);
+  });
+
+  it("shows a French file's name with the English name under it, and words the stats in French", async () => {
+    controller = withPanel();
+    controller.setDetails(parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE))));
+    controller.show("10000001");
+    await tick();
+    const p = elements.panel;
+    expect(p.name.textContent).toBe("Robot de Test");
+    expect(p.alt.textContent).toBe("Test Robot");
+    expect(p.root.lang).toBe("fr");
+    expect(p.type.textContent).toBe("Robot / Effet");
+    expect(p.stats.textContent).toBe("LUMIÈRE · Niveau 4");
+    expect(p.text.textContent).toBe("Quand cette carte de test est invoquée, rien ne se passe.");
+  });
+
+  it("keeps the English name alone, with no second line, for a card the French file has no name for", async () => {
+    controller = withPanel();
+    controller.setDetails(parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE))));
+    controller.setDetails(DETAILS);
+    controller.show("10000001");
+    await tick();
+    expect(elements.panel.name.textContent).toBe("Test Robot");
+    expect(elements.panel.alt.textContent).toBe("");
+    expect(elements.panel.root.lang).toBe("en");
   });
 
   it("sets the card's text as text only, never as markup", async () => {

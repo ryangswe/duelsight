@@ -5,9 +5,10 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { DETAILS_CACHE, forgetDetails, loadDetails } from "../src/details/cache.js";
-import { detailLines, detailsFor, parseDetailsFile } from "../src/details/details.js";
+import { detailLines, detailsFor, localName, parseDetailsFile } from "../src/details/details.js";
+import { browserLanguage, chooseDetails } from "../src/details/language.js";
 import { readDetailsOn } from "../src/shared/details-pref.js";
-import { DETAILS_FIXTURE } from "./helpers/details-fixture.js";
+import { DETAILS_FIXTURE, DETAILS_FR_FIXTURE } from "./helpers/details-fixture.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const table = parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FIXTURE)))!;
@@ -161,5 +162,65 @@ describe("loadDetails", () => {
     await loadDetails(URL1, digest, { caches, ...fetcher({ [URL1]: () => new Response(body) }), sha256 });
     await forgetDetails(caches);
     expect(caches.stores.has(DETAILS_CACHE)).toBe(false);
+  });
+});
+
+describe("a localized (French) details file", () => {
+  const fr = parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE)))!;
+
+  it("is read with its language and its names; the English file has neither", () => {
+    expect(fr.lang).toBe("fr");
+    expect(localName(fr, "10000001")).toBe("Robot de Test");
+    expect(localName(fr, "10000002")).toBeNull();
+    expect(table.lang).toBeNull();
+    expect(localName(table, "10000001")).toBeNull();
+    expect(localName(null, "10000001")).toBeNull();
+  });
+
+  it("ignores names without a language, a bad language, and a name that is not short text", () => {
+    const noLang = parseDetailsFile({ schemaVersion: 1, names: { "1": "Nom" }, cards: {} })!;
+    expect([noLang.lang, localName(noLang, "1")]).toEqual([null, null]);
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "French", cards: {} })!.lang).toBeNull();
+    expect(parseDetailsFile({ schemaVersion: 1, lang: "en", names: { "1": "Name" }, cards: {} })!.names).toBeNull();
+    const odd = parseDetailsFile({ schemaVersion: 1, lang: "fr", names: { "1": 7, "2": "", "3": "x".repeat(121) }, cards: {} })!;
+    expect(["1", "2", "3"].map((id) => localName(odd, id))).toEqual([null, null, null]);
+  });
+
+  it("words the stats line in French: Niveau, Rang, Lien and Échelle Pendule", () => {
+    expect(detailLines(detailsFor(fr, "10000001")!, "fr")).toEqual({
+      type: "Robot / Effet",
+      stats: "LUMIÈRE · Niveau 4",
+      power: "ATK 1800 / DEF 1000",
+      text: "Quand cette carte de test est invoquée, rien ne se passe.",
+    });
+    expect(detailLines(detailsFor(fr, "10000002")!, "fr").stats).toBe("TÉNÈBRES · Rang 3");
+    expect(detailLines(detailsFor(fr, "10000003")!, "fr").stats).toBe("VENT · Lien 2");
+    expect(detailLines(detailsFor(fr, "10000004")!, "fr").stats).toBe("TERRE · Niveau 5 · Échelle Pendule 7");
+    // A language without words of its own is worded in English.
+    expect(detailLines(detailsFor(fr, "10000004")!, "xx").stats).toBe("TERRE · Level 5 · Scale 7");
+  });
+});
+
+describe("the browser's language picks the details file", () => {
+  const en = { path: "data/details-01234567.json", sha256: "a".repeat(64) };
+  const french = { path: "data/details-fr-89abcdef.json", sha256: "b".repeat(64) };
+
+  it("is the first preferred language's base subtag", () => {
+    expect(browserLanguage(["fr-CA", "en-US"])).toBe("fr");
+    expect(browserLanguage(["FR"])).toBe("fr");
+    expect(browserLanguage(["en-US", "fr-FR"])).toBe("en");
+    expect(browserLanguage(["", "de-DE"])).toBe("de");
+    expect(browserLanguage([])).toBe("");
+  });
+
+  it("is the French file for a French browser when the settings name one, else the English file", () => {
+    expect(chooseDetails({ details: en, detailsFr: french }, ["fr-BE"])).toEqual({ source: french, lang: "fr" });
+    expect(chooseDetails({ details: en, detailsFr: null }, ["fr-BE"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, detailsFr: french }, ["en-GB", "fr"])).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, detailsFr: french }, ["de-DE"])).toEqual({ source: en, lang: "en" });
+  });
+
+  it("is none when the English file is not named: the maintainer has taken the details down", () => {
+    expect(chooseDetails({ details: null, detailsFr: french }, ["fr"])).toBeNull();
   });
 });
