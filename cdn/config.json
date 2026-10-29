@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-18T00:00:00Z",
+  "updatedAt": "2026-10-29T00:00:00Z",
   "namesOnly": false,
   "primary": {
     "id": "cdn",
@@ -10,6 +10,26 @@
   "details": {
     "path": "data/details-4ab2f978.json",
     "sha256": "4ab2f978549f10f6612869e9cd50be63abea61148111a7812ee1f47aee076030"
+  },
+  "detailsFr": {
+    "path": "data/details-fr-9c0d5bb2.json",
+    "sha256": "9c0d5bb25bb26105280e78e7d493f05d71fb5043f63914aa2ead8da37ac1e4f9"
+  },
+  "detailsDe": {
+    "path": "data/details-de-61578bb6.json",
+    "sha256": "61578bb69f9a0bbf568a8420c219f23bbd797be3913063ac706bc81ca7d92f69"
+  },
+  "detailsIt": {
+    "path": "data/details-it-c753b864.json",
+    "sha256": "c753b864de415c55652a4327597dca64c36069712e47e2442f83c894762013d5"
+  },
+  "detailsEs": {
+    "path": "data/details-es-0428f284.json",
+    "sha256": "0428f28492f7d3d2f13e4844297d66022877c7c4c498390ae86e4a803467abff"
+  },
+  "detailsPt": {
+    "path": "data/details-pt-02a3fe19.json",
+    "sha256": "02a3fe19643d82a7642cfcc4d7cef5e4b64eb46174645bdc93040f323730c64b"
   },
   "release": null
 }
