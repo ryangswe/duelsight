@@ -6,6 +6,9 @@
 A Chrome extension for watching Yu-Gi-Oh! videos and streams. Hover a card in a YouTube or
 Twitch video and a larger picture of it appears, with its name, type, stats and text.
 
+The card details follow your browser's language: French, German, Italian, Spanish or Portuguese,
+with the official card text where one exists. The rest of DuelSight is in English.
+
 **DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.**
 Yu-Gi-Oh!, its card names and its card art belong to their owners. Card text and images are
 copyright 4K Media Inc., a subsidiary of Konami Digital Entertainment. Card data from
