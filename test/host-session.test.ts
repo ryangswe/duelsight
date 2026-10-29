@@ -537,6 +537,39 @@ describe("HostSession on a paused video when the first analysis is slow", () => 
     expect(shown).toBe(true);
   });
 
+  it("looks again when the pointer leaves after failed captures and comes back", () => {
+    ready();
+    session.fromContent({ kind: "presented", mediaTime: 3 });
+    // Every capture fails for want of a picture until the still picture's looks are used up.
+    let failed = 0;
+    for (let i = 0; i < 40; i += 1) {
+      wiggle(i);
+      const capture = captures().at(-1);
+      if (capture && capture.requestId > failed) {
+        session.fromContent({ kind: "capture-failed", requestId: capture.requestId, reason: "no picture", retry: true });
+        failed = capture.requestId;
+      }
+      clock += 250;
+    }
+    expect(failed).toBeGreaterThan(0);
+    session.fromContent({ kind: "leave" });
+    clock += 3_000;
+    session.tick();
+    const lastFailed = failed;
+    let shown = false;
+    for (let i = 0; i < 12 && !shown; i += 1) {
+      wiggle(i);
+      const capture = captures().at(-1);
+      if (capture && capture.requestId > lastFailed) {
+        const sent = handOver();
+        if (sent) session.fromWorker(reply(sent));
+      }
+      shown = lastShown()?.cardId === "89631139";
+      clock += 250;
+    }
+    expect(shown).toBe(true);
+  });
+
   it("stops looking once the pointer has rested past the grace period, and starts again when it moves", () => {
     ready();
     session.fromContent({ kind: "presented", mediaTime: 3 });
