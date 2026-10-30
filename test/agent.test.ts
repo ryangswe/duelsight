@@ -373,6 +373,15 @@ describe("Agent", () => {
     expect(sent.filter((m) => m.kind === "pointer").at(-1)).toMatchObject({ kind: "pointer", x: 140 / 960, y: 120 / 540, touch: false });
   });
 
+  it("says hello to the compute frame once it has loaded, not while it is still blank", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    const sent = spyOn(compute());
+    expect(sent.filter((m) => m.kind === "hello")).toEqual([]);
+    compute()!.dispatchEvent(new Event("load"));
+    expect(sent.filter((m) => m.kind === "hello")).toEqual([expect.objectContaining({ duelsight: 1, kind: "hello", version: 1 })]);
+  });
+
   it("tells the compute frame of a new source when the main video changes", async () => {
     agent = await startAgent();
     move(100, 100);

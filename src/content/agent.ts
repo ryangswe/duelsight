@@ -259,10 +259,14 @@ export class Agent {
       // not rendered. No referrer policy: the frame reads the page's origin from its ancestors.
       frame.style.cssText = `${FRAME_STYLE}width:1px;height:1px;left:-10px;top:-10px;opacity:0;pointer-events:none;`;
       frame.src = chrome.runtime.getURL("compute.html");
+      // Hello once the frame holds the extension's page (it also says ready on its own once it
+      // can listen). Not before: until then its window is the blank page's, of the page's own
+      // origin, and the browser would log every hello as an origin mismatch in the page's console.
+      frame.addEventListener("load", () => {
+        if (this.compute === frame) this.control.connect();
+      });
       document.documentElement.appendChild(frame);
       this.compute = frame;
-      // Hello until the new frame says ready (it also says so on its own once it can listen).
-      this.control.connect();
     }
     if (!this.tooltip) this.createTooltip();
   }
