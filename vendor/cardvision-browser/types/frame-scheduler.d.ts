@@ -16,6 +16,9 @@ export declare const STALE_FRAME_MS = 400;
  *  above the time an analysis takes on a slow device, so ordinary delay never hides a tooltip.
  *  A release document states its own value (`hover.maxAgeMs`). */
 export declare const HOVER_MAX_AGE_MS = 2000;
+/** Whether a result whose frame was taken at `resultSec` may still be shown against a picture
+ *  at `nowSec`: their distance in video time is at most `maxAgeMs`. */
+export declare function withinMaxAge(resultSec: number, nowSec: number, maxAgeMs: number): boolean;
 /** The least time between two analyses asked for by the staleness rule. */
 export declare const HOVER_TRIGGER_MIN_GAP_MS = 250;
 /** An analysis with no reply after this long is given up on, so that the next frame can go. */
@@ -87,6 +90,12 @@ export declare class FrameScheduler {
     private unanswered;
     /** When the picture counts as newly presented again after an unanswered look; null if not. */
     private retryAt;
+    /** The waiting retry is due whatever the cadence once its back-off runs out (a failed capture). */
+    private retryPrompt;
+    /** The newest unanswered look was a failed capture: a picture received starts the back-off over. */
+    private lastUnansweredCapture;
+    /** A look's capture was refused since the picture was last answered, received or replaced. */
+    private refused;
     /**
      * @param intervalMs The cadence of the mode: the fast cadence in pointer mode, the slow one
      *   in always-on mode (cadence.ts `cadenceMs`).
@@ -116,17 +125,43 @@ export declare class FrameScheduler {
      * counts as newly presented again after a back-off, so that a paused video is looked at again
      * (with its repeats). This is not `requestLook`, which would also make the picture stale and
      * let every pointer move look again at once, past the back-off.
+     *
+     * With `prompt` (a capture that failed for want of a picture: it may come any moment), the
+     * retry is due as soon as the back-off runs out, whatever the cadence, as a `requestLook` is;
+     * it still marks nothing stale, so a pointer move cannot skip the back-off. Otherwise (the
+     * worker busy, or no reply) the retry also waits for the cadence.
      */
-    lookUnanswered(now: number): void;
+    lookUnanswered(now: number, opts?: {
+        prompt?: boolean;
+    }): void;
     /** A look came back analyzed: no retry is waiting, and the back-off starts over (as after
      *  `discontinuity`). */
     lookAnswered(): void;
+    /**
+     * A look's capture was refused for a reason other than the picture (the page's privacy gate:
+     * the pointer was outside; a video that may not be read). Nothing is retried for it and the
+     * back-off does not grow, but the look used up the picture: the next pointer move over the
+     * picture makes it due again (`pointerMoved`), at most once per cadence. A pointer that does
+     * not move asks for nothing. An analyzed look, a picture received or a new picture forget it.
+     */
+    lookRefused(): void;
+    /** A picture was captured for the look in flight. When the newest unanswered look was a failed
+     *  capture, the picture can be had now: no retry is waiting and the back-off starts over, so if
+     *  the worker then answers it busy, the retry comes after the first back-off, not after a grown
+     *  one. Otherwise (the worker busy, or no reply) nothing changes: a worker that stays busy is
+     *  backed off from more and more, whatever pictures reach it. */
+    pictureReceived(): void;
     /** Has the back-off of an unanswered look run out? */
     private retryReady;
     /** Is a look asked for by `requestLook` still waiting to start? */
     get lookPending(): boolean;
     /** The pointer moved over the picture, or was pressed on it. Call it for real movement only:
-     *  a pointer resting on the picture is not activity. */
+     *  a pointer resting on the picture is not activity.
+     *
+     *  When a look went unanswered and its retry was used up without an answer, or a look's
+     *  capture was refused (say while the pointer was outside), the picture is due again now, at
+     *  the cadence: a paused picture would otherwise never be looked at again. A retry still
+     *  waiting keeps its back-off: a pointer move never shortens it. */
     pointerMoved(now: number): void;
     /** The pointer left the picture. The grace period starts now, and with the pointer outside
      *  there is no "reading" state after it. */

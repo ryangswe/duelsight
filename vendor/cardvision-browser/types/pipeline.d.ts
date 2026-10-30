@@ -4,7 +4,8 @@ import type { BatchEmbedder } from "./embedder.js";
 import type { GeometricEvidence } from "./geometric/fusion.js";
 import type { GeometricStage } from "./geometric/stage.js";
 import type { LayerCard, StageSize } from "./hover-geometry.js";
-import { type HoverOutcome, type HoverSelection } from "./hover-layer.js";
+import { type HoverSelection } from "./hover-layer.js";
+export { hoverAt, hoverCardsOf } from "./hover-at.js";
 import { type IdentityDisplay, type IdentityGroups } from "./identity.js";
 import { type Orientation } from "./recognition.js";
 import { type AcceptRule } from "./recognizer.js";
@@ -154,16 +155,3 @@ export declare class Pipeline {
     analyze(frame: Frame, videoTimeSec?: number): Promise<FrameAnalysis>;
     private boxResults;
 }
-/**
- * The hover layer of an analyzed frame under any of the three selections, rebuilt from the
- * frame's boxes. Under the selection the frame was analyzed with, it stacks exactly as
- * `analysis.hover.cards` does; the cards' ids are positions in the stack, not the stable ids
- * of `analysis.hover.cards`.
- */
-export declare function hoverCardsOf(analysis: FrameAnalysis, selection?: HoverSelection): LayerCard[];
-/**
- * What a pointer at `(x, y)`, in pixels of the analyzed frame, would show for an analyzed
- * frame: the card it is on, and that card's id and name if its look was accepted. `selection`
- * defaults to the one the frame was analyzed with.
- */
-export declare function hoverAt(analysis: FrameAnalysis, x: number, y: number, selection?: HoverSelection): HoverOutcome;

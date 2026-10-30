@@ -14,6 +14,17 @@ export declare function analysisSize(sourceWidth: number, sourceHeight: number, 
     width: number;
     height: number;
 };
+/** A point (viewport coordinates) in fractions of a box, such as the picture's box from
+ *  `pictureBox`; null when it is outside the box, or the box is empty. The edges count as inside. */
+export declare function fractionIn(box: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}, clientX: number, clientY: number): {
+    x: number;
+    y: number;
+} | null;
 /** An element a session can read frames from. */
 export type FrameSource = HTMLVideoElement | HTMLImageElement;
 /** The picture's own size, in pixels (0 x 0 until the element has one). */
@@ -124,3 +135,18 @@ export interface SignatureSampler {
  * shown and `dispose` it with the session: a page may hold only a few live WebGL contexts.
  */
 export declare function createSignatureSampler(): SignatureSampler | null;
+/** A rectangle in CSS pixels of the viewport, like `getBoundingClientRect`. */
+export interface ClientBox {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+/**
+ * Where the picture sits inside an element's box, for the element's `object-fit`. A video is
+ * fitted inside its box by default, leaving bars; an image fills its box by default.
+ */
+export declare function pictureBox(element: ClientBox, picture: {
+    width: number;
+    height: number;
+}, fit: string): ClientBox;
