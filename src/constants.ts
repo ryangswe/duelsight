@@ -54,10 +54,3 @@ export const MIN_VIDEO_WIDTH = 320;
 export const RELEASE_PATH = "release/release.json";
 /** The vendored runtime's worker inside the built extension; ONNX Runtime's files sit beside it. */
 export const WORKER_PATH = "runtime/worker.js";
-
-/** The runtime's pointer grace period (frame-scheduler.ts `POINTER_GRACE_MS`): analysis runs
- *  this long after the last pointer activity. Mirrored here for the content script's capture
- *  gate, which does not load the runtime. */
-export const POINTER_GRACE_MS = 10_000;
-/** The runtime's "reading" linger (frame-scheduler.ts `READING_LINGER_MS`), mirrored likewise. */
-export const READING_LINGER_MS = 5_000;

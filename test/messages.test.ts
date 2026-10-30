@@ -1,51 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { allowedParentOrigin, MAX_FRAME_SIDE, parseComputeIn, parseFactsRequest, parseComputeOut, parseTooltipIn, parseTooltipOut, tag } from "../src/shared/messages.js";
+import { allowedParentOrigin, parseFactsRequest, parseTooltipIn, parseTooltipOut, tag, TAG } from "../src/shared/messages.js";
+import { computeProtocol } from "../vendor/cardvision-browser/page-capture.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
 const BOTH_SITES = { youtube: true, twitch: true };
 
 describe("message checks", () => {
-  it("round-trips every compute message the content script sends (bitmap aside)", () => {
-    for (const m of [
-      { kind: "pointer", x: 0.1, y: 1, mediaTime: 3.2, touch: false },
-      { kind: "leave" },
-      { kind: "presented", mediaTime: 0 },
-      { kind: "discontinuity", newSource: true },
-      { kind: "capture-failed", requestId: 3, reason: "no picture", retry: true },
-      { kind: "capture-failed", requestId: 3, reason: "no pointer over the player", retry: false },
-    ] as const) {
-      expect(parseComputeIn(tag(m))).toEqual(m);
-    }
-  });
-
-  it("refuses untagged, malformed or out-of-range messages", () => {
-    expect(parseComputeIn({ kind: "leave" })).toBeNull();
-    expect(parseComputeIn(tag({ kind: "pointer", x: 1.2, y: 0, mediaTime: 0, touch: false }))).toBeNull();
-    expect(parseComputeIn(tag({ kind: "pointer", x: 0.5, y: 0.5, mediaTime: Number.NaN, touch: false }))).toBeNull();
-    expect(parseComputeIn(tag({ kind: "frame", requestId: 1, bitmap: {}, mediaTime: 0 }))).toBeNull();
-    expect(parseComputeIn(tag({ kind: "capture-failed", requestId: 0, reason: "x" }))).toBeNull();
-    expect(parseComputeIn(tag({ kind: "eval" }))).toBeNull();
-    expect(parseComputeIn("leave")).toBeNull();
-  });
-
-  it("checks the compute frame's replies", () => {
-    const shown = { kind: "shown", card: { cardId: "89631139", name: "Dark Magician", box: { x: 0.1, y: 0.2, width: 0.2, height: 0.3 } } };
-    expect(parseComputeOut(tag(shown))).toEqual({ kind: "shown", card: { ...shown.card, others: [] } });
-    const withOthers = { kind: "shown", card: { ...shown.card, others: [{ x: 0.5, y: 0.5, width: 0.1, height: 0.1 }, { x: 0, y: 0, width: 0, height: 1 }] } };
-    expect(parseComputeOut(tag(withOthers))).toEqual({ kind: "shown", card: { ...shown.card, others: [{ x: 0.5, y: 0.5, width: 0.1, height: 0.1 }] } });
-    expect(parseComputeOut(tag({ kind: "shown", card: null }))).toEqual({ kind: "shown", card: null });
-    expect(parseComputeOut(tag({ kind: "shown", card: { cardId: "", name: "x", box: shown.card.box } }))).toBeNull();
-    expect(parseComputeOut(tag({ kind: "shown", card: { ...shown.card, box: { x: 0, y: 0, width: 0, height: 1 } } }))).toBeNull();
-    expect(parseComputeOut(tag({ kind: "capture", requestId: 2, analysisWidth: { min: 720, max: 1920 } }))).toEqual({
-      kind: "capture",
-      requestId: 2,
-      analysisWidth: { min: 720, max: 1920 },
-    });
-    expect(parseComputeOut(tag({ kind: "capture", requestId: 2, analysisWidth: { min: 900, max: 720 } }))).toBeNull();
-    expect(parseComputeOut(tag({ kind: "status", state: "failed", error: "x", backend: null }))).toEqual({ kind: "status", state: "failed", error: "x", backend: null });
-    expect(parseComputeOut(tag({ kind: "status", state: "weird", error: null, backend: null }))).toBeNull();
+  it("tags messages as the toolkit's contract does under DuelSight's tag", () => {
+    const protocol = computeProtocol(TAG);
+    const shown = { kind: "shown" as const, card: null };
+    expect(protocol.tag(shown)).toEqual(tag(shown));
+    expect(protocol.parseComputeOut(tag(shown))).toEqual(shown);
+    expect(protocol.parseComputeIn(tag({ kind: "leave" }))).toEqual({ kind: "leave" });
+    expect(computeProtocol("cardvision").parseComputeIn(tag({ kind: "leave" }))).toBeNull();
   });
 
   it("checks the tooltip messages", () => {
@@ -91,27 +60,6 @@ describe("message checks", () => {
     expect(allowedParentOrigin("https://www.twitch.tv", false, { youtube: true, twitch: false })).toBe(false);
     expect(allowedParentOrigin("https://www.youtube.com", false, { youtube: false, twitch: true })).toBe(false);
     expect(allowedParentOrigin("https://www.twitch.tv", false, { youtube: false, twitch: true })).toBe(true);
-  });
-});
-
-describe("frame size cap", () => {
-  class FakeBitmap {
-    constructor(
-      readonly width: number,
-      readonly height: number,
-    ) {}
-    close() {}
-  }
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("takes a picture up to the cap, and refuses a larger or empty one", () => {
-    vi.stubGlobal("ImageBitmap", FakeBitmap);
-    const frame = (w: number, h: number) => parseComputeIn(tag({ kind: "frame", requestId: 1, bitmap: new FakeBitmap(w, h), mediaTime: 0 }));
-    expect(frame(1920, 1080)?.kind).toBe("frame");
-    expect(frame(MAX_FRAME_SIDE, MAX_FRAME_SIDE)?.kind).toBe("frame");
-    expect(frame(MAX_FRAME_SIDE + 1, 100)).toBeNull();
-    expect(frame(100, MAX_FRAME_SIDE + 1)).toBeNull();
-    expect(frame(0, 100)).toBeNull();
   });
 });
 

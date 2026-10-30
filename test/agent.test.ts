@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent, HIDE_DELAY_MS } from "../src/content/agent.js";
 import { tag } from "../src/shared/messages.js";
+import { NOT_POINTING } from "../vendor/cardvision-browser/page-capture.js";
 
 const EXT = "chrome-extension://igfdjmpikcbplijnlpkligaafepgoaaa";
 
@@ -34,8 +35,15 @@ const compute = () => frames().find((f) => f.src.endsWith("/compute.html"));
 const tooltip = () => frames().find((f) => f.src.endsWith("/tooltip.html"));
 const outline = () => document.querySelector<HTMLElement>("[data-duelsight=outline]");
 
+/** Whether the events the tests make count as the browser's own (a page script's are not). */
+let trustedEvents = true;
+function trusted<T extends Event>(event: T, isTrusted = trustedEvents): T {
+  Object.defineProperty(event, "isTrusted", { value: isTrusted });
+  return event;
+}
+
 function move(x: number, y: number): void {
-  document.dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true }));
+  document.dispatchEvent(trusted(new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true })));
 }
 
 /** Each frame's window, as a stand-in: nothing is loaded into the frames here. */
@@ -51,14 +59,23 @@ Object.defineProperty(HTMLIFrameElement.prototype, "contentWindow", {
   },
 });
 
-function message(data: unknown, origin: string, source: unknown): Event {
+function message(data: unknown, origin: string, source: unknown, isTrusted = true): Event {
   const event = new Event("message");
-  Object.defineProperties(event, { data: { value: data }, origin: { value: origin }, source: { value: source } });
+  Object.defineProperties(event, { data: { value: data }, origin: { value: origin }, source: { value: source }, isTrusted: { value: isTrusted } });
   return event;
 }
 
-/** A message from one of the extension's frames, as the browser would deliver it. */
+/** The compute frames that said `ready` (the content script takes nothing else from a frame before). */
+const readied = new WeakSet<HTMLIFrameElement>();
+const INSTANCE = "0123456789abcdef";
+
+/** A message from one of the extension's frames, as the browser would deliver it. A compute frame
+ *  says `ready` first, as the real one does once it can take messages. */
 function fromFrame(frame: HTMLIFrameElement | undefined, data: object): void {
+  if (frame === compute() && !readied.has(frame!) && (data as { kind?: string }).kind !== "ready") {
+    readied.add(frame!);
+    window.dispatchEvent(message(tag({ kind: "ready", version: 1, instance: INSTANCE }), EXT, frame!.contentWindow));
+  }
   window.dispatchEvent(message(tag(data), EXT, frame!.contentWindow));
 }
 
@@ -74,6 +91,7 @@ function spyOn(frame: HTMLIFrameElement | undefined): Array<Record<string, unkno
 }
 
 beforeEach(() => {
+  trustedEvents = true;
   Object.assign(media, { paused: false, readyState: 4, currentTime: 12.5 });
   agent?.stop();
   document.body.innerHTML = "";
@@ -93,8 +111,9 @@ const settle = async () => {
   for (let i = 0; i < 5; i += 1) await Promise.resolve();
 };
 
-async function startAgent(trusted = true): Promise<Agent> {
-  const a = new Agent({ dev: true, isTrusted: () => trusted });
+async function startAgent(isTrusted = true): Promise<Agent> {
+  trustedEvents = isTrusted;
+  const a = new Agent({ dev: true });
   a.start();
   a.setEnabled(true);
   await settle();
@@ -103,6 +122,7 @@ async function startAgent(trusted = true): Promise<Agent> {
 
 describe("Agent", () => {
   it("ignores pointer events a page script made", async () => {
+    trustedEvents = false;
     agent = new Agent({ dev: true });
     agent.start();
     agent.setEnabled(true);
@@ -134,17 +154,17 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     move(100, 600);
     fromFrame(compute(), { kind: "capture", requestId: 7, analysisWidth: { min: 720, max: 1920 } });
-    expect(sent.at(-1)).toMatchObject({ kind: "capture-failed", requestId: 7, reason: "no pointer over the player" });
+    expect(sent.at(-1)).toMatchObject({ kind: "capture-failed", requestId: 7, reason: NOT_POINTING, retry: false });
   });
 
   it("tells the compute frame the pointer left when the tab is hidden", async () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));
     expect(sent.at(-1)).toMatchObject({ kind: "leave" });
@@ -174,7 +194,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(document.querySelector("[data-duelsight=link]")).toBeNull();
@@ -281,7 +301,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     video.dispatchEvent(new Event("timeupdate"));
     Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
     move(120, 100);
@@ -308,7 +328,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     video.dispatchEvent(new Event("timeupdate"));
     video.dispatchEvent(new Event("emptied"));
     Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
@@ -329,7 +349,7 @@ describe("Agent", () => {
       agent = await startAgent();
       move(100, 100);
       const sent = spyOn(compute());
-      fromFrame(compute(), { kind: "ready" });
+      fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
       video.dispatchEvent(new Event("timeupdate"));
       Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
       move(120, 100);
@@ -341,22 +361,52 @@ describe("Agent", () => {
     }
   });
 
-  it("sends the pointer even when the browser holds back animation frames", async () => {
-    vi.useFakeTimers();
+  it("sends each trusted move at once, with no animation frame (browsers deliver moves once a frame)", async () => {
     vi.stubGlobal("requestAnimationFrame", () => 7);
-    vi.stubGlobal("cancelAnimationFrame", () => undefined);
     agent = await startAgent();
     move(100, 100);
-    void compute()!.contentWindow;
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     move(130, 120);
-    expect(sent.filter((m) => m.kind === "pointer")).toEqual([]);
-    vi.advanceTimersByTime(60);
-    expect(sent.filter((m) => m.kind === "pointer")).toHaveLength(1);
-    move(140, 120);
-    vi.advanceTimersByTime(60);
     expect(sent.filter((m) => m.kind === "pointer")).toHaveLength(2);
+    move(140, 120);
+    expect(sent.filter((m) => m.kind === "pointer").at(-1)).toMatchObject({ kind: "pointer", x: 140 / 960, y: 120 / 540, touch: false });
+  });
+
+  it("tells the compute frame of a new source when the main video changes", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    const sent = spyOn(compute());
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    // The page replaces its player (in-app navigation): the next move picks the new video.
+    video.remove();
+    video = makeVideo();
+    sent.length = 0;
+    move(110, 100);
+    // The pointer's authority over the old video ends, the frame hears of another source, and the
+    // move counts on the new video.
+    expect(sent.map((m) => m.kind)).toEqual(["leave", "discontinuity", "pointer"]);
+    expect(sent[1]).toMatchObject({ kind: "discontinuity", newSource: true });
+  });
+
+  it("takes nothing from a message a page script made, even with its frames' source and origin", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    const card = { cardId: "89631139", name: "Dark Magician", box: { x: 0.05, y: 0.1, width: 0.2, height: 0.4 } };
+    // Forged: right source and origin, but not dispatched by the browser.
+    window.dispatchEvent(message(tag({ kind: "shown", card }), EXT, compute()!.contentWindow, false));
+    expect(spyOn(tooltip()).filter((m) => m.kind === "card")).toEqual([]);
+    const sent = spyOn(compute());
+    sent.length = 0;
+    window.dispatchEvent(message(tag({ kind: "capture", requestId: 9, analysisWidth: { min: 720, max: 1920 } }), EXT, compute()!.contentWindow, false));
+    expect(sent).toEqual([]);
+    // A forged size from the tooltip frame is ignored too.
+    fromFrame(compute(), { kind: "shown", card });
+    window.dispatchEvent(message(tag({ kind: "size", width: 320, height: 448, shape: "card", cardId: card.cardId }), EXT, tooltip()!.contentWindow, false));
+    expect(tooltip()!.style.visibility).toBe("hidden");
+    fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: card.cardId });
+    expect(tooltip()!.style.visibility).toBe("visible");
   });
 
   it("ignores messages that do not come from its own frames", async () => {
@@ -387,7 +437,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready" });
+    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
     vi.stubGlobal("location", new URL("http://127.0.0.1:8770/other"));
     window.dispatchEvent(new Event("popstate"));
     fromFrame(compute(), { kind: "capture", requestId: 9, analysisWidth: { min: 720, max: 1920 } });
