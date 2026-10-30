@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 
-import { analysisSize, CARD_PAD, clearlyBetter, fitBesideCard, fitTooltipSize, fractionIn, MIN_ART_WIDTH, pictureRect, tooltipRadius, placeTooltip, placeTooltipAvoiding, scaleTooltipSize, TOOLTIP_GAP, VIEWPORT_MARGIN } from "../src/content/geometry.js";
+import { CARD_PAD, clearlyBetter, fitBesideCard, fitTooltipSize, fractionIn, MIN_ART_WIDTH, pictureRect, tooltipRadius, placeTooltip, placeTooltipAvoiding, scaleTooltipSize, TOOLTIP_GAP, VIEWPORT_MARGIN } from "../src/content/geometry.js";
 import { isActivePage } from "../src/content/site.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
@@ -27,13 +27,6 @@ describe("fractionIn", () => {
     expect(fractionIn(r, 99, 75)).toBeNull();
     expect(fractionIn(r, 150, 151)).toBeNull();
   });
-});
-
-describe("analysisSize", () => {
-  const range = { min: 720, max: 1920 };
-  it("keeps a width inside the range", () => expect(analysisSize(1280, 720, range)).toEqual({ width: 1280, height: 720 }));
-  it("enlarges a narrow picture", () => expect(analysisSize(640, 360, range)).toEqual({ width: 720, height: 405 }));
-  it("reduces a wide one", () => expect(analysisSize(3840, 2160, range)).toEqual({ width: 1920, height: 1080 }));
 });
 
 describe("placeTooltip", () => {

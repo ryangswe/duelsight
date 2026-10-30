@@ -1,10 +1,12 @@
 import { type AABB } from "./boxes.js";
 import { type AnalysisMode } from "./cadence.js";
-import { type FrameSource } from "./capture.js";
+import { type ClientBox, type FrameSource, pictureBox } from "./capture.js";
 import { type AnalysisState } from "./frame-scheduler.js";
-import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus } from "./messages.js";
-import { type FrameAnalysis } from "./pipeline.js";
+import type { GeometricStatus, ReleaseStatus } from "./messages.js";
+import type { FrameAnalysis } from "./pipeline.js";
 import type { ExecutionProvider } from "./providers.js";
+export { type ClientBox, pictureBox };
+export { WORKER_RESTARTS } from "./worker-session.js";
 export interface SessionOptions {
     /** URL of the release document. Its paths are relative to it. With `releaseFiles`, the
      *  document's path among those files (`release.json`). */
@@ -36,13 +38,6 @@ export interface SessionOptions {
     /** Called whenever the status or what would be shown may have changed. */
     onUpdate?: () => void;
 }
-/** A rectangle in CSS pixels of the viewport, like `getBoundingClientRect`. */
-export interface ClientBox {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-}
 /** What would be shown for a pointer position. */
 export interface Shown {
     name: string;
@@ -53,10 +48,12 @@ export interface Shown {
     frameBox: AABB;
 }
 export interface SessionStatus {
-    /** "loading" until the release has loaded; "failed" when it did not (see `error`). */
+    /** "loading" until the release has loaded; "failed" when it did not, or when the worker
+     *  stopped twice after loading (see `error`). A worker that stops after loading is restarted
+     *  once, without the geometric stage, and the state is "loading" again meanwhile. */
     state: "loading" | "ready" | "failed" | "stopped";
     error: string | null;
-    /** The release in effect, once loaded. */
+    /** The release in effect, once loaded (kept while a restarted worker loads it again). */
     release: ReleaseStatus["release"];
     /** The execution provider the recognizer runs on. */
     backend: ExecutionProvider | null;
@@ -70,7 +67,8 @@ export interface SessionStatus {
     lastRoundTripMs: number | null;
     /** Why the newest frame was not analyzed, when it was not. */
     lastFrameError: string | null;
-    /** The geometric stage's state as the worker last reported it; null when none was asked for. */
+    /** The geometric stage's state as the worker last reported it, or off with the reason
+     *  `worker-restarted` after a restart; null when none was asked for. */
     geometric?: {
         state: GeometricStatus["state"];
         reason: string | null;
@@ -96,21 +94,6 @@ export interface Session {
     /** Stop analyzing, end the worker and remove every listener. */
     stop(): void;
 }
-/**
- * Where the picture sits inside an element's box, for the element's `object-fit`. A video is
- * fitted inside its box by default, leaving bars; an image fills its box by default.
- */
-export declare function pictureBox(element: ClientBox, picture: {
-    width: number;
-    height: number;
-}, fit: string): ClientBox;
-/** Whether a result whose frame was taken at `resultSec` may still be shown against a picture
- *  at `nowSec`: their distance in video time is at most `maxAgeMs`. */
-export declare function withinMaxAge(resultSec: number, nowSec: number, maxAgeMs: number): boolean;
-/** What `status().loading` becomes on a release-progress reply: the reply's phase while the
- *  release loads; `undefined` (no change) once it has loaded or failed, or the session has
- *  stopped, so a reply that arrives late changes nothing. */
-export declare function progressUpdate(state: SessionStatus["state"], reply: ReleaseProgress): SessionStatus["loading"] | undefined;
 /**
  * Start a session on an element. The release loads in the background (`status().state`); until
  * then, and whenever nothing can be said, `at` returns null.

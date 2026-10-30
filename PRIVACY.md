@@ -20,10 +20,14 @@ what it sends, and what it keeps.
 - **On supported `www.youtube.com` and `www.twitch.tv` pages**, including `www.youtube.com`
   player frames embedded in other websites: it reads what card hovers need. That is where the
   pointer is over the page's main video and, while card hovers are switched on in the popup, the
-  picture of the video. Nothing is read from a video before the pointer comes over it. It
-  reads the picture around your pointer activity over the video: for 10 seconds after the pointer last moved there, and after that while a card
-  is showing under the resting pointer (until 5 seconds after it stops showing). It stops when
-  the pointer leaves the video or the tab goes to the background.
+  picture of the video. Nothing is read from a video before the pointer comes over it. It goes by
+  your own pointer's movements, and ignores imitations of them made by a web page. It reads the picture around your pointer
+  activity over the video: for 10 seconds after the pointer last moved there, and after that
+  while a card is showing under the resting pointer (until 5 seconds after it stops showing),
+  never more than 60 seconds after the pointer last moved. On a touch screen, for 10 seconds
+  after you tap the video. Before each picture it checks that the pointer is still over the
+  video. It stops when the pointer leaves the video, the tab goes to the background or the video
+  changes.
 - It does not access Chrome's saved browsing history, and does not read comments, chat messages
   or account information. It does not read the website around an embedded player. The picture it
   analyzes is the whole video frame, so anything drawn into the video itself (such as an overlay

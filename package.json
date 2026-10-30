@@ -1,6 +1,6 @@
 {
   "name": "duelsight",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Hover a Yu-Gi-Oh! card in a YouTube or Twitch video to see which card it is. Unofficial fan project, not affiliated with or endorsed by Konami.",
   "license": "Apache-2.0",
   "private": true,

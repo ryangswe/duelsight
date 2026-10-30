@@ -32,12 +32,6 @@ export function fractionIn(rect: Rect, x: number, y: number): { x: number; y: nu
   return fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1 ? { x: fx, y: fy } : null;
 }
 
-/** The size a picture is analyzed at: its width brought within the range, its aspect kept. */
-export function analysisSize(sourceWidth: number, sourceHeight: number, range: { min: number; max: number }): { width: number; height: number } {
-  const width = Math.max(range.min, Math.min(range.max, sourceWidth));
-  return { width, height: Math.max(1, Math.round((width * sourceHeight) / sourceWidth)) };
-}
-
 export const TOOLTIP_GAP = 10;
 export const VIEWPORT_MARGIN = 8;
 /** How far a shown tooltip may be from a spot beside the card and still count as that spot. */

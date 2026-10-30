@@ -13,12 +13,17 @@ Yu-Gi-Oh! release of its models: a detector that finds cards in the picture and 
 recognizer that matches each card against a bank of known cards, with an accept rule that shows
 nothing when the match is not clear.
 
-- The **content script** (`src/content/`) runs in YouTube and Twitch pages. It follows the
-  page's main video and the pointer over it, and captures a picture when asked.
+- The **content script** (`src/content/`) runs in YouTube and Twitch pages. It picks the
+  page's main video; the runtime's capture control (`createCaptureControl`, vendored
+  `page-capture.js`) follows the pointer over it and captures a picture when asked.
 - A hidden **compute frame** (`src/compute/`), an extension page inside the video page, hosts
-  the runtime's worker. It decides when to analyze a picture (around pointer activity,
-  with the runtime's scheduler), and which card a tooltip shows at the pointer (the runtime's
-  hover rule). Pictures go from the content script to this frame and nowhere else.
+  the runtime's session and worker (`startComputeFrame`, vendored `compute-session.js`). It
+  decides when to analyze a picture (around pointer activity, with the runtime's scheduler), and
+  which card a tooltip shows at the pointer (the runtime's hover rule, with a shown card held
+  through short gaps). Pictures go from the content script to this frame and nowhere else.
+- The two halves are the runtime's two-frame contract (its `docs/extension-session.md`):
+  DuelSight adds its message tag, the pages it serves, the main video's choice, and the
+  tooltip.
 - The **tooltip frame** (`src/tooltip/`), an extension page placed beside the card, shows its
   picture alone (320 px wide, scaled down to fit the window but not below 200 px), or its name
   when there is no picture. It takes no pointer events.
@@ -34,10 +39,10 @@ nothing when the match is not clear.
 flowchart TD
     subgraph PAGE["YouTube or Twitch page"]
         VID["Video element"]
-        CS["Content script:<br/>pointer, capture"]
+        CS["Content script:<br/>capture control"]
         OUT["Outline host"]
         subgraph CF["Compute iframe, extension origin"]
-            HS["Host session:<br/>when to analyze, hover rule"]
+            HS["Session:<br/>when to analyze, hover rule"]
             W["Worker: cardvision-browser<br/>ONNX Runtime Web,<br/>WebGPU or WASM"]
         end
         TT["Tooltip iframe,<br/>extension origin"]
@@ -72,8 +77,13 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   control), but makes no frame and loads no model before the pointer comes over the
   video's picture, so a video nobody points at costs nothing. From then on it reports the
   pointer and seeks to the compute frame,
-  and, when asked and the pointer is active over the player, draws the video to a canvas at
-  analysis size and transfers it as an `ImageBitmap`.
+  and, when asked, draws the video to a canvas at analysis size and transfers it as an
+  `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as
+  trusted, and of no others: while the pointer is over the picture and for 10 seconds after it last moved there,
+  while a card shows under the resting pointer and 5 seconds after, never more than 60 seconds
+  after the last move, and for 10 seconds after a tap. Before each picture it checks that the
+  last pointer position is still over the video. It takes a message from its frames when the
+  browser delivered it from them, and ignores one a page made up.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
   vendored runtime on the release bundled in the extension, or on a newer release the settings
   file names (the vendored `remote-release.js`): the frame downloads that release's files once,

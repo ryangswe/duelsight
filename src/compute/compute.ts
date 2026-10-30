@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // The compute frame: an extension page inside the video page, hidden. It hosts the runtime's
-// worker (on the extension's origin, under the extension's policy, which allows WebAssembly)
-// and the session that decides when a picture is analyzed (host-session.ts). The wiring and
-// its origin rule are in frame.ts.
+// worker (on the extension's origin, under the extension's policy, which allows WebAssembly) and
+// the toolkit's session, which decides when a picture is analyzed and what is shown at the
+// pointer. DuelSight's options and its card facts channel are in frame.ts.
 //
 // This frame is made on the first pointer move over a video's picture, so the release loads then
-// and never at install. Which release:
-// the bundled one, or the one the settings file names (the vendored remote-release module, cdn/SETTINGS.md "release"),
-// read once per page.
+// and never at install. Which release: the bundled one, or the one the settings file names (the
+// vendored remote-release module, cdn/SETTINGS.md "release"), read once per page.
 
 import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
 import { readEffectiveSettings } from "../settings/store.js";
-import { allowedParentOrigin, FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
-import { buildCardTable, chooseRelease, decisionLine, recordSkip } from "../../vendor/cardvision-browser/remote-release.js";
+import { FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
+import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
-import { type ReleaseDecision, startComputeFrame, type WorkerLike } from "./frame.js";
-import { DRIVER_TICK_MS } from "./host-session.js";
+import { DRIVER_TICK_MS, type WorkerLike } from "../../vendor/cardvision-browser/compute-session.js";
+import { startDuelSightFrame } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
 
 declare const __DEV__: boolean;
@@ -32,7 +31,6 @@ const sha256Hex = async (bytes: ArrayBuffer): Promise<string> => {
 void (async () => {
   const framed = window.parent !== window;
   const parentOrigin = location.ancestorOrigins?.[0] ?? null;
-  if (!framed || parentOrigin === null || !allowedParentOrigin(parentOrigin, __DEV__)) return;
   const workerUrl = chrome.runtime.getURL(WORKER_PATH);
   const loadRequest = buildLoadRequest(chrome.runtime.getURL(RELEASE_PATH), new URL("./", workerUrl).href);
   const facts = new BroadcastChannel(FACTS_CHANNEL);
@@ -43,7 +41,7 @@ void (async () => {
     .catch(() => "-");
   let lastDecision: ReleaseDecision | null = null;
   const settingsUrl = SETTINGS_URL;
-  const frame = startComputeFrame({
+  const started = startDuelSightFrame({
     win: window,
     framed,
     parentOrigin,
@@ -94,28 +92,38 @@ void (async () => {
         }
       : {}),
   });
-  if (!frame) return;
+  if (!started) return;
+  const { frame } = started;
   // A tooltip frame that lacks a card's facts asks for them on the channel (one made again, or a
   // card that arrived before its facts); the frame whose release it is answers.
   facts.onmessage = (event: MessageEvent) => {
     const want = parseFactsRequest(event.data);
-    const answer = want ? frame.factsFor(want.releaseId, want.cardId) : null;
+    const answer = want ? started.facts.factsFor(want.releaseId, want.cardId) : null;
     if (answer) facts.postMessage(answer);
   };
-  setInterval(() => frame.tick(), DRIVER_TICK_MS);
+  // Nothing in the session runs on its own: the driver tick runs its cadence, repeats and watchdog.
+  const ticker = setInterval(() => frame.tick(), DRIVER_TICK_MS);
+  addEventListener("pagehide", () => {
+    clearInterval(ticker);
+    frame.stop();
+    facts.close();
+  });
   if (__DEV__) {
     // Dev builds only: what the smoke check reads (test/smoke/smoke.mjs).
-    (window as unknown as { __duelsightDebug: () => unknown }).__duelsightDebug = () => ({
-      state: frame.session?.state ?? "loading",
-      error: frame.session?.error ?? null,
-      backend: frame.session?.backend ?? null,
-      analyzed: frame.session?.framesAnalyzed ?? 0,
-      lastFrameError: frame.session?.lastFrameError ?? null,
-      lastWorkerMs: frame.session?.lastWorkerMs ?? null,
-      restarts: frame.restarts,
-      stopped: frame.stopped,
-      release: { ...frame.release, decision: lastDecision },
-      frames,
-    });
+    (window as unknown as { __duelsightDebug: () => unknown }).__duelsightDebug = () => {
+      const status = frame.core?.status() ?? null;
+      return {
+        state: status?.state ?? "loading",
+        error: status?.error ?? null,
+        backend: status?.backend ?? null,
+        analyzed: status?.frames ?? 0,
+        lastFrameError: status?.lastFrameError ?? null,
+        lastWorkerMs: status?.lastWorkerMs ?? null,
+        restarts: frame.restarts,
+        stopped: frame.stopped,
+        release: { source: frame.release.source, id: frame.release.id, reason: frame.release.reason, decision: lastDecision },
+        frames,
+      };
+    };
   }
 })();

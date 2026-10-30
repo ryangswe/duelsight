@@ -153,8 +153,9 @@ await build({
   },
   outdir: out,
 });
-// compute.js bundles the runtime's module; its license comments are in the runtime's LEGAL file.
-copyFileSync(join(vendorDir, "cardvision.js.LEGAL.txt"), join(out, "cardvision.js.LEGAL.txt"));
+// compute.js and content.js bundle the runtime's two-frame entries (compute-session.js,
+// page-capture.js): the toolkit's own code, with no third-party code and no license comments of
+// their own. The worker's are in runtime/worker.js.LEGAL.txt.
 for (const name of ["compute.html", "tooltip.html", "tooltip.css", "popup.css"]) copyFileSync(join(root, "static", name), join(out, name));
 // The popup carries the extension's name from the config.
 const escapeHtml = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

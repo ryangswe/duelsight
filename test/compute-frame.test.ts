@@ -1,145 +1,141 @@
 // SPDX-License-Identifier: Apache-2.0
-// The compute frame's entry: its origin rule and the worker's lifecycle.
-import { describe, expect, it } from "vitest";
+// DuelSight's compute frame on the toolkit's session (src/compute/frame.ts): the pages it serves,
+// its tag, the shown card held through short gaps, and the card facts channel. The session's own
+// rules (the worker's restart, rules 10 to 12, retries, the hold's details) are the toolkit's and
+// tested there.
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ReleaseStatus } from "../vendor/cardvision-browser/cardvision.js";
-import { type ComputeEnv, startComputeFrame, type WorkerLike } from "../src/compute/frame.js";
-import { TAG, tag } from "../src/shared/messages.js";
+import { SHOWN_HOLD } from "../vendor/cardvision-browser/compute-session.js";
+import { computeFrameEnv, createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
+import type { ReleasePointer, RemoteReleaseChoice } from "../vendor/cardvision-browser/remote-release.js";
+import { computeHarness } from "./helpers/compute-frame.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 
-const release = {
-  id: "r", game: "g", locale: "en",
-  detector: { version: "d", ep: "wasm" }, recognizer: { version: "r", ep: "wasm" },
-  bankCards: 1, catalogCards: 1, identityLevel: "printing",
-  decode: { threshold: 0.3, nmsIou: 0.45, maxProposals: 80, minCropPx: 24 },
-  accept: { tau: 0.62, delta: 0.05 }, hoverSelection: "accepted-nms", hoverMaxAgeMs: 2000,
-  analysisWidth: { min: 720, max: 1920 }, ortWeb: "1.29.0",
-} as unknown as NonNullable<ReleaseStatus["release"]>;
+const ID = "0123456789abcdef";
+const pointer: ReleasePointer = { id: ID, path: `vision/releases/${ID}/release.json`, sha256: "a".repeat(64), minimumExtensionVersion: "0.3.0", maximumExtensionVersion: null };
+const remoteChoice = (): RemoteReleaseChoice => ({
+  source: "remote",
+  pointer,
+  request: { kind: "load", releaseUrl: "release.json", files: {}, wasmPaths: "w/" },
+  facts: { "89631139": ["Dark Magician", "LOB", "full/89631139.jpg"], "999": ["Never Shown", null, "full/999.jpg"] },
+  reused: 2,
+  downloaded: 4_400_000,
+  ms: 12,
+});
+const settle = () => new Promise((r) => setTimeout(r, 0));
 
-class FakeWorker implements WorkerLike {
-  posted: unknown[] = [];
-  terminated = false;
-  onmessage: WorkerLike["onmessage"] = null;
-  onerror: WorkerLike["onerror"] = null;
-  postMessage(message: unknown) {
-    this.posted.push(message);
-  }
-  terminate() {
-    this.terminated = true;
-  }
-  reply(data: unknown) {
-    this.onmessage?.({ data } as MessageEvent);
-  }
-  fail(message = "boom") {
-    this.onerror?.({ message } as ErrorEvent);
-  }
-}
+afterEach(() => vi.unstubAllGlobals());
 
-function setup(over: Partial<ComputeEnv> = {}) {
-  const toParent: Array<{ message: Record<string, unknown>; origin: string }> = [];
-  const parent = { postMessage: (message: unknown, origin: string) => toParent.push({ message: message as Record<string, unknown>, origin }) };
-  let listener: ((event: MessageEvent) => void) | null = null;
-  const workers: FakeWorker[] = [];
-  const env: ComputeEnv = {
-    win: { parent, addEventListener: (_: "message", l: (event: MessageEvent) => void) => void (listener = l) },
-    framed: true,
-    parentOrigin: SITE_ORIGIN,
-    dev: false,
-    createWorker: () => {
-      const w = new FakeWorker();
-      workers.push(w);
-      return w;
-    },
-    loadRequest: { kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "chrome-extension://x/runtime/" },
-    now: () => 0,
-    ...over,
-  };
-  const frame = startComputeFrame(env);
-  const send = (data: unknown, source: unknown = parent, origin = SITE_ORIGIN) => listener?.({ data, source, origin } as unknown as MessageEvent);
-  return { frame, toParent, workers, send, parent, hasListener: () => listener !== null };
-}
-
-const loaded = (w: FakeWorker) => w.reply({ kind: "release-status", ok: true, error: null, release, cards: [] });
-
-describe("compute frame origin rule", () => {
-  it.each([
-    ["a page that is not a video site", { parentOrigin: "https://evil.example" }],
-    ["the local test page in a release build", { parentOrigin: "http://127.0.0.1:8770" }],
-    ["no embedding page", { parentOrigin: null }],
-    ["a top-level tab", { framed: false }],
-  ])("does not start inside %s", (_, over) => {
-    const { frame, workers, hasListener, toParent } = setup(over as Partial<ComputeEnv>);
-    expect(frame).toBeNull();
-    expect(workers).toEqual([]);
-    expect(hasListener()).toBe(false);
-    expect(toParent).toEqual([]);
+describe("compute frame: the pages it serves", () => {
+  it("starts inside a video site and says ready to that origin only, under DuelSight's tag", () => {
+    const h = computeHarness();
+    expect(h.started).not.toBeNull();
+    const ready = h.toParent.find((p) => p.message.kind === "ready")!;
+    expect(ready.origin).toBe(SITE_ORIGIN);
+    expect(ready.message).toMatchObject({ duelsight: 1, kind: "ready", version: 1 });
+    expect(ready.message.instance).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it("starts inside a video site, loads the release, and says ready to that origin only", () => {
-    const { frame, workers, toParent } = setup();
-    expect(frame).not.toBeNull();
-    expect(workers[0]!.posted[0]).toMatchObject({ kind: "load" });
-    expect(toParent).toEqual([{ message: tag({ kind: "ready" }), origin: SITE_ORIGIN }]);
+  it.each([
+    ["another site", "https://example.com"],
+    ["a hidden origin (\"null\")", "null"],
+    ["no origin", undefined],
+    ["the local test page in a store build", "http://127.0.0.1:8770"],
+  ])("does not start in %s", (_, origin) => {
+    expect(computeHarness({ parentOrigin: origin }).started).toBeNull();
+  });
+
+  it("does not start outside a frame", () => {
+    expect(computeHarness({ framed: false }).started).toBeNull();
+  });
+
+  it("serves the local test page in a dev build", () => {
+    expect(computeHarness({ parentOrigin: "http://127.0.0.1:8770", dev: true }).started).not.toBeNull();
   });
 
   it("acts only on messages from its parent window and origin", () => {
-    const { frame, workers, send, parent } = setup();
-    loaded(workers[0]!);
-    const pointer = tag({ kind: "pointer", x: 0.5, y: 0.5, mediaTime: 1, touch: false });
-    send(pointer, {}, SITE_ORIGIN);
-    send(pointer, parent, "https://evil.example");
-    expect(frame!.session!.scheduler.pointerActive(0)).toBe(false);
-    send(pointer, parent);
-    expect(frame!.session!.scheduler.pointerActive(0)).toBe(true);
-  });
-
-  it("closes a picture in a message it does not take", () => {
-    const { send, parent } = setup();
-    let closed = false;
-    send({ [TAG]: 1, kind: "frame", requestId: 1, bitmap: { close: () => void (closed = true) }, mediaTime: 0 }, parent);
-    expect(closed).toBe(true);
+    const h = computeHarness();
+    h.loaded();
+    h.fromContent({ kind: "pointer", x: 0.2, y: 0.5, mediaTime: 1, touch: false }, {}, SITE_ORIGIN);
+    h.fromContent({ kind: "pointer", x: 0.2, y: 0.5, mediaTime: 1, touch: false }, undefined, "https://example.com");
+    expect(h.sent("capture")).toEqual([]);
+    h.analyzeAt();
+    expect(h.lastShown()?.cardId).toBe("89631139");
   });
 });
 
-describe("compute frame worker lifecycle", () => {
-  it("reports a worker that fails before loading", () => {
-    const { workers, toParent } = setup();
-    workers[0]!.fail("no wasm");
-    expect(toParent.at(-1)!.message).toMatchObject({ kind: "status", state: "failed", error: "the worker did not start (no wasm)" });
-    expect(workers).toHaveLength(1);
-  });
-
-  it("restarts a worker that fails after loading once, then turns off", () => {
-    const { frame, workers, toParent, send, parent } = setup();
-    loaded(workers[0]!);
-    workers[0]!.fail();
-    expect(workers[0]!.terminated).toBe(true);
-    expect(workers).toHaveLength(2);
-    expect(workers[1]!.posted[0]).toMatchObject({ kind: "load" });
-    expect(toParent.map((p) => p.message.kind)).toContain("shown");
-    expect(frame!.restarts).toBe(1);
-    // A late message from the old worker is ignored.
-    workers[0]!.reply({ kind: "release-status", ok: false, error: "late", release: null, cards: [] });
-    expect(frame!.session!.state).toBe("loading");
-    loaded(workers[1]!);
-    expect(frame!.session!.state).toBe("ready");
-    workers[1]!.fail("again");
-    expect(workers).toHaveLength(2);
-    expect(frame!.stopped).toBe(true);
-    expect(toParent.at(-1)!.message).toMatchObject({ kind: "status", state: "failed", error: "the recognition worker stopped (again)" });
-    // Off: pictures are closed, not analyzed.
-    let closed = false;
-    send({ [TAG]: 1, kind: "frame", requestId: 1, bitmap: { close: () => void (closed = true) }, mediaTime: 0 }, parent);
-    expect(closed).toBe(true);
+describe("compute frame: the shown card", () => {
+  it("holds the shown card through short gaps (SHOWN_HOLD is on)", () => {
+    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(SHOWN_HOLD);
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    expect(h.lastShown()?.cardId).toBe("89631139");
+    // One analysis with nothing there: still shown (without the hold it would go at once).
+    h.scene.card = null;
+    h.analyzeAt();
+    expect(h.lastShown()?.cardId).toBe("89631139");
+    // A second in a row: gone.
+    h.analyzeAt();
+    expect(h.lastShown()).toBeNull();
   });
 });
 
-describe("compute frame and a restarted worker", () => {
-  it("sends the same plain load to the restarted worker", () => {
-    const { workers } = setup({});
-    expect(workers[0]!.posted[0]).toMatchObject({ kind: "load" });
-    loaded(workers[0]!);
-    workers[0]!.fail();
-    expect(workers[1]!.posted[0]).toEqual(workers[0]!.posted[0]);
+describe("compute frame: card facts", () => {
+  it("with the remote release confirmed, a shown card carries its id and its facts go out first", async () => {
+    const h = computeHarness({ chooseRelease: async () => remoteChoice() });
+    await settle();
+    h.loaded(ID);
+    h.analyzeAt();
+    expect(h.lastShown()).toMatchObject({ cardId: "89631139", releaseId: ID });
+    expect(h.facts).toEqual([{ releaseId: ID, cardId: "89631139", facts: { name: "Dark Magician", set: "LOB", art: "full/89631139.jpg" } }]);
+    expect(h.order.slice(h.order.indexOf("facts"), h.order.indexOf("facts") + 2)).toEqual(["facts", "shown"]);
+  });
+
+  it("answers a tooltip's request only for a card it showed, of the release in effect", async () => {
+    const h = computeHarness({ chooseRelease: async () => remoteChoice() });
+    await settle();
+    h.loaded(ID);
+    const facts = h.started!.facts;
+    expect(facts.factsFor(ID, "89631139")).toBeNull();
+    h.analyzeAt();
+    expect(facts.factsFor(ID, "89631139")?.facts.name).toBe("Dark Magician");
+    expect(facts.factsFor(ID, "999")).toBeNull();
+    expect(facts.factsFor("fedcba9876543210", "89631139")).toBeNull();
+  });
+
+  it("sends no facts and no release id for the bundled release", () => {
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    expect(h.lastShown()).toEqual(expect.not.objectContaining({ releaseId: expect.anything() }));
+    expect(h.facts).toEqual([]);
+    expect(h.started!.facts.factsFor(ID, "89631139")).toBeNull();
+  });
+
+  it("stops sending facts once a restart left the remote release (rule 12)", async () => {
+    const h = computeHarness({ chooseRelease: async () => remoteChoice() });
+    await settle();
+    h.loaded(ID);
+    h.analyzeAt();
+    h.worker().fail();
+    h.loaded();
+    h.analyzeAt(0.21, 0.5);
+    expect(h.started!.frame.release.source).toBe("bundled");
+    expect(h.lastShown()?.releaseId).toBeUndefined();
+    expect(h.facts).toHaveLength(1);
+    expect(h.started!.facts.factsFor(ID, "89631139")).toBeNull();
+  });
+
+  it("keeps at most SHOWN_IDS_LIMIT shown ids, oldest dropped first", () => {
+    const posted: string[] = [];
+    const channel = createFactsChannel((m) => posted.push(m.cardId));
+    const table: Record<string, [string, null, null]> = {};
+    for (let i = 0; i <= SHOWN_IDS_LIMIT; i += 1) table[`c${i}`] = [`Card ${i}`, null, null];
+    const release = { source: "remote" as const, id: ID, reason: "ok", table };
+    for (let i = 0; i <= SHOWN_IDS_LIMIT; i += 1) channel.onShown({ cardId: `c${i}`, name: `Card ${i}`, releaseId: ID, box: { x: 0, y: 0, width: 1, height: 1 }, others: [] }, release);
+    expect(posted).toHaveLength(SHOWN_IDS_LIMIT + 1);
+    expect(channel.factsFor(ID, "c0")).toBeNull();
+    expect(channel.factsFor(ID, `c${SHOWN_IDS_LIMIT}`)?.facts.name).toBe(`Card ${SHOWN_IDS_LIMIT}`);
   });
 });

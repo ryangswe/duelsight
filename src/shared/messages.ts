@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// The messages between the content script (in the video page) and the extension's two frames
-// inside that page: the compute frame, which hosts the recognition worker, and the tooltip frame,
-// which shows a card.
+// The messages between the content script (in the video page) and the tooltip frame, which shows a
+// card, and the card facts channel between the extension's own frames. The messages with the
+// compute frame are the toolkit's contract (computeProtocol, docs/extension-session.md), under the
+// same tag.
 //
 // They travel by `window.postMessage`, so the page itself could post to the frames or read their
 // replies. Every message is checked on arrival (`parse*`), and nothing in them is secret: frames
@@ -20,41 +21,6 @@ export interface FractionBox {
   width: number;
   height: number;
 }
-
-export interface ShownCard {
-  cardId: string;
-  name: string;
-  /** The remote release the card was recognized with (its facts went to the tooltip frame by the
-   *  facts channel); absent for the bundled release. */
-  releaseId?: string;
-  box: FractionBox;
-  /** The other cards of the same analysis, so that the tooltip can be placed off them. */
-  others?: FractionBox[];
-}
-
-/** Content script → compute frame. */
-export type ComputeIn =
-  /** The pointer over the picture, in fractions of the picture; `mediaTime` is the video's time. */
-  | { kind: "pointer"; x: number; y: number; mediaTime: number; touch: boolean }
-  /** The pointer left the picture. */
-  | { kind: "leave" }
-  /** The video presented a new frame (playback, a seek ended). */
-  | { kind: "presented"; mediaTime: number }
-  /** A seek started, or the video was given another source (`newSource`). */
-  | { kind: "discontinuity"; newSource: boolean }
-  /** The picture asked for by `capture`, at analysis size. */
-  | { kind: "frame"; requestId: number; bitmap: ImageBitmap; mediaTime: number }
-  /** The picture asked for could not be read. */
-  | { kind: "capture-failed"; requestId: number; reason: string; retry?: boolean };
-
-/** Compute frame → content script. */
-export type ComputeOut =
-  | { kind: "ready" }
-  | { kind: "status"; state: "loading" | "ready" | "failed"; error: string | null; backend: string | null }
-  /** Capture the current picture at a width within `analysisWidth` and send it back as `frame`. */
-  | { kind: "capture"; requestId: number; analysisWidth: { min: number; max: number } }
-  /** What a tooltip shows for the pointer's position now; null for nothing. */
-  | { kind: "shown"; card: ShownCard | null };
 
 /** Content script → tooltip frame. */
 /** `seq` numbers each card the content script sends; the tooltip echoes it in its sizes, so a
@@ -150,86 +116,7 @@ function tagged(data: unknown): Raw | null {
 }
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-const isFraction = (v: unknown): v is number => isNum(v) && v >= 0 && v <= 1;
-const isId = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) > 0;
 const isText = (v: unknown, max = 200): v is string => typeof v === "string" && v.length > 0 && v.length <= max;
-
-/** The largest picture the compute frame takes, per side: above the widest analysis frame (1920)
- *  and any sane height at that width. A larger one (only a page posting to the frame could send
- *  it) is refused and closed. */
-export const MAX_FRAME_SIDE = 4096;
-
-function frameSizeOk(bitmap: ImageBitmap): boolean {
-  const { width, height } = bitmap;
-  return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 && width <= MAX_FRAME_SIDE && height <= MAX_FRAME_SIDE;
-}
-
-export function parseComputeIn(data: unknown): ComputeIn | null {
-  const m = tagged(data);
-  if (!m) return null;
-  switch (m.kind) {
-    case "pointer":
-      return isFraction(m.x) && isFraction(m.y) && isNum(m.mediaTime) && typeof m.touch === "boolean"
-        ? { kind: "pointer", x: m.x, y: m.y, mediaTime: m.mediaTime, touch: m.touch }
-        : null;
-    case "leave":
-      return { kind: "leave" };
-    case "presented":
-      return isNum(m.mediaTime) ? { kind: "presented", mediaTime: m.mediaTime } : null;
-    case "discontinuity":
-      return typeof m.newSource === "boolean" ? { kind: "discontinuity", newSource: m.newSource } : null;
-    case "frame":
-      return isId(m.requestId) && isNum(m.mediaTime) && typeof ImageBitmap !== "undefined" && m.bitmap instanceof ImageBitmap && frameSizeOk(m.bitmap)
-        ? { kind: "frame", requestId: m.requestId, bitmap: m.bitmap, mediaTime: m.mediaTime }
-        : null;
-    case "capture-failed":
-      return isId(m.requestId) && typeof m.reason === "string"
-        ? { kind: "capture-failed", requestId: m.requestId, reason: m.reason.slice(0, 200), retry: m.retry === true }
-        : null;
-    default:
-      return null;
-  }
-}
-
-function parseBox(v: unknown): FractionBox | null {
-  if (typeof v !== "object" || v === null) return null;
-  const b = v as Raw;
-  return isNum(b.x) && isNum(b.y) && isNum(b.width) && isNum(b.height) && b.width > 0 && b.height > 0
-    ? { x: b.x, y: b.y, width: b.width, height: b.height }
-    : null;
-}
-
-export function parseComputeOut(data: unknown): ComputeOut | null {
-  const m = tagged(data);
-  if (!m) return null;
-  switch (m.kind) {
-    case "ready":
-      return { kind: "ready" };
-    case "status":
-      return (m.state === "loading" || m.state === "ready" || m.state === "failed") &&
-        (m.error === null || typeof m.error === "string") &&
-        (m.backend === null || typeof m.backend === "string")
-        ? { kind: "status", state: m.state, error: m.error, backend: m.backend }
-        : null;
-    case "capture": {
-      const w = m.analysisWidth as Raw | undefined;
-      return isId(m.requestId) && w && isNum(w.min) && isNum(w.max) && w.min > 0 && w.max >= w.min
-        ? { kind: "capture", requestId: m.requestId, analysisWidth: { min: w.min, max: w.max } }
-        : null;
-    }
-    case "shown": {
-      if (m.card === null) return { kind: "shown", card: null };
-      const c = m.card as Raw | undefined;
-      const box = c ? parseBox(c.box) : null;
-      if (!(c && isText(c.cardId) && isText(c.name) && box)) return null;
-      const others = Array.isArray(c.others) ? c.others.slice(0, 40).map(parseBox).filter((b): b is FractionBox => b !== null) : [];
-      const releaseId = typeof c.releaseId === "string" && RELEASE_ID.test(c.releaseId) ? c.releaseId : undefined;
-      return { kind: "shown", card: { cardId: c.cardId, name: c.name, ...(releaseId ? { releaseId } : {}), box, others } };
-    }
-    default:
-      return null;
-  }
-}
 
 function isSeq(v: unknown): v is number {
   return typeof v === "number" && Number.isSafeInteger(v) && v >= 0;

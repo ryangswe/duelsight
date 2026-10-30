@@ -1,2 +1,2 @@
 # The publishing tool, `cardvision cdn` (the toolkit's docs/cdn.md), with boto3 for the uploads.
-cardvision[cdn]==0.5.0rc2
+cardvision[cdn]==0.6.0rc2
