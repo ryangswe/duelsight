@@ -15,7 +15,8 @@ export type CaptureProblem =
     expected: number;
     received: unknown;
 }
-/** No `ready` came after every `hello`. A `ready` that comes later is still taken. */
+/** No `ready` came after every `hello`, or the iframe kept its first `about:blank` for a minute
+ *  (nothing loaded in it). A `ready` that comes later is still taken. */
  | {
     kind: "no-answer";
 };

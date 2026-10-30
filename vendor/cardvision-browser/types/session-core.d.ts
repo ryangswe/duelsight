@@ -22,7 +22,8 @@ export interface Shown {
 }
 /** The shown card's hold: how long it survives analyses that do not see it at the pointer. */
 export interface ShownHold {
-    /** Analyses in a row with nothing there before it goes. */
+    /** Analyses in a row with nothing there before it goes. A reply with no analysis, or one too
+     *  old for the picture on screen when it comes back, is not one. */
     misses: number;
     /** Time with no analysis seeing it before it goes, in ms. */
     maxMs: number;

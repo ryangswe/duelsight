@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "source": "cardvision-browser, the browser runtime of the cardvision toolkit (source published with the toolkit release)",
-  "commit": "6ed280ae04ba30b8fe2e744a71f09369e477a781",
-  "toolkitRelease": "cardvision 0.6.0rc1",
+  "commit": "cfb8fb23fb08a88c1edd9f1fa60c8b05fca7e376",
+  "toolkitRelease": "cardvision 0.6.0rc2",
   "onnxruntimeWeb": "1.29.0",
   "ortFiles": [
     "ort-wasm-simd-threaded.jsep.mjs",
