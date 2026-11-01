@@ -20,7 +20,7 @@
     "onnxruntime-web": "1.29.0"
   },
   "devDependencies": {
-    "@types/chrome": "0.3.6",
+    "@types/chrome": "0.3.7",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
     "happy-dom": "21.0.4",
