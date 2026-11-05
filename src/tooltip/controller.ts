@@ -7,9 +7,12 @@
 //     know (which only a page posting to the frame itself could send) shows nothing. A card of a
 //     remote release (the vendored remote-release module) comes with that release's id; its facts
 //     arrive from the compute frame over the extension-only facts channel (`addFacts`), which the page cannot reach, and win
-//     over the bundled table. An id in neither is waited for FACTS_WAIT_MS, then shows nothing.
+//     over the bundled table. An id in neither (and not the card on show) is waited for FACTS_WAIT_MS,
+//     then shows nothing.
 //   - Each newly shown card asks the background for a settings refresh. The background fetches
-//     at most once an hour, so a long-open tab still picks up `namesOnly` within the hour.
+//     at most once an hour, so a long-open tab still picks up `namesOnly` within the hour. A
+//     refresh with the same contents keeps the pictures loaded and the picture loading; changed
+//     settings show the card on show again.
 //   - With the details panel on and the card's details loaded (src/details/), the picture comes
 //     with a text panel: its text is set with textContent only, measured at a few widths and sent
 //     with the picture's size, and the frame lays both out in the size it is given
@@ -18,6 +21,7 @@
 
 import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
+import { sameSettings } from "../settings/same.js";
 import { allowedParentOrigin, parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
 import type { CardFacts, CardTable } from "./card-data.js";
 import { type DetailsTable, detailLines, detailsFor, localName } from "../details/details.js";
@@ -131,13 +135,23 @@ export class TooltipController {
 
   constructor(private readonly deps: TooltipDeps) {}
 
-  /** Fresh settings: every source is tried again, and no picture is kept from the old ones. */
+  /**
+   * When the settings are read again, every source is tried again for the next picture loaded.
+   * The same settings (the hourly refresh stores a new copy even when the file has not changed)
+   * keep the pictures already loaded, from whichever source gave them, and a picture that is
+   * loading goes on loading. Changed settings, in any field, drop the pictures from the old ones,
+   * and the card on show is shown again with the new ones (its placeholder, then its picture), so
+   * it is never left on its placeholder. Every change of `this.settings` must show the card again:
+   * a picture's chain stops as soon as the settings it started with are replaced (`live()`).
+   */
   setSettings(settings: Settings): void {
-    this.settings = settings;
     this.health.reset();
+    if (this.settings && sameSettings(this.settings, settings)) return;
+    this.settings = settings;
     this.cache.clear();
     for (const url of this.objectUrls.values()) this.deps.revokeObjectURL(url);
     this.objectUrls.clear();
+    if (this.current !== null) this.show(this.current, this.currentSeq, this.currentRelease);
   }
 
   /** The details file, once loaded (null: none). A card on show gets its panel at once. */
@@ -174,12 +188,15 @@ export class TooltipController {
     }
   }
 
-  /** The facts for a card: the channel's for its release, then the bundled table. */
+  /** The facts for a card: the channel's for its release, then those of the same card on show
+   *  (kept even when the channel's copy has been dropped), then the bundled table. */
   private lookup(cardId: string, releaseId: string | undefined): CardFacts | null {
     if (releaseId !== undefined) {
       const f = this.facts.get(`${releaseId}|${cardId}`);
       if (f) return f;
     }
+    const shown = this.currentFacts;
+    if (shown && this.current === cardId && this.currentRelease === releaseId) return shown;
     return knownCard(this.deps.table, cardId);
   }
 
@@ -259,6 +276,8 @@ export class TooltipController {
         if (!live()) return;
         // The frame takes the picture's shape first (with its panel, both together), then the
         // picture replaces the placeholder.
+        const details = this.details;
+        const detailsOn = this.detailsOn;
         const panel = this.fillPanel(card);
         this.deps.onSize?.({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(panel ? { panel } : {}) });
         await this.deps.frameFits?.(size, panel !== null);
@@ -268,6 +287,9 @@ export class TooltipController {
         e.art.classList.remove("loading");
         this.picture = { cardId: card.id, ...size, panel: panel !== null };
         this.layout();
+        // The details file or the switch changed while the frame took its shape (refreshPanel()
+        // had no picture to act on then): the panel follows now.
+        if (this.details !== details || this.detailsOn !== detailsOn) this.refreshPanel();
       })
       .catch(() => {
         if (live()) this.showPill(card.id, messageSeq);

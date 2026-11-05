@@ -289,6 +289,210 @@ describe("TooltipController", () => {
   });
 });
 
+describe("settings read again while a card is on show", () => {
+  /** The picture on show: decoded, in place of the placeholder. */
+  const showsPicture = (): boolean =>
+    !elements.root.hidden && !elements.art.hidden && !elements.art.classList.contains("loading") && elements.pill.hidden && elements.img.getAttribute("src") === "blob:fake";
+
+  it("goes on loading the picture when the hourly refresh stores the same settings again", async () => {
+    release = () => undefined;
+    controller.show("89631139", 3);
+    await tick();
+    const loaded = release!;
+    release = null;
+    // The refresh that show() asked for stores a new copy; the frame reads it back as a new object.
+    controller.setSettings(defaultSettings());
+    loaded();
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg"]);
+    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "89631139", seq: 3, width: 320, height: 447 });
+  });
+
+  it("treats settings with the same contents in another key order as the same", async () => {
+    release = () => undefined;
+    controller.show("89631139");
+    await tick();
+    const loaded = release!;
+    release = null;
+    const reordered = Object.fromEntries(Object.entries(defaultSettings()).reverse()) as unknown as Settings;
+    controller.setSettings(reordered);
+    loaded();
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(loads).toHaveLength(1);
+  });
+
+  it("keeps the pictures already loaded when the settings are the same", async () => {
+    let revoked = 0;
+    controller = build({ revokeObjectURL: () => void (revoked += 1) });
+    controller.setSettings(defaultSettings());
+    controller.show("89631139");
+    await tick();
+    controller.setSettings(defaultSettings());
+    controller.show("token_1");
+    await tick();
+    controller.show("89631139");
+    await tick();
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://art.example/art/token_1.png"]);
+    expect(revoked).toBe(0);
+  });
+
+  it("still tries every source again when the settings are the same (the hourly retry of a failing source)", async () => {
+    const primary = "https://art.example/art/";
+    controller.setSettings({ ...defaultSettings(), fallbacks: [{ id: "spare", template: "https://spare.example/{art}" }] });
+    for (const id of ["89631139", "token_1", "wide", "10000001"]) failing.add(`${primary}${table[id as keyof typeof table][2]}`);
+    for (const id of ["89631139", "token_1", "wide"]) {
+      controller.show(id);
+      await tick();
+    }
+    // Three failures: the primary is skipped for the next card.
+    controller.show("10000001");
+    await tick();
+    expect(loads.filter((u) => u.startsWith(primary))).toHaveLength(3);
+    controller.setSettings({ ...defaultSettings(), fallbacks: [{ id: "spare", template: "https://spare.example/{art}" }] });
+    controller.show("10000004");
+    await tick();
+    // The primary is asked again, and gives the picture.
+    expect(loads.at(-1)).toBe(`${primary}10000004.jpg`);
+    expect(loads.filter((u) => u.startsWith(primary))).toEqual([
+      `${primary}89631139.jpg`,
+      `${primary}token_1.png`,
+      `${primary}wide.png`,
+      `${primary}10000004.jpg`,
+    ]);
+  });
+
+  it("shows the card again with changed settings when they change while its picture loads", async () => {
+    release = () => undefined;
+    controller.show("89631139", 5);
+    await tick();
+    const stale = release!;
+    release = null;
+    controller.setSettings({ ...defaultSettings(), primary: { id: "new", template: "https://new.example/{art}" } });
+    await tick();
+    // The old settings' picture arrives late and is not used.
+    stale();
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://new.example/89631139.jpg"]);
+    expect(controller.current).toBe("89631139");
+    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "89631139", seq: 5 });
+  });
+
+  it("shows the card again when only the release changes (a release day), with its picture", async () => {
+    release = () => undefined;
+    controller.setSettings({ ...defaultSettings(), release: { id: "0123456789abcdef", minVersion: "0.3.0" } });
+    controller.show("89631139", 6);
+    await tick();
+    const stale = release!;
+    release = null;
+    controller.setSettings({ ...defaultSettings(), release: { id: "fedcba9876543210", minVersion: "0.3.0" } });
+    stale();
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(elements.img.alt).toBe("Blue-Eyes White Dragon");
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://art.example/art/89631139.jpg"]);
+    expect(sizes.at(-1)).toMatchObject({ shape: "card", cardId: "89631139", seq: 6, width: 320, height: 447 });
+  });
+
+  it("turns the card on show into its name at once when the settings change to names only", async () => {
+    controller.show("89631139", 8);
+    await tick();
+    expect(showsPicture()).toBe(true);
+    controller.setSettings({ ...defaultSettings(), namesOnly: true });
+    expect(elements.pill.hidden).toBe(false);
+    expect(elements.art.hidden).toBe(true);
+    expect(sizes.at(-1)).toMatchObject({ shape: "pill", cardId: "89631139", seq: 8 });
+  });
+
+  it("shows nothing and loads nothing when the settings change with no card on show", async () => {
+    controller.show("89631139");
+    await tick();
+    controller.clear();
+    const count = sizes.length;
+    controller.setSettings({ ...defaultSettings(), namesOnly: true });
+    await tick();
+    expect(elements.root.hidden).toBe(true);
+    expect(controller.current).toBeNull();
+    expect(sizes).toHaveLength(count);
+    expect(loads).toHaveLength(1);
+  });
+
+  it("keeps a remote release's card and its facts when the settings change", async () => {
+    const rid = "0123456789abcdef";
+    controller.addFacts(rid, { id: "999", name: "New Card", set: null, art: "999.jpg" });
+    controller.show("999", 2, rid);
+    await tick();
+    controller.setSettings({ ...defaultSettings(), primary: { id: "new", template: "https://new.example/{art}" } });
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(elements.img.alt).toBe("New Card");
+    expect(loads.at(-1)).toBe("https://new.example/999.jpg");
+    expect(sizes.at(-1)).toMatchObject({ cardId: "999", seq: 2 });
+  });
+
+  it("keeps a remote release's card on show when its facts were dropped from the channel's store", async () => {
+    const rid = "0123456789abcdef";
+    controller.addFacts(rid, { id: "999", name: "New Card", set: null, art: "999.jpg" });
+    controller.show("999", 2, rid);
+    await tick();
+    for (let i = 0; i < FACTS_LIMIT; i += 1) controller.addFacts(rid, { id: `x${i}`, name: "Other", set: null, art: "x.jpg" });
+    controller.setSettings({ ...defaultSettings(), primary: { id: "new", template: "https://new.example/{art}" } });
+    await tick();
+    expect(controller.current).toBe("999");
+    expect(showsPicture()).toBe(true);
+    expect(elements.img.alt).toBe("New Card");
+    expect(loads.at(-1)).toBe("https://new.example/999.jpg");
+  });
+
+  it("keeps the facts of the card on show when the page shows it again after they were dropped", async () => {
+    const rid = "0123456789abcdef";
+    controller.addFacts(rid, { id: "999", name: "New Card", set: null, art: "999.jpg" });
+    controller.show("999", 2, rid);
+    await tick();
+    for (let i = 0; i < FACTS_LIMIT; i += 1) controller.addFacts(rid, { id: `x${i}`, name: "Other", set: null, art: "x.jpg" });
+    expect(controller.show("999", 3, rid)).toBe(true);
+    expect(controller.current).toBe("999");
+    expect(elements.placeholder.textContent).toBe("New Card");
+    // Shown under another release, the dropped facts are not used.
+    expect(controller.show("999", 4, "fedcba9876543210")).toBe(false);
+  });
+
+  it("shows the card on show again for a change in any field, even one pictures do not use", async () => {
+    controller.show("89631139", 4);
+    await tick();
+    expect(showsPicture()).toBe(true);
+    const before = sizes.length;
+    controller.setSettings({ ...defaultSettings(), updatedAt: "2026-11-06T00:00:00Z" });
+    // Its placeholder at once, then its picture again.
+    expect(elements.art.classList.contains("loading")).toBe(true);
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://art.example/art/89631139.jpg"]);
+    expect(sizes.slice(before)).toEqual([
+      { width: 320, height: 466, shape: "card", cardId: "89631139", seq: 4 },
+      { width: 320, height: 447, shape: "card", cardId: "89631139", seq: 4 },
+    ]);
+  });
+
+  it("keeps a picture a fallback gave when the same settings are read again; new pictures try the primary first", async () => {
+    const withSpare = (): Settings => ({ ...defaultSettings(), fallbacks: [{ id: "spare", template: "https://spare.example/{art}" }] });
+    controller.setSettings(withSpare());
+    failing.add("https://art.example/art/89631139.jpg");
+    controller.show("89631139");
+    await tick();
+    failing.clear();
+    controller.setSettings(withSpare());
+    controller.show("token_1");
+    await tick();
+    controller.show("89631139");
+    await tick();
+    expect(showsPicture()).toBe(true);
+    expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://spare.example/89631139.jpg", "https://art.example/art/token_1.png"]);
+  });
+});
+
 describe("the details panel", () => {
   /** The frame's size, as the content script would set it. */
   let frame = { width: 320, height: 466 };
@@ -439,6 +643,76 @@ describe("the details panel", () => {
     const count = sizes.length;
     controller.setDetailsOn(true);
     expect(sizes).toHaveLength(count);
+  });
+
+  /** A panel tooltip whose frame takes its shape only when the test says so. */
+  const heldFrame = () => {
+    let fit: (() => void) | null = null;
+    const c = build({
+      measurePanel: () => [[220, 300], [260, 260], [300, 230]],
+      frameSize: () => ({ width: 580, height: 466 }),
+      fitText: () => undefined,
+      frameFits: () => new Promise<void>((r) => (fit = r)),
+    });
+    c.setSettings(defaultSettings());
+    pixels["https://art.example/art/10000001.jpg"] = { width: 640, height: 932 };
+    return { c, fit: () => fit!() };
+  };
+
+  it("shows details that change while the frame takes the picture's shape", async () => {
+    const { c, fit } = heldFrame();
+    controller = c;
+    controller.setDetails(DETAILS);
+    controller.show("10000001", 3);
+    await tick();
+    expect(elements.panel.name.textContent).toBe("Test Robot");
+    controller.setDetails(parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE))));
+    fit();
+    await tick();
+    expect(elements.panel.name.textContent).toBe("Robot de Test");
+    expect(elements.panel.root.hidden).toBe(false);
+  });
+
+  it("adds the panel when the details file loads while the frame takes the picture's shape", async () => {
+    const { c, fit } = heldFrame();
+    controller = c;
+    controller.show("10000001", 3);
+    await tick();
+    expect(sizes.at(-1)).not.toHaveProperty("panel");
+    controller.setDetails(DETAILS);
+    fit();
+    await tick();
+    expect(sizes.at(-1)).toMatchObject({ cardId: "10000001", seq: 3, panel: [[220, 300], [260, 260], [300, 230]] });
+    expect(elements.panel.name.textContent).toBe("Test Robot");
+    expect(elements.panel.root.hidden).toBe(false);
+  });
+
+  it("sends nothing more when the details change and change back while the frame takes the picture's shape", async () => {
+    const { c, fit } = heldFrame();
+    controller = c;
+    controller.setDetails(DETAILS);
+    controller.show("10000001", 3);
+    await tick();
+    const count = sizes.length;
+    controller.setDetails(parseDetailsFile(JSON.parse(JSON.stringify(DETAILS_FR_FIXTURE))));
+    controller.setDetails(DETAILS);
+    fit();
+    await tick();
+    expect(sizes).toHaveLength(count);
+    expect(elements.panel.name.textContent).toBe("Test Robot");
+  });
+
+  it("drops the panel when the switch goes off while the frame takes the picture's shape", async () => {
+    const { c, fit } = heldFrame();
+    controller = c;
+    controller.setDetails(DETAILS);
+    controller.show("10000001", 3);
+    await tick();
+    controller.setDetailsOn(false);
+    fit();
+    await tick();
+    expect(sizes.at(-1)).toEqual({ width: 320, height: 466, shape: "card", cardId: "10000001", seq: 3 });
+    expect(elements.panel.root.hidden).toBe(true);
   });
 });
 

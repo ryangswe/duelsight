@@ -76,6 +76,15 @@ describe("refreshSettings", () => {
     if (UPDATE_URL_PREFIX) expect((await readEffectiveSettings(s)).settings.update?.latest).toBe("0.2.0");
   });
 
+  it("stores an unchanged file again, with the new time (open tooltips retry on that change)", async () => {
+    const s = new MemoryStorage();
+    const f = fetchReturning(json(live), json(live));
+    await refreshSettings(s, { url: URL_UNDER_TEST, fetch: f, now: () => 1000, force: true });
+    const r = await refreshSettings(s, { url: URL_UNDER_TEST, fetch: f, now: () => 1000 + SETTINGS_REFRESH_MS, force: true });
+    expect(r.kind).toBe("updated");
+    expect(s.data[LAST_GOOD_KEY]).toEqual({ raw: live, fetchedAt: 1000 + SETTINGS_REFRESH_MS });
+  });
+
   it("fetches the build's own settings address by default", async () => {
     const s = new MemoryStorage();
     const f = fetchReturning(json(live));
