@@ -289,7 +289,9 @@ holder's, like the art: the file is never committed or put in the extension's pa
   host, with no cookies and no referrer, once: it keeps the file in its own Cache Storage, keyed
   by its address, and uses it when its bytes match `sha256` (never otherwise) (checked on every read). A new
   `details` entry replaces the kept copy; until a file is loaded, and for a card it does not
-  list, the tooltip shows the picture alone.
+  list, the tooltip shows the picture alone. A load that fails (unreachable, an HTTP error, bytes that do
+  not match, or a file it cannot read) is tried again the next time the extension stores a
+  settings file, at most about once an hour.
 - **Switching it off:** remove `details` (or set it to `null`) and publish `config.json`.
   Installed extensions stop showing details and delete their copy within about an hour.
 

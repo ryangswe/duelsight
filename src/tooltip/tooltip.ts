@@ -7,11 +7,11 @@
 // not the video site's. The logic is in controller.ts.
 
 import { loadImage } from "../images/chain.js";
-import { detailsUrl, type Settings } from "../settings/schema.js";
+import type { Settings } from "../settings/schema.js";
 import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
 import { forgetDetails, loadDetails, sha256Hex } from "../details/cache.js";
-import { chooseDetails } from "../details/language.js";
 import { DETAILS_KEY, readDetailsOn } from "../shared/details-pref.js";
+import { DetailsSync } from "./details-sync.js";
 import { fitPanelText, measurePanel } from "./panel-dom.js";
 import { SETTINGS_URL } from "../constants.js";
 import type { CardTable } from "./card-data.js";
@@ -77,27 +77,19 @@ void (async () => {
   // The details file: fetched (once, then from the cache) only while the panel is on and the
   // settings name one; until it is loaded, pictures show alone. The browser's language picks the
   // French file when the settings name one (language.ts).
-  let detailsOn = await readDetailsOn(chrome.storage.local).catch(() => true);
-  let detailsKey: string | null = null;
-  const languages = (): readonly string[] => (navigator.languages?.length ? navigator.languages : [navigator.language]);
-  const syncDetails = (settings: Settings): void => {
-    controller.setDetailsOn(detailsOn);
-    const chosen = chooseDetails(settings, languages());
-    const url = chosen ? detailsUrl(chosen.source, SETTINGS_URL) : null;
-    if (!url || !chosen) {
-      detailsKey = null;
-      controller.setDetails(null);
-      // No details file named any more: none is kept either.
-      if (settings.details === null) void forgetDetails(caches);
-      return;
-    }
-    const key = `${url}#${chosen.source.sha256}`;
-    if (!detailsOn || key === detailsKey) return;
-    detailsKey = key;
-    void loadDetails(url, chosen.source.sha256, { caches, fetch: (...args) => fetch(...args), sha256: sha256Hex }).then((table) => {
-      if (detailsKey === key) controller.setDetails(table);
-    });
-  };
+  // A load that fails is tried again at the next sync (details-sync.ts).
+  const details = new DetailsSync(
+    {
+      setDetails: (table) => controller.setDetails(table),
+      setDetailsOn: (on) => controller.setDetailsOn(on),
+      load: (url, sha256) => loadDetails(url, sha256, { caches, fetch: (...args) => fetch(...args), sha256: sha256Hex }),
+      forget: () => void forgetDetails(caches),
+      languages: () => (navigator.languages?.length ? navigator.languages : [navigator.language]),
+      settingsUrl: SETTINGS_URL,
+    },
+    await readDetailsOn(chrome.storage.local).catch(() => true),
+  );
+  const syncDetails = (settings: Settings): void => details.sync(settings);
   let settingsNow = effective.settings;
   post = connectTooltipFrame({ win: window, framed, parentOrigin, dev: __DEV__ }, controller);
   if (!post) return;
@@ -112,7 +104,7 @@ void (async () => {
       });
     }
     if (area === "local" && DETAILS_KEY in changes) {
-      detailsOn = changes[DETAILS_KEY]?.newValue !== false;
+      details.detailsOn = changes[DETAILS_KEY]?.newValue !== false;
       syncDetails(settingsNow);
     }
   });

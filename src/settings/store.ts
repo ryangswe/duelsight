@@ -108,6 +108,9 @@ export async function refreshSettings(storage: KeyValueStorage, options: Refresh
   }
   const { settings, problems } = validateSettings(raw);
   if (!settings) return { kind: "kept", reason: problems.join("; ") };
+  // Stored even when the file has not changed: the new `fetchedAt` is what tells open tooltips
+  // that the settings were read again (their hourly retry of failing sources and of a details
+  // file that did not load). They compare the contents themselves (settings/same.ts).
   const stored: StoredSettings = { raw, fetchedAt: options.now() };
   await storage.set({ [LAST_GOOD_KEY]: stored });
   return { kind: "updated", problems };
