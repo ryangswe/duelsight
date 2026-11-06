@@ -10,6 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings",
     "test": "tsc --noEmit && vitest run",
     "build": "node scripts/build.mjs",
     "package": "node scripts/package.mjs",
@@ -24,6 +25,8 @@
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
     "happy-dom": "21.0.4",
+    "oxlint": "1.91.0",
+    "oxlint-tsgolint": "7.0.2006",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
