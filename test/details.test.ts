@@ -133,7 +133,7 @@ describe("loadDetails", () => {
 
   it("fetches again when the kept copy does not match", async () => {
     const caches = fakeCaches();
-    (await caches.open(DETAILS_CACHE)).put(URL1, new Response("tampered"));
+    await (await caches.open(DETAILS_CACHE)).put(URL1, new Response("tampered"));
     const { calls, fetch } = fetcher({ [URL1]: () => new Response(body) });
     expect(await loadDetails(URL1, digest, { caches, fetch, sha256 })).not.toBeNull();
     expect(calls).toHaveLength(1);
@@ -142,7 +142,7 @@ describe("loadDetails", () => {
   it("drops an older file's copy once a new one is kept", async () => {
     const caches = fakeCaches();
     const old = "https://cdn.example.org/data/details-bbbbbbbb.json";
-    (await caches.open(DETAILS_CACHE)).put(old, new Response("{}"));
+    await (await caches.open(DETAILS_CACHE)).put(old, new Response("{}"));
     const { fetch } = fetcher({ [URL1]: () => new Response(body) });
     await loadDetails(URL1, digest, { caches, fetch, sha256 });
     expect([...caches.stores.get(DETAILS_CACHE)!.keys()]).toEqual([URL1]);
