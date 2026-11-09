@@ -7,8 +7,9 @@ A browser extension for Chrome and Firefox (desktop) for watching Yu-Gi-Oh! vide
 Hover a card in a YouTube or Twitch video and a larger picture of it appears, with its name, type,
 stats and text.
 
-The card details follow your browser's language: French, German, Italian, Spanish or Portuguese,
-with the official card text where one exists. The rest of DuelSight is in English.
+The card details can be in French, German, Italian, Spanish or Portuguese, with the official card
+text where one exists: choose the language in the popup, or leave it on Automatic to follow your
+browser. The rest of DuelSight is in English.
 
 **DuelSight is an unofficial fan project, not affiliated with or endorsed by Konami.**
 Yu-Gi-Oh!, its card names and its card art belong to their owners. Card text and images are

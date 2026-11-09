@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // The popup: one switch (the master on/off), the card details switch (details-control.ts), the
-// card-size dial (card-size-control.ts; both grayed out and still while the master switch is off), a "New version available" line only when the settings
-// file names a newer version (installs that never update by themselves; never in Firefox, which
-// installs only signed add-ons and updates them itself), and two links (the
-// project page, and the open-source toolkit it is built on). The logic is apart from the browser
-// globals so that it can be tested.
+// card language menu (card-language-control.ts; also grayed out while the details are off), the
+// card-size dial (card-size-control.ts; all three grayed out and still while the master switch is
+// off), a "New version available" line only when the settings file names a newer version
+// (installs that never update by themselves; never in Firefox, which installs only signed add-ons
+// and updates them itself), and two links (the project page, and the open-source toolkit it is
+// built on). The logic is apart from the browser globals so that it can be tested.
 
 import { CONFIG } from "../config.js";
 import { PROJECT_URL, RUNTIME_URL } from "../constants.js";
@@ -15,6 +16,8 @@ import { CARD_SIZE_KEY } from "../shared/card-size.js";
 import { initCardSize } from "./card-size-control.js";
 import { DETAILS_KEY } from "../shared/details-pref.js";
 import { initDetailsSwitch } from "./details-control.js";
+import { CARD_LANGUAGE_KEY } from "../shared/card-language.js";
+import { initCardLanguage } from "./card-language-control.js";
 
 interface Area {
   get(keys: string | string[] | null): Promise<Record<string, unknown>>;
@@ -28,6 +31,8 @@ export interface PopupEnv {
   version: string;
   /** Whether this build shows the "New version available" line (false in the Firefox build). */
   updateNotices?: boolean;
+  /** The browser's languages, most preferred first (for the card language menu's Automatic). */
+  languages?: () => readonly string[];
 }
 
 /** Fill the popup and keep it current. Adds one storage listener. */
@@ -42,13 +47,26 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
 
   const toggle = $<HTMLButtonElement>("enabled");
   const cardSize = initCardSize(env.doc, env.local);
-  const details = initDetailsSwitch(env.doc, env.local);
-  // The card details switch and the size dial only matter while card hovers are on: off, they
-  // are grayed out and still, and their stored choices wait for the master switch.
+  const language = initCardLanguage(env.doc, env.local, env.languages ?? (() => []));
+  // The card language only matters while card hovers and card details are both on. Each is
+  // unknown (null) until read, so the menu is drawn once, in its final state.
+  let hoversOn: boolean | null = null;
+  let detailsOn: boolean | null = null;
+  const showLanguage = (): void => {
+    if (hoversOn !== null && detailsOn !== null) language.setActive(hoversOn && detailsOn);
+  };
+  const details = initDetailsSwitch(env.doc, env.local, (on) => {
+    detailsOn = on;
+    showLanguage();
+  });
+  // The card details switch, the language menu and the size dial only matter while card hovers
+  // are on: off, they are grayed out and still, and their stored choices wait for the master switch.
   const panel = env.doc.querySelector(".panel");
   const showActive = (on: boolean): void => {
     details.setActive(on);
     cardSize.setActive(on);
+    hoversOn = on;
+    showLanguage();
     panel?.toggleAttribute("data-hovers-off", !on);
   };
   // Disabled, without transitions, until the stored state is first read: the knob does not slide
@@ -104,6 +122,8 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
   env.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (LAST_GOOD_KEY in changes || DISMISSED_UPDATE_KEY in changes) void renderUpdate();
+    // A new settings file can offer other languages.
+    if (LAST_GOOD_KEY in changes || CARD_LANGUAGE_KEY in changes) void language.render();
     if (ENABLED_KEY in changes) void renderSwitch();
     if (CARD_SIZE_KEY in changes) void cardSize.render();
     if (DETAILS_KEY in changes) void details.render();

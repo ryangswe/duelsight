@@ -42,11 +42,14 @@ there is room, under it in a narrow window. The text keeps a readable size; when
 has no room for all of a long text, it ends in "…". On a new install, the details take a moment to
 load, and pictures show alone until then. Pausing works too, on recorded videos and on live streams.
 
-The details follow your browser's language. When its top preferred language is French, German,
-Italian, Spanish or Portuguese, the panel shows the card's official name in that language (with
-the English name under it), type line and text; a card with no official text in that language
-yet shows its English text. Other languages show English. There is nothing to set in DuelSight:
-change the browser's language to change it.
+The details can be in English, French, German, Italian, Spanish or Portuguese: choose one with
+**Card language** in the popup (below). In a language other than English, the panel shows the
+card's official name in that language (with the English name under it), type line and text; a
+card with no official text in that language yet shows its English text.
+
+**Automatic**, the default, follows your browser's languages: the panel uses the earliest one in
+your browser's list that DuelSight has, and English when it has none of them. With Japanese then
+French, for example, it shows French.
 
 ## The toolbar popup
 
@@ -57,13 +60,18 @@ settings check above.
 **Card details** shows the card's type, stats and text beside its picture (on unless you turn it
 off). Off, the tooltip is the picture alone.
 
+**Card language** chooses the language of the card details: Automatic (your browser's language,
+as above), or a language from the list. It changes the card's name, type line, stats line and
+text; the picture stays the same. The rest of DuelSight is in English. A language added later
+shows in the list without an update of the extension.
+
 **Card size** sets how large the card's picture is shown, from 70% to 130% of its usual size
 (100% unless you change it). A card on show changes size at once. The picture still stays inside
 the window and beside the card, so in a small window it can be smaller than the size you set.
 
-While the main switch is off, **Card details** and **Card size** are grayed out and can't be
-changed. Your choices for them are kept, and they come back as they were when you turn the main
-switch on again.
+While the main switch is off, **Card details**, **Card language** and **Card size** are grayed
+out and can't be changed. **Card language** is grayed out too while **Card details** is off. Your
+choices for them are kept, and they come back as they were when you turn the switches on again.
 
 Below them are two links, to the project page and to the open-source toolkit it is built on.
 
@@ -102,7 +110,7 @@ their own, and your settings stay.
   card and choose **Remove**.
 
 Removing the extension deletes its saved settings (the on/off switch, the card size, the card
-details choice and its copy of the card details file); installing it again starts fresh.
+details choice, the card language and its copy of the card details file); installing it again starts fresh.
 
 ### Chrome installs from a release zip
 

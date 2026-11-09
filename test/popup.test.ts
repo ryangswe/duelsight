@@ -8,10 +8,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PROJECT_URL, RUNTIME_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
 import { CONFIG } from "./helpers/fork.js";
 import { initPopup } from "../src/popup/view.js";
+import { languageName, languageOptions } from "../src/popup/card-language-control.js";
+import { LAST_GOOD_KEY } from "../src/settings/store.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const HTML = `<main class="panel"><span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <button id="details" role="switch" aria-checked="false" aria-busy="true" disabled></button>
+<div class="picker"><select id="card-language" aria-busy="true" disabled></select></div>
 <input id="card-size" type="range" disabled><output id="card-size-value"></output>
 <p id="update" hidden><a id="update-link"></a><button id="update-dismiss"></button></p>
 <a id="project"></a><a id="runtime"></a></main>`;
@@ -271,6 +274,95 @@ describe("popup", () => {
     listeners.forEach((l) => l({ enabled: { newValue: true } }, "local"));
     await settle();
     expect([details.getAttribute("aria-checked"), details.disabled]).toEqual(["false", false]);
+  });
+
+  describe("card language", () => {
+    const menu = () => document.getElementById("card-language") as HTMLSelectElement;
+    const entries = () => [...menu().options].map((o) => [o.value, o.textContent]);
+    const open = async (local = memoryStorage(), languages: string[] = ["en-US"]) => {
+      const { listeners, onChanged } = listenersOf();
+      initPopup({ doc: document, local, onChanged, version: "0.1.0", languages: () => languages });
+      await settle();
+      await settle();
+      return { local, listeners };
+    };
+
+    it("names each language in its own language", () => {
+      expect(["en", "fr", "de", "it", "es", "pt", "ja"].map(languageName)).toEqual(["English", "Français", "Deutsch", "Italiano", "Español", "Português", "日本語"]);
+      expect(languageName("zz")).toBe("ZZ");
+      expect(languageOptions(["fr", "de"], "fr").map((o) => o.label)).toEqual(["Automatic (Français)", "English", "Deutsch", "Français"]);
+    });
+
+    it("lists Automatic, English and the languages the settings offer, Automatic by default", async () => {
+      await open(memoryStorage(), ["fr-FR"]);
+      expect(entries()).toEqual([
+        ["auto", "Automatic (Français)"],
+        ["en", "English"],
+        ["de", "Deutsch"],
+        ["es", "Español"],
+        ["fr", "Français"],
+        ["it", "Italiano"],
+        ["pt", "Português"],
+      ]);
+      expect(menu().value).toBe("auto");
+      expect(menu().disabled).toBe(false);
+      expect(menu().hasAttribute("aria-busy")).toBe(false);
+    });
+
+    it("stores a choice, and follows one made elsewhere", async () => {
+      const { local, listeners } = await open();
+      menu().value = "de";
+      menu().dispatchEvent(new Event("change"));
+      await settle();
+      expect(local.data.cardLanguage).toBe("de");
+      await local.set({ cardLanguage: "it" });
+      listeners.forEach((l) => l({ cardLanguage: { newValue: "it" } }, "local"));
+      await settle();
+      await settle();
+      expect(menu().value).toBe("it");
+    });
+
+    it("shows a stored language the settings no longer offer as Automatic, and keeps it", async () => {
+      const raw = { schemaVersion: 1, updatedAt: "2026-11-09T00:00:00Z", namesOnly: false, primary: null, fallbacks: [], details: { path: "data/details-01234567.json", sha256: "a".repeat(64) }, detailsFr: { path: "data/details-fr-89abcdef.json", sha256: "b".repeat(64) } };
+      const local = memoryStorage({ cardLanguage: "de", [LAST_GOOD_KEY]: { raw, fetchedAt: 1 } });
+      await open(local);
+      expect(entries().map(([v]) => v)).toEqual(["auto", "en", "fr"]);
+      expect(menu().value).toBe("auto");
+      expect(local.data.cardLanguage).toBe("de");
+    });
+
+    it("lists English alone when the settings name no English details file", async () => {
+      const raw = { schemaVersion: 1, updatedAt: "2026-11-09T00:00:00Z", namesOnly: false, primary: null, fallbacks: [], detailsFr: { path: "data/details-fr-89abcdef.json", sha256: "b".repeat(64) } };
+      await open(memoryStorage({ [LAST_GOOD_KEY]: { raw, fetchedAt: 1 } }), ["fr-FR"]);
+      expect(entries()).toEqual([["auto", "Automatic (English)"], ["en", "English"]]);
+    });
+
+    it("is grayed out while card hovers or card details are off, keeping the stored choice", async () => {
+      const { local } = await open(memoryStorage({ cardLanguage: "fr" }));
+      const picker = document.querySelector(".picker")!;
+      const state = () => [menu().disabled, picker.hasAttribute("data-inactive"), menu().value];
+      expect(state()).toEqual([false, false, "fr"]);
+      document.getElementById("details")!.click();
+      await settle();
+      expect(state()).toEqual([true, true, "fr"]);
+      // A change that gets through anyway is not stored.
+      menu().disabled = false;
+      menu().value = "de";
+      menu().dispatchEvent(new Event("change"));
+      await settle();
+      expect(local.data.cardLanguage).toBe("fr");
+      document.getElementById("details")!.click();
+      await settle();
+      expect(state()[0]).toBe(false);
+      document.getElementById("enabled")!.click();
+      await settle();
+      expect(state().slice(0, 2)).toEqual([true, true]);
+    });
+
+    it("opens grayed out when card hovers are off", async () => {
+      await open(memoryStorage({ enabled: false }));
+      expect(menu().disabled).toBe(true);
+    });
   });
 
   it("names the extension as the config does", () => {

@@ -41,7 +41,7 @@ let switches: boolean[];
 let forgets: number;
 let languages: string[];
 
-const build = (on = true) =>
+const build = (on = true, cardLanguage?: string) =>
   new DetailsSync(
     {
       setDetails: (t) => void shown.push(t),
@@ -55,6 +55,7 @@ const build = (on = true) =>
       settingsUrl: SETTINGS_URL,
     },
     on,
+    cardLanguage,
   );
 
 const tick = async () => {
@@ -148,6 +149,25 @@ describe("details sync", () => {
     languages = ["fr-FR", "en"];
     build().sync(settings());
     expect(loads.map((l) => l.url)).toEqual([url(FR)]);
+  });
+
+  it("follows the card language over the browser's, and switches files when it changes", async () => {
+    languages = ["en-US"];
+    const sync = build(true, "fr");
+    sync.sync(settings());
+    expect(loads.map((l) => l.url)).toEqual([url(FR)]);
+    loads[0]!.resolve(table("fr"));
+    await tick();
+    sync.cardLanguage = "en";
+    sync.sync(settings());
+    expect(loads.map((l) => l.url)).toEqual([url(FR), url(EN)]);
+    loads[1]!.resolve(table("en"));
+    await tick();
+    // Automatic follows the browser again (English here): the file in hand stays.
+    sync.cardLanguage = "auto";
+    sync.sync(settings());
+    expect(loads).toHaveLength(2);
+    expect(shown).toEqual([table("fr"), table("en")]);
   });
 
   it("clears the panel and deletes the kept copy when the settings name no details file", async () => {
