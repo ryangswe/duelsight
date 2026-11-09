@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import { DETAILS_CACHE, forgetDetails, loadDetails } from "../src/details/cache.js";
 import { detailLines, detailsFor, localName, parseDetailsFile } from "../src/details/details.js";
-import { browserLanguage, chooseDetails } from "../src/details/language.js";
+import { automaticLanguage, chooseDetails } from "../src/details/language.js";
 import { readDetailsOn } from "../src/shared/details-pref.js";
+import { readCardLanguage } from "../src/shared/card-language.js";
 import { DETAILS_FIXTURE, DETAILS_FR_FIXTURE } from "./helpers/details-fixture.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
@@ -74,6 +75,17 @@ describe("the details switch", () => {
     expect(await readDetailsOn(memoryStorage({ details: true }))).toBe(true);
     expect(await readDetailsOn(memoryStorage({ details: "no" }))).toBe(true);
     expect(await readDetailsOn(memoryStorage({ details: false }))).toBe(false);
+  });
+});
+
+describe("the card language", () => {
+  it("is Automatic unless a language code is stored", async () => {
+    expect(await readCardLanguage(memoryStorage())).toBe("auto");
+    expect(await readCardLanguage(memoryStorage({ cardLanguage: "fr" }))).toBe("fr");
+    expect(await readCardLanguage(memoryStorage({ cardLanguage: "en" }))).toBe("en");
+    for (const bad of ["FR", "fr-CA", "", "français", 3, null, { fr: 1 }]) {
+      expect(await readCardLanguage(memoryStorage({ cardLanguage: bad }))).toBe("auto");
+    }
   });
 });
 
@@ -208,16 +220,21 @@ describe("a localized (French) details file", () => {
   });
 });
 
-describe("the browser's language picks the details file", () => {
+describe("the card language, or the browser's languages, pick the details file", () => {
   const en = { path: "data/details-01234567.json", sha256: "a".repeat(64) };
   const french = { path: "data/details-fr-89abcdef.json", sha256: "b".repeat(64) };
 
-  it("is the first preferred language's base subtag", () => {
-    expect(browserLanguage(["fr-CA", "en-US"])).toBe("fr");
-    expect(browserLanguage(["FR"])).toBe("fr");
-    expect(browserLanguage(["en-US", "fr-FR"])).toBe("en");
-    expect(browserLanguage(["", "de-DE"])).toBe("de");
-    expect(browserLanguage([])).toBe("");
+  it("on Automatic, is the first preferred language that is English or offered, by base subtag", () => {
+    const offered = { fr: 1, de: 1 };
+    expect(automaticLanguage(["fr-CA", "en-US"], offered)).toBe("fr");
+    expect(automaticLanguage(["FR"], offered)).toBe("fr");
+    expect(automaticLanguage(["en-US", "fr-FR"], offered)).toBe("en");
+    expect(automaticLanguage(["", "de-DE"], offered)).toBe("de");
+    // A language with no file is passed over for the next one.
+    expect(automaticLanguage(["ja-JP", "fr"], offered)).toBe("fr");
+    expect(automaticLanguage(["ja", "ko"], offered)).toBe("en");
+    expect(automaticLanguage([], offered)).toBe("en");
+    expect(automaticLanguage(["constructor", "toString"], offered)).toBe("en");
   });
 
   const german = { path: "data/details-de-76543210.json", sha256: "c".repeat(64) };
@@ -233,7 +250,19 @@ describe("the browser's language picks the details file", () => {
     expect(chooseDetails({ details: en, localDetails }, ["constructor"])).toEqual({ source: en, lang: "en" });
   });
 
+  it("is the chosen language's file when one is named, whatever the browser's languages", () => {
+    const localDetails = { fr: french, de: german };
+    expect(chooseDetails({ details: en, localDetails }, ["en-US"], "de")).toEqual({ source: german, lang: "de" });
+    expect(chooseDetails({ details: en, localDetails }, ["fr-FR"], "en")).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["fr-FR"], "auto")).toEqual({ source: french, lang: "fr" });
+    // A choice the settings no longer offer follows the browser, as Automatic does.
+    expect(chooseDetails({ details: en, localDetails }, ["fr-FR"], "it")).toEqual({ source: french, lang: "fr" });
+    expect(chooseDetails({ details: en, localDetails }, ["en-US"], "it")).toEqual({ source: en, lang: "en" });
+    expect(chooseDetails({ details: en, localDetails }, ["en-US"], "constructor")).toEqual({ source: en, lang: "en" });
+  });
+
   it("is none when the English file is not named: the maintainer has taken the details down", () => {
     expect(chooseDetails({ details: null, localDetails: { fr: french } }, ["fr"])).toBeNull();
+    expect(chooseDetails({ details: null, localDetails: { fr: french } }, ["en"], "fr")).toBeNull();
   });
 });

@@ -73,7 +73,7 @@ Full test report: https://github.com/ryangswe/duelsight/blob/main/docs/accuracy.
 - Aimed at Master Duel, Dueling Book and paper tables with the camera above the table. Results vary by video, and it can miss a card or show a wrong one.
 - Rest the pointer on a card in a supported video; nothing to set up per channel. The toolbar switch turns it off everywhere.
 - Choose the card size (70% to 130%) and whether the card's text shows beside its picture, in the toolbar popup.
-- Card names and text in French, German, Italian, Spanish or Portuguese when your browser is set to one of them (official card texts; English where none exists).
+- Card names and text in French, German, Italian, Spanish or Portuguese: choose the language in the popup, or follow your browser's (official card texts; English where none exists).
 - No accounts, analytics, telemetry or advertising. Video frames are analyzed inside your browser and never uploaded.
 - Open source (Apache-2.0), built on the cardvision toolkit: https://github.com/ryangswe/riftsight-vision
 

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Which details file the tooltip frame loads, and when (the frame's wiring is in tooltip.ts).
 //
-//   - The file is chosen from the settings and the browser's languages (language.ts), and loaded
-//     only while the details panel is on.
+//   - The file is chosen from the settings, the popup's card language and the browser's languages
+//     (language.ts), and loaded only while the details panel is on.
 //   - A file already loaded, or loading, is not loaded again.
 //   - A load that fails is forgotten, so the next sync tries again. A sync comes with the next
 //     settings file the background stores (at most about once an hour, and only a usable one),
-//     with the details switch, and with a change of the browser's language. Until then, pictures
-//     show alone.
+//     with the details switch, with the card language, and with a change of the browser's
+//     language. Until then, pictures show alone.
 //   - Settings that name no details file any more clear the panel and delete the kept copy.
 //
 // Nothing here touches the page, so the rules can be tested without one.
@@ -15,6 +15,7 @@
 import { chooseDetails } from "../details/language.js";
 import type { DetailsTable } from "../details/details.js";
 import { detailsUrl, type Settings } from "../settings/schema.js";
+import { AUTOMATIC } from "../shared/card-language.js";
 
 export interface DetailsSyncDeps {
   /** The details for the tooltip (null: none). */
@@ -39,11 +40,13 @@ export class DetailsSync {
     private readonly deps: DetailsSyncDeps,
     /** The popup's details switch. */
     public detailsOn: boolean,
+    /** The popup's card language: "auto" or a language code (shared/card-language.ts). */
+    public cardLanguage: string = AUTOMATIC,
   ) {}
 
   sync(settings: Settings): void {
     this.deps.setDetailsOn(this.detailsOn);
-    const chosen = chooseDetails(settings, this.deps.languages());
+    const chosen = chooseDetails(settings, this.deps.languages(), this.cardLanguage);
     const url = chosen ? detailsUrl(chosen.source, this.deps.settingsUrl) : null;
     if (!url || !chosen) {
       this.key = null;

@@ -11,9 +11,9 @@ what it sends, and what it keeps.
 - Video frames are processed temporarily in memory, inside your browser. They are not saved to
   storage and never uploaded.
 - The extension makes requests to one host, DuelSight's card CDN (`cdn.duelsight.com`), for a
-  settings file, card pictures, a card details file (in your browser's language when DuelSight has
-  that language, otherwise in English) and, when new cards are published, updated
-  card-recognition data.
+  settings file, card pictures, a card details file (in the card language chosen in the popup, or
+  on Automatic in your browser's language, when DuelSight has that language; otherwise in
+  English) and, when new cards are published, updated card-recognition data.
 
 ## What it reads
 
@@ -33,9 +33,9 @@ what it sends, and what it keeps.
   analyzes is the whole video frame, so anything drawn into the video itself (such as an overlay
   showing chat) is part of that picture; the extension looks for cards in it and does not read
   text or identify people.
-- Your browser's preferred language, to choose the card details file's language: the file in
-  your top preferred language when DuelSight has one, the English one otherwise. It is not stored
-  or sent; it just decides which file is requested.
+- Your browser's preferred languages, when the card language in the popup is Automatic, to
+  choose the card details file's language: the file in the earliest of them DuelSight has, the
+  English one otherwise. They are not stored or sent; they just decide which file is requested.
 - Nothing on other sites.
 
 With the toolbar switch off, the extension shows no button and reads no video on any page. The
@@ -85,14 +85,15 @@ Stored locally by the extension, without Chrome Sync, and never sent anywhere:
   - whether it is switched on;
   - the card size you set in the popup (70% to 130%);
   - whether card details are switched on in the popup;
+  - the card language you chose in the popup (Automatic unless you change it);
   - the last settings file it fetched, and when;
   - if updated recognition data failed its checks, that release's id and why, so that it is not
     downloaded again for a day (after 24 hours it is ignored, and deleted the next time it is read);
   - the version of a "New version available" notice you dismissed.
 - **In the extension's own Cache Storage:** one copy of the card details file from the CDN, in
-  your browser's language when there is one (the same file for everyone with that language; it
-  says nothing about you or what you watched). A newer version, or the other language's file
-  after you change your browser's language, replaces it.
+  the card language in effect (the same file for everyone with that language; it says nothing
+  about you or what you watched). A newer version, or another language's file after you change
+  the card language or your browser's language, replaces it.
 
 Card pictures are kept in memory while the tab is open, and in your browser's ordinary cache, as
 are the files of updated recognition data.

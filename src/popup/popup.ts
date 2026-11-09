@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// The popup: the master switch, the card details switch, the card-size dial, and a "New version
+// The popup: the master switch, the card details switch, the card language menu, the card-size dial, and a "New version
 // available" line when there is one (view.ts).
 
 import { initPopup } from "./view.js";
@@ -13,5 +13,6 @@ initPopup({
   version: chrome.runtime.getManifest().version,
   // Firefox installs only signed add-ons and updates them itself: no zip install to tell about.
   updateNotices: __TARGET__ !== "firefox",
+  languages: () => (navigator.languages?.length ? navigator.languages : [navigator.language]),
 });
 chrome.runtime.sendMessage({ kind: "settings:refresh" }).catch(() => undefined);
