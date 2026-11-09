@@ -21,13 +21,13 @@
     "onnxruntime-web": "1.29.0"
   },
   "devDependencies": {
-    "@types/chrome": "0.3.6",
+    "@types/chrome": "0.3.7",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
     "happy-dom": "21.0.4",
-    "oxlint": "1.91.0",
+    "oxlint": "1.92.0",
     "oxlint-tsgolint": "7.0.2006",
     "typescript": "7.0.2",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }
