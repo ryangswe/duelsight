@@ -2,8 +2,9 @@
 #
 # Dependabot auto-merge (approved by the owner on 2026-11-02). A Dependabot pull request is queued
 # for GitHub's auto-merge only when every dependency it updates passes a rule below:
-#   - npm, the root package.json only, a devDependency named @types/*, happy-dom, typescript,
-#     vitest or @vitest/* (types and test tools: none of them is in the built extension);
+#   - npm, the root package.json only, a devDependency named @types/*, happy-dom, oxlint,
+#     oxlint-tsgolint, typescript, vitest or @vitest/* (types, test tools and lint tools: none of
+#     them is in the built extension; lint tools added with the owner's OK on 2026-11-09);
 # and the update is a patch, or a minor update of a package at 1.0 or later (below 1.0 a minor
 # update may break, so it waits). GitHub then squash-merges it once the branch's required checks
 # pass; a red check leaves it open. Everything else waits for the owner: onnxruntime-web, esbuild (it builds the shipped extension), GitHub Actions,
@@ -37,7 +38,7 @@ jobs:
         env:
           UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
           RULES: >-
-            [{"ecosystem": "npm_and_yarn", "directory": "/", "devOnly": true, "names": ["@types/*", "happy-dom", "typescript", "vitest", "@vitest/*"]}]
+            [{"ecosystem": "npm_and_yarn", "directory": "/", "devOnly": true, "names": ["@types/*", "happy-dom", "oxlint", "oxlint-tsgolint", "typescript", "vitest", "@vitest/*"]}]
         run: |
           echo "$UPDATES" | jq -r '.[] | "\(.packageEcosystem) \(.directory) \(.dependencyName) \(.prevVersion) -> \(.newVersion) (\(.dependencyType), \(.updateType))"'
           if echo "$UPDATES" | jq -e --argjson rules "$RULES" '

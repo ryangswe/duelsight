@@ -2,8 +2,8 @@
 #
 # Dependency updates: one grouped pull request a month per ecosystem. Each one goes through the
 # same checks as any other pull request. A person reads it before merging, except the small
-# updates of test tools and types that .github/workflows/dependabot-auto-merge.yml queues for
-# auto-merge once the required checks pass. The groups named *-checks hold those tools, so
+# updates of test tools, lint tools and types that .github/workflows/dependabot-auto-merge.yml
+# queues for auto-merge once the required checks pass. The groups named *-checks hold those tools, so
 # they arrive apart from everything else (a major update of one still goes to the main group).
 #
 # Held:
@@ -22,7 +22,7 @@ updates:
     groups:
       npm-checks:
         dependency-type: development
-        patterns: ["@types/*", "happy-dom", "typescript", "vitest", "@vitest/*"]
+        patterns: ["@types/*", "happy-dom", "oxlint", "oxlint-tsgolint", "typescript", "vitest", "@vitest/*"]
         update-types: [minor, patch]
       npm-dependencies:
         patterns: ["*"]
