@@ -26,7 +26,7 @@ Card hovers are on for all supported videos: open a Yu-Gi-Oh! video on YouTube o
 point at a card. Nothing is analyzed before the pointer comes over a video, so a video you just
 watch costs nothing. To turn card hovers off everywhere, use the switch in DuelSight's toolbar
 popup; there is no per-channel switch. The extension separately checks its settings file when it
-is installed or updated and when Chrome starts, and at most once an hour while you use it.
+is installed or updated and when the browser starts, and at most once an hour while you use it.
 
 ## Hovering a card
 
@@ -92,9 +92,19 @@ What it does and does not recognize is in [accuracy.md](accuracy.md).
 
 ## Updating and removing
 
-**Store installs update themselves** once there is a store listing: Chrome installs new versions
-on its own, and your settings stay. The rest of this section is about installs from a release
-zip.
+**Store installs update themselves:** Chrome and Firefox install new versions from their stores on
+their own, and your settings stay.
+
+**To remove it:**
+
+- **Chrome:** click **Remove** on DuelSight's card in `chrome://extensions`.
+- **Firefox:** open `about:addons`, choose **Extensions**, click the **⋯** menu on DuelSight's
+  card and choose **Remove**.
+
+Removing the extension deletes its saved settings (the on/off switch, the card size, the card
+details choice and its copy of the card details file); installing it again starts fresh.
+
+### Chrome installs from a release zip
 
 Every install from a release zip has the same extension ID (`ddhnolhobdfnfofeloiimlelijgjihfp`).
 That alone does not keep settings: they are kept when you update in place, as below.
@@ -102,9 +112,5 @@ That alone does not keep settings: they are kept when you update in place, as be
 **To update and keep your settings**, download the new zip and unzip it, replace the contents of
 your existing DuelSight folder with the contents of the new one, then click the circular
 **Reload** arrow on DuelSight's card in `chrome://extensions`. When a newer version is out,
-DuelSight's popup says "New version available" with a link.
-
-**To remove it**, click **Remove** on its card in `chrome://extensions`. Removing the extension
-deletes its saved settings (the on/off switch, the card size, the card details choice and its
-copy of the card details file);
-installing it again starts fresh.
+DuelSight's popup says "New version available" with a link. To remove it, click **Remove** on
+its card, as above.

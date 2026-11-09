@@ -3,8 +3,9 @@
 
 <img src="docs/banner.webp" alt="DuelSight: hover a Yu-Gi-Oh! card in a video to see it. YouTube and Twitch. Free and open source. Unofficial fan project, not affiliated with or endorsed by Konami." width="100%">
 
-A Chrome extension for watching Yu-Gi-Oh! videos and streams. Hover a card in a YouTube or
-Twitch video and a larger picture of it appears, with its name, type, stats and text.
+A browser extension for Chrome and Firefox (desktop) for watching Yu-Gi-Oh! videos and streams.
+Hover a card in a YouTube or Twitch video and a larger picture of it appears, with its name, type,
+stats and text.
 
 The card details follow your browser's language: French, German, Italian, Spanish or Portuguese,
 with the official card text where one exists. The rest of DuelSight is in English.
@@ -22,11 +23,16 @@ Results vary by video; see [docs/accuracy.md](docs/accuracy.md).
 
 ## Install
 
-Install DuelSight from the [Chrome Web Store](https://chromewebstore.google.com/detail/duelsight/okngcckiafmekbmdgoakggfbicgoagnc). Then open a Yu-Gi-Oh! video on
-YouTube or Twitch and rest the pointer on a card.
+- **Chrome:** install DuelSight from the
+  [Chrome Web Store](https://chromewebstore.google.com/detail/duelsight/okngcckiafmekbmdgoakggfbicgoagnc).
+- **Firefox** (148 or later, on a computer; not Firefox for Android): install it from
+  [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/duelsight/).
+
+Then open a Yu-Gi-Oh! video on YouTube or Twitch and rest the pointer on a card.
 
 If your Chrome can't use the store, install from a release zip instead: see
-[docs/install-from-zip.md](docs/install-from-zip.md).
+[docs/install-from-zip.md](docs/install-from-zip.md). Firefox has no zip route: it installs
+add-ons that Mozilla has signed, so use Firefox Add-ons.
 
 ## Privacy
 
@@ -44,12 +50,12 @@ Details: [PRIVACY.md](PRIVACY.md) and [docs/permissions.md](docs/permissions.md)
 | I want to… | Read |
 | --- | --- |
 | Turn card hovers on, update or remove the extension | [docs/using.md](docs/using.md) |
-| Install from a release zip | [docs/install-from-zip.md](docs/install-from-zip.md) |
+| Install from a release zip (Chrome) | [docs/install-from-zip.md](docs/install-from-zip.md) |
 | See what it does and does not recognize | [docs/accuracy.md](docs/accuracy.md) |
 | Understand how it and its settings file work | [docs/how-it-works.md](docs/how-it-works.md) |
 | Build it, update the runtime, test on a local video | [docs/development.md](docs/development.md) |
 | Keep it up to date, or hand it over | [MAINTAINING.md](MAINTAINING.md) |
-| Submit it to the Chrome Web Store (every field, the privacy page, the store images) | [docs/store-listing.md](docs/store-listing.md) |
+| Submit it to the Chrome Web Store or Firefox Add-ons (the fields, the privacy page, the store images) | [docs/store-listing.md](docs/store-listing.md) |
 | Find the images uploaded to the store listings | [docs/store/README.md](docs/store/README.md) |
 | Watch the promo reel, or make a new one | [docs/reel/README.md](docs/reel/README.md) |
 | Make the same extension for another card game | [docs/make-it-yours.md](docs/make-it-yours.md) |

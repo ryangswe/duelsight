@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Permissions
 
-What each Chrome permission DuelSight asks for is used for. What it reads, sends and keeps is in [PRIVACY.md](../PRIVACY.md).
+What each permission DuelSight asks for is used for. Chrome and Firefox ask for the same ones,
+worded their own way in their install prompts. What it reads, sends and keeps is in [PRIVACY.md](../PRIVACY.md).
 
 *[Back to README](../README.md)*
 

@@ -2,8 +2,9 @@
 # Chrome Web Store listing
 
 Everything the Chrome Web Store developer dashboard asks for, tab by tab, and how to make the files
-it takes. Every field to paste sits in a fenced `text` block, so it copies verbatim; keep it that
-way. **Submitting is a manual dashboard action by the owner**
+it takes. Firefox Add-ons takes the same text and images: what it asks for differently is in
+[Firefox Add-ons](#firefox-add-ons-addonsmozillaorg). Every field to paste sits in a fenced `text`
+block, so it copies verbatim; keep it that way. **Submitting is a manual dashboard action by the owner**
 ([developer dashboard](https://chrome.google.com/webstore/devconsole)); nothing here uploads
 anything. Read the store's current policies before each submission: they change.
 
@@ -16,11 +17,13 @@ anything. Read the store's current policies before each submission: they change.
 | 0.1.0 | release T `6666477f410559ac` (early preview) | Unlisted | approved; replaced by 0.2.1 |
 | 0.2.1 | release T2 `0927859c6f18302f` (measured: [accuracy.md](accuracy.md)); the popup without the disclaimer paragraph | Public | live 2026-10-24 (item `okngcckiafmekbmdgoakggfbicgoagnc`); replaced by 0.3.0 |
 | 0.3.0 | release T2 `0927859c6f18302f` bundled; new cards through the settings file's release pointer (cdn/SETTINGS.md); runtime cardvision 0.3.0rc1 | Public | live by 2026-10-26; the opening pointer move (to the bundled `0927859c6f18302f`, a no-op) published and verified 2026-10-26 |
-| 0.4.0 | release `387bdfb29b4b050f` bundled (T2 converted losslessly: a binary bank and a compact catalog); card hovers on for all supported videos, no in-player button; a Firefox build (addons.mozilla.org, `duelsight@duelsight.com`, Firefox 148 or later); runtime cardvision 0.4.0rc2. The live settings' release pointer is set to `null` at the upload (each version then runs its bundled release) | Public | Chrome: live; Firefox: in its opening review at addons.mozilla.org |
-| 0.5.0 | release `387bdfb29b4b050f` bundled; card details in French, German, Italian, Spanish and Portuguese (the browser's language); the paused-video fix; runtime cardvision 0.5.0rc2 | Public | Chrome: submitted 2026-10-29; Firefox: after 0.4.0's review |
-| 0.6.0 | release `387bdfb29b4b050f` bundled; the session on the toolkit's two-frame contract (pictures stop 60 s after the pointer last moved; a tap opens 10 s); the "Ancient eye" icon and new store images; runtime cardvision 0.6.0rc2 | Public | not yet submitted |
+| 0.4.0 | release `387bdfb29b4b050f` bundled (T2 converted losslessly: a binary bank and a compact catalog); card hovers on for all supported videos, no in-player button; a Firefox build (addons.mozilla.org, `duelsight@duelsight.com`, Firefox 148 or later); runtime cardvision 0.4.0rc2. The live settings' release pointer is set to `null` at the upload (each version then runs its bundled release) | Public | Chrome: submitted 2026-10-28, live, since replaced; Firefox: submitted 2026-10-28, public after the listing's opening review, replaced by 0.6.0 |
+| 0.5.0 | release `387bdfb29b4b050f` bundled; card details in French, German, Italian, Spanish and Portuguese (the browser's language); the paused-video fix; runtime cardvision 0.5.0rc2 | Public | Chrome: submitted 2026-10-29, replaced by 0.6.0; Firefox: skipped (0.4.0 went straight to 0.6.0) |
+| 0.6.0 | release `387bdfb29b4b050f` bundled; the session on the toolkit's two-frame contract (pictures stop 60 s after the pointer last moved; a tap opens 10 s); the "Ancient eye" icon and new store images; runtime cardvision 0.6.0rc2 | Public | Chrome: submitted 2026-10-30, live 2026-10-31; Firefox: public 2026-10-31 |
 
-Update this table with each submission (date submitted, date approved, store item ID).
+Update this table with each submission (date submitted, date approved, store item ID). Chrome's item is
+`okngcckiafmekbmdgoakggfbicgoagnc`; Firefox's add-on is `duelsight@duelsight.com`
+([its page](https://addons.mozilla.org/firefox/addon/duelsight/)).
 
 ## Before you open the dashboard
 
@@ -163,6 +166,34 @@ was done before launch. 0.2.1 was the launch release (Public since 2026-10-24); 
 ```text
 No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size and turns the card details on or off.
 ```
+
+## Firefox Add-ons (addons.mozilla.org)
+
+The Firefox listing reuses this page's text and images; the owner submits it in the
+[Developer Hub](https://addons.mozilla.org/developers/). What differs from Chrome:
+
+- **Distribution:** On this site (listed). **Compatibility:** Firefox. Leave Firefox for Android
+  unchecked: the add-on is for desktop, and its manifest names no Android settings.
+- **Files:** the Firefox package (`npm run build -- --target firefox --release <folder>`, then
+  `npm run package`) and, because the bundles are minified, the source archive Mozilla's reviewers
+  rebuild it from (`scripts/firefox-source-archive.mjs`; check its round trip as
+  [development.md](development.md#firefox) says). Mozilla's linter (`web-ext lint`) warns about
+  `eval` and dynamic import inside ONNX Runtime Web; the add-on's own scripts get no warnings.
+- **Add-on URL:** `duelsight`. **Summary** and **Description:** the same as Chrome's, above.
+- **Categories:** Photos, Music & Videos; Other, if it allows a second one.
+- **Support website:** `https://github.com/ryangswe/duelsight/issues`. **Homepage:**
+  `https://github.com/ryangswe/duelsight`. **Support email:** empty. **License:** Apache License 2.0.
+- **Privacy policy:** the full text of [PRIVACY.md](../PRIVACY.md), pasted in: Firefox Add-ons wants
+  the text, not a link. Paste it again whenever PRIVACY.md changes.
+- **Screenshots:** the four in [docs/store/](store/README.md), in the same order (1280×800 fits).
+  Tags: none.
+- **Notes to the reviewer:** what the add-on does, how to test it (no account; a public video
+  and a card to point at, as in [Test instructions](#test-instructions-if-the-dashboard-asks)), how to
+  rebuild from the source archive, where the linter warnings come from, the one host it requests
+  and that it collects no data (`data_collection_permissions: none`), and what each permission
+  is for ([permissions.md](permissions.md)).
+- **Release notes:** after approval, in Manage Status & Versions → the version → Release notes.
+  Write them for the users updating: when a version is skipped on Firefox, cover its changes too.
 
 ## Store images
 
