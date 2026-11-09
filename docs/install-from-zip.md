@@ -7,12 +7,19 @@ the store, to try a release before it reaches the store, or to learn how to load
 build yourself (**Load unpacked**), for example a [fork for another card game](make-it-yours.md).
 It takes a few minutes, and a zip install does not update itself.
 
+These steps are for Chrome. **Firefox** installs add-ons that Mozilla has signed, so install
+DuelSight there from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/duelsight/). To try
+a build of your own in Firefox, see [Firefox](development.md#firefox) in the development guide: it
+loads as a temporary add-on, which Firefox removes when it restarts.
+
 > TODO: screenshots. The images that were here showed another extension and were removed. Add
 > DuelSight's own for each step below (download, unzip, extensions page, developer mode, load
 > unpacked, choose folder, installed, pin, button, hover), then link them here.
 
 1. Open the project's [releases page](https://github.com/ryangswe/duelsight/releases) and, under
-   the newest release, download the file named `duelsight-<version>.zip`.
+   the newest release, download the file named `duelsight-<version>.zip`. If the page lists no
+   release yet, there is no zip to install: use the Chrome Web Store, or build one yourself
+   ([development.md](development.md)).
 
    *TODO: screenshot of the release's Assets.*
 

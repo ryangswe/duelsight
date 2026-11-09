@@ -67,9 +67,10 @@ not a monthly card update.
 ## Store submission
 
 [docs/store-listing.md](docs/store-listing.md) holds every field of the Chrome Web Store dashboard,
-paste-ready, and how to make what it uploads:
+paste-ready, what Firefox Add-ons asks for differently, and how to make what they upload:
 
-- the package (`npm run package` on a `--store` build);
+- the packages (`npm run package` on a `--store` build for Chrome and a `--target firefox` build
+  for Firefox, plus the source archive Mozilla's reviewers rebuild from: [docs/development.md](docs/development.md#firefox));
 - the privacy page at `<cdnBase>/privacy.html`, generated from PRIVACY.md by
   `scripts/privacy-page.mjs` and published with `cardvision cdn publish --page` (republish it
   whenever PRIVACY.md changes: the listing links to it);
@@ -80,7 +81,7 @@ paste-ready, and how to make what it uploads:
 - the promo reel, if one goes with the release: [docs/reel/](docs/reel/README.md), made by
   [tools/promo-video/](tools/promo-video/README.md).
 
-Submitting, and every declaration in the dashboard, is the owner's.
+Submitting, and every declaration in either store's dashboard, is the owner's.
 
 ## A core-model refresh
 
@@ -112,6 +113,10 @@ Each is separate from every other project's, so it can change hands whole:
 - **Hugging Face repositories** (the models and labels, when published).
 - **Chrome Web Store listing** (in the publisher's account; a transfer may mean a new listing).
   The settings file's `update` field can point installed copies to a new listing or release page.
+- **Firefox Add-ons listing** (addons.mozilla.org, in the owner's Mozilla account; add-on ID
+  `duelsight@duelsight.com`, `firefoxAddonId` in `duelsight.config.json`). The ID is permanent:
+  Firefox updates installed copies by it, so a build with another ID is a different add-on. In a
+  transfer, add the new owner as an author of the listing, so it keeps its ID and its users.
 
 Changing hands also means: a new extension key pair for unpacked installs (the old private key
 goes with the old owner), `projectUrl` and `maintainerContactUrl` in the config, and the contact
