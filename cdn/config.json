@@ -8,12 +8,12 @@
   },
   "fallbacks": [],
   "details": {
-    "path": "data/details-4ab2f978.json",
-    "sha256": "4ab2f978549f10f6612869e9cd50be63abea61148111a7812ee1f47aee076030"
+    "path": "data/details-bdd8ffa0.json",
+    "sha256": "bdd8ffa02f09339e8f3455fa2dc4e893f361cc3266247ed8f86ad467c618ec91"
   },
   "detailsFr": {
-    "path": "data/details-fr-9c0d5bb2.json",
-    "sha256": "9c0d5bb25bb26105280e78e7d493f05d71fb5043f63914aa2ead8da37ac1e4f9"
+    "path": "data/details-fr-c89689d9.json",
+    "sha256": "c89689d9b8400976d4b9f8e7bae8034f3755d8c909052edaf0cbaa9c051e1bd8"
   },
   "detailsDe": {
     "path": "data/details-de-61578bb6.json",
@@ -24,12 +24,17 @@
     "sha256": "c753b864de415c55652a4327597dca64c36069712e47e2442f83c894762013d5"
   },
   "detailsEs": {
-    "path": "data/details-es-0428f284.json",
-    "sha256": "0428f28492f7d3d2f13e4844297d66022877c7c4c498390ae86e4a803467abff"
+    "path": "data/details-es-1ba07787.json",
+    "sha256": "1ba07787c9dc3230b9bbd37d87a1f4206056ee752aa0241ea4bd4b23cc7bd6e3"
   },
   "detailsPt": {
     "path": "data/details-pt-02a3fe19.json",
     "sha256": "02a3fe19643d82a7642cfcc4d7cef5e4b64eb46174645bdc93040f323730c64b"
   },
-  "release": null
+  "release": {
+    "id": "f3ed25290dde66e9",
+    "path": "vision/releases/f3ed25290dde66e9/release.json",
+    "sha256": "bdf2ab1e69a1d1e69da06cf1033072cc1fbc7828a8f8795ca9e1ab6d8a136a3f",
+    "minimumExtensionVersion": "0.3.0"
+  }
 }
