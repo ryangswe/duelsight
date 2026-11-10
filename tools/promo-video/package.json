@@ -13,14 +13,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.529",
+    "@remotion/cli": "4.0.542",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "remotion": "4.0.529"
+    "remotion": "4.0.542"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
-    "puppeteer-core": "24.25.0",
+    "puppeteer-core": "25.16.0",
     "typescript": "5.5.4"
   }
 }
