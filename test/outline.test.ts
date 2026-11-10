@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { pictureRect, type Rect } from "../src/content/geometry.js";
-import { CardOutline, MIN_OUTLINE_SIDE, OUTLINE_WIDTH, outlineEdgeStyle, outlineRect } from "../src/content/outline.js";
+import { CardOutline, MIN_OUTLINE_SIDE, OUTLINE_WIDTH, outlineEdgeStyle, outlinePlacement, outlineRect } from "../src/content/outline.js";
 import { OUTLINE_COLOR, OUTLINE_GLOW_COLOR } from "../src/constants.js";
 
 /** Equal to a hundredth of a pixel (fractions do not add up exactly in floating point). */
@@ -58,6 +58,32 @@ describe("outlineRect", () => {
   });
 });
 
+describe("outlinePlacement: a turned card", () => {
+  const picture = { left: 10, top: 20, width: 1000, height: 500 };
+
+  it("is outlineRect, unturned, for an upright card", () => {
+    expect(outlinePlacement(picture, { box })).toEqual({ ...outlineRect(picture, box)!, rotation: 0 });
+    // Never rotation 0 from the toolkit, but drawn upright if it came.
+    expect(outlinePlacement(picture, { box, rotation: 0, localWidth: 0.05, localHeight: 0.1 })).toEqual({ ...outlineRect(picture, box)!, rotation: 0 });
+  });
+
+  it("is the card's own sides about the center of its box, turned (computeCardQuad, as CSS draws it)", () => {
+    // Box center: (10 + 0.3 * 1000, 20 + 0.6 * 500) = (310, 320); sides 80 x 90 px.
+    const p = outlinePlacement(picture, { box, rotation: 12.5, localWidth: 0.08, localHeight: 0.18 })!;
+    expectRect(p, { left: 270, top: 275, width: 80, height: 90 });
+    expect(p.rotation).toBe(12.5);
+  });
+
+  it("draws nothing where the box draws nothing, and falls back to the box for an unusable outline", () => {
+    expect(outlinePlacement(picture, { box: { x: 1.2, y: 0.1, width: 0.1, height: 0.1 }, rotation: 10, localWidth: 0.05, localHeight: 0.1 })).toBeNull();
+    expect(outlinePlacement(picture, { box, rotation: 10, localWidth: 0.05, localHeight: 0.1 }, false)).toBeNull();
+    const upright = { ...outlineRect(picture, box)!, rotation: 0 };
+    expect(outlinePlacement(picture, { box, rotation: 10, localWidth: 0.001, localHeight: 0.1 })).toEqual(upright);
+    expect(outlinePlacement(picture, { box, rotation: Number.NaN, localWidth: 0.05, localHeight: 0.1 })).toEqual(upright);
+    expect(outlinePlacement(picture, { box, rotation: 10, localWidth: 0.05 })).toEqual(upright);
+  });
+});
+
 describe("CardOutline", () => {
   it("never takes the pointer, is hidden from assistive tech, and has nothing focusable", () => {
     document.body.innerHTML = "";
@@ -71,6 +97,12 @@ describe("CardOutline", () => {
     expect(el.style.display).toBe("none");
     outline.show({ left: 10, top: 20, width: 30, height: 40 });
     expect([el.style.display, el.style.left, el.style.top, el.style.width, el.style.height]).toEqual(["block", "10px", "20px", "30px", "40px"]);
+    expect(el.style.transform).toBe("none");
+    // Turned about its center, and upright again.
+    outline.show({ left: 10, top: 20, width: 30, height: 40, rotation: -8 });
+    expect(el.style.transform).toBe("rotate(-8deg)");
+    outline.show({ left: 10, top: 20, width: 30, height: 40, rotation: 0 });
+    expect(el.style.transform).toBe("none");
     outline.show(null);
     expect(el.style.display).toBe("none");
     outline.remove();

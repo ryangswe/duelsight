@@ -81,7 +81,14 @@ function fromFrame(frame: HTMLIFrameElement | undefined, data: object): void {
 
 /** The compute frame names a card, and the tooltip frame answers with its size for it (the
  *  frame is shown only once that size has come). */
-function showCard(card: { cardId: string; name: string; box: { x: number; y: number; width: number; height: number } }): void {
+function showCard(card: {
+  cardId: string;
+  name: string;
+  box: { x: number; y: number; width: number; height: number };
+  rotation?: number;
+  localWidth?: number;
+  localHeight?: number;
+}): void {
   fromFrame(compute(), { kind: "shown", card });
   fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: card.cardId });
 }
@@ -492,6 +499,30 @@ describe("Agent", () => {
     vi.advanceTimersByTime(HIDE_DELAY_MS + 1);
     expect(tooltip()!.style.visibility).toBe("hidden");
     expect(el.style.display).toBe("none");
+  });
+
+  it("outlines a turned card along its own edges, and follows it when only its turn changes", async () => {
+    vi.useFakeTimers();
+    agent = await startAgent();
+    move(100, 100);
+    const card = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+    showCard({ ...card, rotation: 15, localWidth: 0.08, localHeight: 0.16 });
+    const el = outline()!;
+    expect(el.style.display).toBe("block");
+    // Box center (144, 108) in page pixels; sides 76.8 x 86.4.
+    const r = [el.style.left, el.style.top, el.style.width, el.style.height].map(parseFloat);
+    [105.6, 64.8, 76.8, 86.4].forEach((v, i) => expect(r[i]).toBeCloseTo(v, 3));
+    expect(el.style.transform).toBe("rotate(15deg)");
+    showCard({ ...card, rotation: -20, localWidth: 0.08, localHeight: 0.16 });
+    expect(el.style.transform).toBe("rotate(-20deg)");
+    // Upright again (no outline fields): the box, unturned.
+    showCard(card);
+    expect([el.style.left, el.style.top, el.style.width, el.style.height].map(parseFloat)).toEqual([96, 54, 96, 108]);
+    expect(el.style.transform).toBe("none");
+    // A malformed outline is dropped by the parser: the card still shows, upright.
+    showCard({ ...card, rotation: 90, localWidth: 0.08, localHeight: 0.16 });
+    expect(el.style.display).toBe("block");
+    expect(el.style.transform).toBe("none");
   });
 
   it("hides the outline with the tooltip when the pointer leaves the player", async () => {

@@ -50,6 +50,12 @@ export interface Shown {
     box: ClientBox;
     /** The card's box in pixels of the analyzed frame. */
     frameBox: AABB;
+    /** With `rotatedOutlines`, for a turned card: its tilt in degrees in (-45, 45], positive
+     *  clockwise like CSS `rotate()`, and its own sides in fractions of the picture, about the
+     *  center of `box`. All three or none; absent for an upright card. */
+    rotation?: number;
+    localWidth?: number;
+    localHeight?: number;
 }
 export interface SessionStatus {
     /** "loading" until the release has loaded; "failed" when it did not, or when the worker

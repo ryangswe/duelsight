@@ -65,6 +65,10 @@ describe("compute frame: the pages it serves", () => {
 });
 
 describe("compute frame: the shown card", () => {
+  it("asks for turned cards' outlines (rotatedOutlines is on)", () => {
+    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).rotatedOutlines).toBe(true);
+  });
+
   it("holds the shown card through short gaps (SHOWN_HOLD is on)", () => {
     expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(SHOWN_HOLD);
     const h = computeHarness();

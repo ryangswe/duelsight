@@ -15,6 +15,13 @@ export interface ShownCard {
     /** The other cards of the same analysis (at most `MAX_OTHER_BOXES`), so that a tooltip can be
      *  placed off them. */
     others?: FractionBox[];
+    /** The card's outline when it is turned (session option `rotatedOutlines`): its tilt in
+     *  degrees in (-45, 45], positive clockwise like CSS `rotate()`, and its own sides in fractions
+     *  of the picture, about the center of `box` (the same fields as a hover card, so
+     *  `computeCardQuad` takes them). All three or none; absent for an upright card. */
+    rotation?: number;
+    localWidth?: number;
+    localHeight?: number;
 }
 /** The two-frame contract's version. A content script and a compute frame work together only
  *  when they speak the same one: `hello` and `ready` carry it, and each side compares. */

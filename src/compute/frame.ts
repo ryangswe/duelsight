@@ -4,7 +4,8 @@
 // rule, the worker and its one restart, the remote release's rules 10 to 12, the messages and the
 // pictures it closes. What is DuelSight's own:
 //   - the options it starts with: its message tag, the pages it serves (`allowedParentOrigin`),
-//     the shown card held through short gaps (`SHOWN_HOLD`), the release it loads;
+//     the shown card held through short gaps (`SHOWN_HOLD`), turned cards' outlines
+//     (`rotatedOutlines`), the release it loads;
 //   - the card facts channel. A card of a remote release goes to the tooltip frame with its facts
 //     over an extension-only channel (`postFacts`), never through the page, and they leave before
 //     the card does. A tooltip frame that lacks a card's facts asks on that channel, and is
@@ -66,7 +67,7 @@ export function createFactsChannel(postFacts: (message: CardFactsMessage) => voi
 }
 
 /** What DuelSight's compute frame starts from: the toolkit's options, less the ones it sets. */
-export type DuelSightFrameEnv = Omit<ComputeFrameEnv, "protocol" | "allowedParentOrigin" | "hold" | "onShown" | "parentOrigin"> & {
+export type DuelSightFrameEnv = Omit<ComputeFrameEnv, "protocol" | "allowedParentOrigin" | "hold" | "onShown" | "parentOrigin" | "rotatedOutlines"> & {
   /** `location.ancestorOrigins[0]`: missing, or the string "null" when a referrer policy hides it. */
   parentOrigin: string | null | undefined;
   dev: boolean;
@@ -86,6 +87,9 @@ export function computeFrameEnv(env: DuelSightFrameEnv, facts: FactsChannel): Co
     // A card stays shown through short gaps (a live stream's flicker): two analyses in a row with
     // nothing there, or 5 s with no analysis seeing it.
     hold: SHOWN_HOLD,
+    // A card lying at an angle is hovered and outlined along its own edges, not its upright box
+    // (the shown card then carries `rotation`, `localWidth`, `localHeight`; outline.ts draws them).
+    rotatedOutlines: true,
     onShown: facts.onShown,
   };
 }

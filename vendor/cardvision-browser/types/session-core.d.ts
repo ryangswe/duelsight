@@ -19,6 +19,12 @@ export interface Shown {
     /** The boxes of the other cards of the same analysis, in fractions, for placing a tooltip off
      *  them (at most `maxOtherBoxes`). */
     others: FractionBox[];
+    /** The card's outline when it is turned (session option `rotatedOutlines`): its tilt in
+     *  degrees in (-45, 45], positive clockwise like CSS `rotate()`, and its own sides in fractions
+     *  of the picture, about the center of `box`. All three or none; absent for an upright card. */
+    rotation?: number;
+    localWidth?: number;
+    localHeight?: number;
 }
 /** The shown card's hold: how long it survives analyses that do not see it at the pointer. */
 export interface ShownHold {
@@ -181,7 +187,7 @@ export declare class SessionCore {
      *  one, none, or "unknown" when no analysis is recent enough to judge by. */
     private boxAtPointer;
     private publish;
-    /** Report what is shown when it changed (the card, or its box). */
+    /** Report what is shown when it changed (the card, its box, or its outline). */
     private publishShown;
     private statusKey;
     private publishStatus;

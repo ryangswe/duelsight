@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // The outline drawn around the card whose tooltip is showing. It is the accepted detection's
 // box (the one the tooltip is placed beside), mapped onto the picture on screen the same way
-// (letterboxing, full screen, theater, resizing). The agent shows and hides it with the tooltip.
+// (letterboxing, full screen, theater, resizing). A card lying at an angle is outlined along its
+// own edges instead: the shown card's `rotation`, `localWidth` and `localHeight` (the toolkit's
+// `rotatedOutlines`), the same outline the hover test uses. The agent shows and hides it with the
+// tooltip.
 //
 // It never takes the pointer and never moves the page: a fixed-position element with
 // pointer-events none, nothing focusable, drawn in a closed shadow root so the page's styles do
@@ -41,6 +44,40 @@ export function outlineRect(picture: Rect, box: FractionBox, pictureKnown = true
     height: (y1 - y0) * picture.height,
   };
   return rect.width >= MIN_OUTLINE_SIDE && rect.height >= MIN_OUTLINE_SIDE ? rect : null;
+}
+
+/** Where the outline goes, turned: its upright rectangle on screen and the turn about its center
+ *  (degrees, positive clockwise as CSS `rotate()` turns; 0 for an upright card). */
+export interface OutlinePlacement extends Rect {
+  rotation: number;
+}
+
+/** The card the outline is drawn for: its box, and its outline when it is turned. */
+export interface OutlinedCard {
+  box: FractionBox;
+  rotation?: number;
+  localWidth?: number;
+  localHeight?: number;
+}
+
+/**
+ * Where the outline goes for `card`. An upright card (no outline fields) is `outlineRect` of its
+ * box. A turned card is a rectangle of its own sides (`localWidth`, `localHeight`, fractions of
+ * the picture's width and height) about the center of its box, turned by `rotation`: the toolkit's
+ * `computeCardQuad`, as CSS draws it. Its box must still pass `outlineRect` (on the picture,
+ * large enough); a turned outline is not clipped at the picture's edge.
+ */
+export function outlinePlacement(picture: Rect, card: OutlinedCard, pictureKnown = true): OutlinePlacement | null {
+  const upright = outlineRect(picture, card.box, pictureKnown);
+  if (!upright) return null;
+  const { rotation, localWidth, localHeight } = card;
+  if (rotation === undefined || localWidth === undefined || localHeight === undefined || rotation === 0) return { ...upright, rotation: 0 };
+  const width = localWidth * picture.width;
+  const height = localHeight * picture.height;
+  if (![rotation, width, height].every(Number.isFinite) || width < MIN_OUTLINE_SIDE || height < MIN_OUTLINE_SIDE) return { ...upright, rotation: 0 };
+  const cx = picture.left + (card.box.x + card.box.width / 2) * picture.width;
+  const cy = picture.top + (card.box.y + card.box.height / 2) * picture.height;
+  return { left: cx - width / 2, top: cy - height / 2, width, height, rotation };
 }
 
 /**
@@ -93,8 +130,9 @@ export class CardOutline {
     return this.visible;
   }
 
-  /** Draw it around `rect` (page coordinates), or hide it when `rect` is null. */
-  show(rect: Rect | null): void {
+  /** Draw it around `rect` (page coordinates), turned about its center by `rect.rotation` when it
+   *  has one, or hide it when `rect` is null. */
+  show(rect: Rect | OutlinePlacement | null): void {
     if (!rect) {
       this.hide();
       return;
@@ -104,6 +142,8 @@ export class CardOutline {
     s.top = `${rect.top}px`;
     s.width = `${rect.width}px`;
     s.height = `${rect.height}px`;
+    const rotation = "rotation" in rect ? rect.rotation : 0;
+    s.transform = rotation ? `rotate(${rotation}deg)` : "none";
     if (this.visible) return;
     this.visible = true;
     s.display = "block";

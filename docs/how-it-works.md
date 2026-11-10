@@ -91,7 +91,8 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   the bundled release on any problem. Frames, pictures and results never go to the network. With a newer release, the
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
-  content script places it, and draws the **outline** around the same box.
+  content script places it, and draws the **outline** around the same box; a card lying at an
+  angle is outlined, and hovered, along its own edges (the runtime's turned outlines).
 - **The details panel:** with card details on, the tooltip frame also loads the card details file
   the settings file names (`src/details/`), once, and keeps it in the extension's Cache Storage.
   For a card it lists, the frame fills a text panel (as plain text, never markup), measures it at a
