@@ -28,7 +28,7 @@ what it sends, and what it keeps.
   after you tap the video. Before each picture it checks that the pointer is still over the
   video. It stops when the pointer leaves the video, the tab goes to the background or the video
   changes.
-- It does not access Chrome's saved browsing history, and does not read comments, chat messages
+- It does not access the browser's saved browsing history, and does not read comments, chat messages
   or account information. It does not read the website around an embedded player. The picture it
   analyzes is the whole video frame, so anything drawn into the video itself (such as an overlay
   showing chat) is part of that picture; the extension looks for cards in it and does not read
@@ -55,7 +55,7 @@ switched on in the popup.
 
 | Request | To | When | What the host learns |
 | --- | --- | --- | --- |
-| The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when Chrome starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
+| The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when the browser starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
 | The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover). A browser in another language DuelSight has asks for that language's file instead, so the host also learns that, as it does from the language every browser sends with its requests |
 | Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card hovers start in a tab and the settings file names a release other than the one built into your version of the extension: a newer one, or an earlier one after a rollback (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
@@ -79,7 +79,7 @@ requested.
 
 ## What it keeps on your computer
 
-Stored locally by the extension, without Chrome Sync, and never sent anywhere:
+Stored locally by the extension, without Chrome Sync or Firefox Sync, and never sent anywhere:
 
 - **In `chrome.storage.local`** (settings):
   - whether it is switched on;
