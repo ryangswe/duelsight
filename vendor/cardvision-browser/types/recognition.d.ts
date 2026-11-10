@@ -4,6 +4,7 @@ import type { BatchEmbedder } from "./embedder.js";
 import { type GeometricEvidence } from "./geometric/fusion.js";
 import type { GeometricStage } from "./geometric/stage.js";
 import type { AcceptRule, EmbeddingRecognizer, ScoredMatch } from "./recognizer.js";
+import { type TiltedRetrySettings } from "./tilt.js";
 /** Among boxes whose look reaches tau, one that overlaps a better one by this much is dropped. */
 export declare const ACCEPTED_NMS_IOU = 0.3;
 /**
@@ -77,6 +78,39 @@ export interface ScoredProposal {
      *  answered (Python: `GeometricOutcome.to_json`). The fields above are then the fused look's.
      *  Absent when no stage ran. */
     geometric?: GeometricEvidence;
+    /** With the tilted retry, on a face it was tried on: the tilt, the rectangle that named the
+     *  card (or none), and the answer before it. When a rectangle named the card, the fields above
+     *  are that rectangle's look and `orientation` is the look it was embedded at. Absent when the
+     *  retry was not tried. */
+    tilted?: TiltedEvidence;
+    /** With rotated outlines asked for, on a face whose score reaches tau: the card's outline in
+     *  the frame's pixels (`outlineRect`), centered on the box, `angle` its tilt in degrees; the
+     *  box's own rectangle when the tilt is under a degree or cannot be solved exactly. It decides
+     *  nothing. Absent otherwise. */
+    outline?: Rect;
+}
+/** What the tilted retry did with one face (Python: `TiltedOutcome.to_json`). */
+export interface TiltedEvidence {
+    /** The estimated tilt, in degrees. */
+    tilt: number;
+    /** The scale of the rectangle that named the card, or null when none passed. */
+    scale: number | null;
+    /** The face's answer before the retry. */
+    before: {
+        topId: string;
+        similarity: number;
+        margin: number;
+    };
+}
+/** The tilted retry for one frame: the release's settings and, when known, a focus point. */
+export interface TiltedRun {
+    settings: TiltedRetrySettings;
+    /** A point in frame pixels, such as the pointer: the faces whose box holds it are retried
+     *  first, smallest box first, then the rest by their score. */
+    focus?: {
+        x: number;
+        y: number;
+    } | null;
 }
 /** One frame's recognition. */
 export interface ScoredFrame {
@@ -100,6 +134,11 @@ export interface ScoredFrame {
     /** The stage's error when it failed on this frame. The frame is then answered exactly as
      *  without a stage, and the caller turns the stage off. */
     geometricError?: unknown;
+    /** With the tilted retry: its time on this frame, in ms. Absent without it, and when it failed. */
+    tiltedMs?: number;
+    /** The tilted retry's error when it failed on this frame. The frame is then answered as
+     *  without it, and the caller turns it off. */
+    tiltedError?: unknown;
 }
 /**
  * The order in which the proposals that reach tau enter the suppression: the ones whose chosen
@@ -109,6 +148,7 @@ export interface ScoredFrame {
 export declare function nmsPreOrder(looks: ReadonlyArray<{
     tauPassed: boolean;
     orientation: number;
+    tilted?: TiltedEvidence;
 }>): number[];
 /**
  * Suppression over the proposals that reach tau, by score, ignoring identity: a proposal is
@@ -135,5 +175,28 @@ export declare function keepAfterNms(proposals: ReadonlyArray<Pick<ScoredProposa
  * cosine looks are returned too (`base`): the tracker pools those, as it did before the stage.
  * When the stage throws, the frame is answered with the cosine looks alone, exactly as without
  * a stage, and the error is returned (`geometricError`).
+ *
+ * With `tilted`, every face still not accepted after that (at most the settings'
+ * `maxFacesPerFrame`, those under the focus point first) gets the tilted retry (tilt.ts,
+ * Python: `Recognizer._tilted_retry`): its straightened rectangles are embedded in one batch, each
+ * at the face's chosen look, and the passing one with the highest score names the face, the
+ * earlier scale on equal scores. The tracker still pools the cosine looks (`base`). When the
+ * retry throws, the frame is answered as without it and the error is returned (`tiltedError`).
+ *
+ * With `rotatedOutlines`, every proposal whose score reaches tau carries its card's `outline`,
+ * from the same crop; nothing else changes.
  */
-export declare function recognizeFrame(frame: Frame, embedder: BatchEmbedder, recognizer: EmbeddingRecognizer, faces: readonly Candidate[], minCropPx?: number, stage?: GeometricStage | null): Promise<ScoredFrame>;
+export declare function recognizeFrame(frame: Frame, embedder: BatchEmbedder, recognizer: EmbeddingRecognizer, faces: readonly Candidate[], minCropPx?: number, stage?: GeometricStage | null, tilted?: TiltedRun | null, rotatedOutlines?: boolean): Promise<ScoredFrame>;
+/**
+ * The order in which the tilted retry takes the faces that are not accepted: those whose box
+ * holds `focus`, smallest box first, then the rest by their score (`similarity`, the chosen
+ * cosine look's), highest first; on equal keys, in proposal order. Returns indices.
+ */
+export declare function tiltedOrder(faces: ReadonlyArray<{
+    aabb: AABB;
+    similarity: number;
+    accepted: boolean;
+}>, focus: {
+    x: number;
+    y: number;
+} | null): number[];

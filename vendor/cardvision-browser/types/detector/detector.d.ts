@@ -1,4 +1,5 @@
 import type { Candidate } from "../boxes.js";
+import { type SessionSetup } from "../ort.js";
 import type { ExecutionProvider } from "../providers.js";
 import { type DecodeSettings } from "./decode.js";
 import { type LetterboxSettings } from "./letterbox.js";
@@ -38,6 +39,8 @@ export declare class Detector implements FrameDetector {
     /** The execution provider that initialized. */
     readonly ep: ExecutionProvider;
     private readonly settings;
+    /** How long the session took to create and to run once, on `ep`. */
+    readonly setup: SessionSetup;
     lastTimings: {
         preprocessMs: number;
         inferMs: number;

@@ -1,8 +1,8 @@
 import type { AABB } from "./boxes.js";
 import type { AnalysisWidth } from "./capture.js";
-import { type AnalysisMode } from "./cadence.js";
+import { type SessionMode } from "./cadence.js";
 import { FrameScheduler } from "./frame-scheduler.js";
-import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus, type WorkerReply, type WorkerRequest } from "./messages.js";
+import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus, type TiltedStatus, type WorkerReply, type WorkerRequest } from "./messages.js";
 import { type FractionBox } from "./compute-messages.js";
 import { hoverAt } from "./hover-at.js";
 import type { FrameAnalysis } from "./pipeline.js";
@@ -51,6 +51,8 @@ export interface SessionCoreDeps {
     onAnalysis?(analysis: FrameAnalysis): void;
     /** The geometric stage's state changed. */
     onGeometricStatus?(status: GeometricStatus): void;
+    /** The tilted retry was turned off for the session. */
+    onTiltedStatus?(status: TiltedStatus): void;
     /** Replaceable for tests; `hoverAt` by default. */
     hoverAt?: typeof hoverAt;
     /** The time of the picture on screen now, in seconds, for a host that can read it at any
@@ -62,13 +64,16 @@ export interface SessionCoreDeps {
 export interface SessionCoreOptions {
     /** "pointer" (the default): analyze only around pointer activity. "always-on": analyze for as
      *  long as the session runs. */
-    mode?: AnalysisMode;
+    mode?: SessionMode;
     /** Hold a shown card through short gaps. Off when absent; `SHOWN_HOLD` is the usual value. */
     hold?: ShownHold;
     /** Other cards' boxes reported with a shown card (default `MAX_OTHER_BOXES`). */
     maxOtherBoxes?: number;
     /** The geometric stage was asked for: its status starts as "loading" (null otherwise). */
     geometric?: boolean;
+    /** True: named cards follow their outline on every frame (`SessionOptions.rotatedOutlines`).
+     *  Default false. */
+    rotatedOutlines?: boolean;
 }
 /** What `status().loading` becomes on a release-progress reply: the reply's phase while the
  *  release loads; `undefined` (no change) once it has loaded or failed, or the session has
@@ -82,6 +87,7 @@ export declare class SessionCore {
     private readonly mode;
     private readonly hold;
     private readonly maxOtherBoxes;
+    private readonly rotatedOutlines;
     private readonly hitTest;
     private readonly st;
     private cardList;
@@ -90,6 +96,9 @@ export declare class SessionCore {
     private nextRequestId;
     private inFlight;
     private lastAcceptedRequestId;
+    /** Whether the worker answered a look with an analysis since its release loaded: until then
+     *  the watchdog waits `FIRST_ANALYSIS_WATCHDOG_MS`. */
+    private analyzedSinceLoad;
     private generation;
     private sourceCount;
     private result;

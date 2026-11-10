@@ -7,6 +7,9 @@ export interface Detection {
     cardId: string | null;
     /** The look's unit-length embedding. */
     embedding: Float32Array;
+    /** The card's outline when rotated outlines are on (`ScoredProposal.outline`); carried along,
+     *  never used to match. */
+    outline?: Rect;
 }
 /** One live track after an update. */
 export interface TrackCard {

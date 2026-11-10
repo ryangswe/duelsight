@@ -7,6 +7,7 @@ import { type ExecutionProvider } from "./providers.js";
 import { Pipeline } from "./pipeline.js";
 import { type PreprocessingId } from "./preprocess.js";
 import type { AcceptRule } from "./recognizer.js";
+import { type TiltedRetrySettings } from "./tilt.js";
 export declare const RELEASE_SCHEMA_VERSION = 1;
 export declare const RELEASE_KIND = "vision-release";
 /** How many rows a detector of this input size emits. */
@@ -65,6 +66,9 @@ export interface VisionRelease {
             max: number;
         };
     };
+    /** The optional `tiltedRetry` block (tilt.ts): null when the release does not turn the
+     *  tilted retry on. */
+    tiltedRetry: TiltedRetrySettings | null;
 }
 /**
  * Whether a path is a plain relative one that stays inside the folder of the release document.
@@ -149,6 +153,9 @@ export interface ReleaseLoadOptions {
      *  sum of their sizes as the document pins them: what is left to download. Advisory: what it
      *  throws is ignored, and the load goes on. */
     onDocument?: (pinnedBytes: number) => void;
+    /** Called once every file the release pins is fetched and its size and SHA-256 checked,
+     *  before any is read. Advisory: what it throws is ignored, and the load goes on. */
+    onFetched?: () => void;
 }
 /**
  * Whether a release measured on onnxruntime-web `releaseOrt` may run on `bundledOrt`: the same
