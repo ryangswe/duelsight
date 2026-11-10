@@ -5,7 +5,8 @@
 // pictures it closes. What is DuelSight's own:
 //   - the options it starts with: its message tag, the pages it serves (`allowedParentOrigin`),
 //     the shown card held through short gaps (`SHOWN_HOLD`), turned cards' outlines
-//     (`rotatedOutlines`), the release it loads;
+//     (`rotatedOutlines`), analysis paced from its measured cost (`measuredPacing`), the release
+//     it loads;
 //   - the card facts channel. A card of a remote release goes to the tooltip frame with its facts
 //     over an extension-only channel (`postFacts`), never through the page, and they leave before
 //     the card does. A tooltip frame that lacks a card's facts asks on that channel, and is
@@ -67,7 +68,7 @@ export function createFactsChannel(postFacts: (message: CardFactsMessage) => voi
 }
 
 /** What DuelSight's compute frame starts from: the toolkit's options, less the ones it sets. */
-export type DuelSightFrameEnv = Omit<ComputeFrameEnv, "protocol" | "allowedParentOrigin" | "hold" | "onShown" | "parentOrigin" | "rotatedOutlines"> & {
+export type DuelSightFrameEnv = Omit<ComputeFrameEnv, "protocol" | "allowedParentOrigin" | "hold" | "onShown" | "parentOrigin" | "rotatedOutlines" | "measuredPacing"> & {
   /** `location.ancestorOrigins[0]`: missing, or the string "null" when a referrer policy hides it. */
   parentOrigin: string | null | undefined;
   dev: boolean;
@@ -90,6 +91,9 @@ export function computeFrameEnv(env: DuelSightFrameEnv, facts: FactsChannel): Co
     // A card lying at an angle is hovered and outlined along its own edges, not its upright box
     // (the shown card then carries `rotation`, `localWidth`, `localHeight`; outline.ts draws them).
     rotatedOutlines: true,
+    // Analyses are spaced from what they cost on this computer (a quarter of the time at most by
+    // default), never faster than the fixed rates: a slow computer is not kept busy analyzing.
+    measuredPacing: true,
     onShown: facts.onShown,
   };
 }
