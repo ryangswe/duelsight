@@ -15,7 +15,7 @@ export const SCREENSHOTS = [
   { name: "1-hover", layout: "side", capture: "md-hover", title: "Hover a card to see it", lead: "A larger picture of the card beside it, with its name, type, stats and text. Master Duel, Dueling Book and paper tables, on YouTube and Twitch." },
   { name: "2-paper", layout: "side", capture: "paper-hover", title: "Paper tables too", lead: "Tournament streams with the camera above the table. It can miss a card or show a wrong one." },
   { name: "3-card-alone", layout: "side", capture: "paper-card-only", title: "Just the card, if you prefer", lead: "Switch card details off in the toolbar popup to see the enlarged card on its own." },
-  { name: "4-popup", layout: "popup", capture: "popup", title: "Your settings, in the toolbar", lead: "Switch DuelSight off everywhere, choose the card size, show or hide the card details. No accounts, no tracking." },
+  { name: "4-popup", layout: "popup", capture: "popup", title: "Your settings, in the toolbar", lead: "Switch DuelSight off everywhere, show or hide the card details and choose their language, set the card size. No accounts, no tracking." },
 ];
 
 /** The game's name never breaks at its hyphens. */
