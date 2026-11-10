@@ -19,3 +19,50 @@ export declare function activeAnalyzeIntervalMs(ep: ExecutionProvider | null): n
 export declare function cadenceMs(ep: ExecutionProvider | null, mode: AnalysisMode): number;
 /** Whether this device runs the slower cadences. */
 export declare function isSlowDevice(ep: ExecutionProvider | null): boolean;
+/** Measured pacing: the share of time spent analyzing, by default. */
+export declare const MEASURED_PACING_SHARE = 0.25;
+/** Measured pacing: the longest wait while the pointer is active. */
+export declare const MEASURED_PACING_ACTIVE_CEILING_MS = 4000;
+/** Measured pacing: the longest wait in always-on mode. */
+export declare const MEASURED_PACING_SLOW_CEILING_MS = 8000;
+/** Measured pacing: the longest wait while the pointer rests ("reading"). A name stops showing
+ *  `hoverMaxAgeMs` after its frame and the reading state ends `READING_LINGER_MS` after that, so a
+ *  longer wait would never come due and analysis would stop until the pointer moved. */
+export declare function readingCeilingMs(hoverMaxAgeMs: number): number;
+/** Measured pacing: analyses measured before the measured wait applies. */
+export declare const MEASURED_PACING_MIN_SAMPLES = 3;
+/** Measured pacing: how many of the latest analyses the median is taken over. */
+export declare const MEASURED_PACING_WINDOW = 5;
+/** The `measuredPacing` option: `true` for the default share, or the share of time analysis may
+ *  take, in (0, 1]. */
+export type MeasuredPacingOption = boolean | {
+    share?: number;
+};
+/** The share the option asks for, or null when pacing is off. Throws on a share outside (0, 1]. */
+export declare function resolveMeasuredPacing(option: MeasuredPacingOption | undefined): number | null;
+/**
+ * The wait between analyses under measured pacing.
+ * @param fixedMs Today's fixed interval for the mode and backend: the wait is never shorter, and
+ *   it is the wait until `MEASURED_PACING_MIN_SAMPLES` analyses have been measured.
+ * @param ceilingMs The longest wait: `MEASURED_PACING_ACTIVE_CEILING_MS` while the pointer is
+ *   active, `readingCeilingMs` while it rests, `MEASURED_PACING_SLOW_CEILING_MS` in always-on mode.
+ * @param timesMs Measured analysis times, oldest first.
+ * @param share The share of time analysis may take.
+ */
+export declare function pacedIntervalMs(fixedMs: number, ceilingMs: number, timesMs: readonly number[], share: number): number;
+/** Learns the analysis time within one session (nothing is stored) and gives the waits. */
+export declare class MeasuredPacer {
+    private readonly share;
+    private times;
+    constructor(share: number);
+    /** Record one analysis's measured time (the reply's `workerMs`); not a number: ignored. */
+    record(ms: number): void;
+    /** The wait in force: the fast cadence in pointer mode, the slow one in always-on mode. */
+    intervalMs(ep: ExecutionProvider | null, mode: AnalysisMode): number;
+    /** The wait while the pointer rests on a showing tooltip, capped by `readingCeilingMs`. */
+    readingMs(ep: ExecutionProvider | null, hoverMaxAgeMs: number): number;
+    /** The wait while the pointer is active. */
+    activeMs(ep: ExecutionProvider | null): number;
+    /** The wait in always-on mode. */
+    slowMs(ep: ExecutionProvider | null): number;
+}
