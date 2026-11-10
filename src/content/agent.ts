@@ -14,8 +14,9 @@
 //     compute frame names, placed off the cards around it and scaled down when the page has no
 //     room for it, and hides it shortly after. Nothing it shows takes the pointer: hovering goes
 //     on to the card underneath.
-//   - It outlines the card the tooltip names (outline.ts): the same accepted box, shown and
-//     hidden with the tooltip, never taking the pointer.
+//   - It outlines the card the tooltip names (outline.ts): the same accepted box (along the
+//     card's own edges when it lies at an angle), shown and hidden with the tooltip, never taking
+//     the pointer.
 //   - It is on for every video (owner, 2026-10-27: no per-channel switch; the popup's switch is
 //     the only control). The popup's switch turned off removes the frames again.
 //   - It takes a message from one of its frames only when the browser delivered it from that
@@ -28,7 +29,7 @@ import { type CaptureControl, computeProtocol, createCaptureControl, fromExtensi
 import { availableSpace, CARD_CORNER, fitBesideCard, fitsBesideCard, fitTooltipSize, fitWithPanel, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
 import { arrange } from "../shared/panel-layout.js";
 import { isActivePage } from "./site.js";
-import { CardOutline, outlineRect } from "./outline.js";
+import { CardOutline, outlinePlacement } from "./outline.js";
 
 /** The two-frame contract under DuelSight's tag; the compute frame uses the same. */
 const PROTOCOL = computeProtocol(TAG);
@@ -447,8 +448,9 @@ export class Agent {
     if (this.outline && !this.outline.element.isConnected) {
       this.outline = new CardOutline(this.tooltip!.parentElement ?? this.mountHost());
     }
-    // The same box, on the same picture; nothing when the picture's size is not known.
-    this.outline?.show(ready ? outlineRect(picture, card.box, video.videoWidth > 0 && video.videoHeight > 0) : null);
+    // The same box, on the same picture (along the card's own edges when it is turned); nothing
+    // when the picture's size is not known.
+    this.outline?.show(ready ? outlinePlacement(picture, card, video.videoWidth > 0 && video.videoHeight > 0) : null);
   }
 
   private hideTooltip(): void {
