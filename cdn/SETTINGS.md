@@ -237,8 +237,14 @@ compressed (the bank and catalog are most of a card-only update).
 ### Publishing a release
 
 `cardvision cdn publish-release --release <folder named after its id> --min-version 0.3.0 [--data-file F]
-[--config cdn/config.json --set-pointer] [--sessions] [--dry-run]`:
+[--config cdn/config.json --set-pointer (--verdict-r R --verdict-n N | --no-refresh-gate "REASON")]
+[--sessions] [--dry-run]`:
 
+0. **Refresh gate** (with `--config`, cardvision 0.10.0 and later): both refresh verdicts, each a
+   PASS of its own gate with `rehearsal` false under one rule, or `--no-refresh-gate` with the reason
+   (a release that is not a gated card update, such as one that renames cards and adds none, or
+   one with new models). Otherwise the run is refused before anything is fetched or written, a dry run included.
+   The log names each verdict file with its SHA-256 (MAINTAINING.md, "New cards").
 1. **Seal:** the document parses, its id is the folder's name, every pinned file is a flat name
    present with its size and SHA-256, and `release-legal/` names this release (`NOTICE`'s first
    line, as for a build); then `vendor/cardvision-browser/node/verify-release.mjs`, the vendored runtime's own

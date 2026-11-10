@@ -47,7 +47,12 @@ with `cardvision refresh` for the checks and `cardvision cdn` for the host ([cdn
    cards against Konami's database in each language before publishing.
 6. **Publish.** The new art (`cardvision cdn publish --catalog … --images …`), then the release:
    `cardvision cdn publish-release --release <folder> --min-version 0.3.0 --data-file <file> --config
-   cdn/config.json --set-pointer` (try it with `--dry-run` before). It uploads the release folder, verifies it
+   cdn/config.json --set-pointer --verdict-r <VERDICT-R.json> --verdict-n <VERDICT-N.json>` (try it with
+   `--dry-run` before). The two verdicts are step 3's files: each must be a PASS of its own gate, not a
+   rehearsal, under the same rule, or the tool refuses before anything is fetched or written (cardvision
+   0.10.0 and later). An update with no new card has no new-card verdict: it takes
+   `--no-refresh-gate "official renames, no new cards"` in place of both, after the regression
+   check has still been run and its verdict kept. It uploads the release folder, verifies it
    live, publishes the details file, and moves the pointer in `config.json` last. Publish each
    language's file with `cardvision cdn publish --data-file <file> --config cdn/config.json` after
    setting its `details<Lang>` entry. Commit the changed

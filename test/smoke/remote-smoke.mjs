@@ -283,7 +283,9 @@ async function hoverPage(tab, url) {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     await tab.mouse.move(cx, cy);
-    for (let i = 0; i < 80; i += 1) {
+    // Up to 2 minutes for the first analysis: a pointer release is downloaded and loaded first, and
+    // Chrome for Testing under Rosetta took 50-70 s on 2026-11-10 (20 s was too short).
+    for (let i = 0; i < 480; i += 1) {
       await tab.mouse.move(cx + (i % 2 ? 3 : -3), cy, { steps: 2 });
       await sleep(250);
       const s = await computeState(tab);
