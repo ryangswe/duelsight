@@ -7,8 +7,9 @@ import type { LayerCard, StageSize } from "./hover-geometry.js";
 import { type HoverSelection } from "./hover-layer.js";
 export { hoverAt, hoverCardsOf } from "./hover-at.js";
 import { type IdentityDisplay, type IdentityGroups } from "./identity.js";
-import { type Orientation } from "./recognition.js";
+import { type Orientation, type TiltedEvidence } from "./recognition.js";
 import { type AcceptRule } from "./recognizer.js";
+import type { TiltedRetrySettings } from "./tilt.js";
 /** What the recognizer concluded about one face. */
 export interface FaceResult {
     /** The chosen look's best bank row: its card id and name, whether or not it was accepted. */
@@ -36,6 +37,10 @@ export interface FaceResult {
     /** With a geometric stage that ran on this face: what it found and what the embedding alone
      *  answered (Python: `GeometricOutcome.to_json`). The fields above are the fused look's. */
     geometric?: GeometricEvidence;
+    /** With the tilted retry, on a face it was tried on: the tilt, the rectangle that named the
+     *  card (or none: `scale` null) and the answer before it (Python: `TiltedOutcome.to_json`).
+     *  When a rectangle named the card, the fields above are its look's. */
+    tilted?: TiltedEvidence;
 }
 /** One detected card of a frame. */
 export interface BoxResult {
@@ -71,14 +76,31 @@ export interface FrameAnalysis {
     /** How many faces had their turned looks computed, and how many embeddings were computed. */
     retried: number;
     embeddings: number;
-    /** Where the time went, in ms. `geometricMs`, part of `recognizeMs`, is there only while a
-     *  geometric stage is set. */
+    /** Where the time went, in ms. `geometricMs` and `tiltedMs`, parts of `recognizeMs`, are
+     *  there only while a geometric stage is set and while the tilted retry runs. */
     timings: {
         detectorMs: number;
         recognizeMs: number;
         analyzeMs: number;
         geometricMs?: number;
+        tiltedMs?: number;
     };
+}
+/** What a caller says about one frame (`Pipeline.analyze`). */
+export interface AnalyzeOptions {
+    /** False skips the tilted retry on this frame: the caller's own condition, such as the kind
+     *  of footage. Default true. */
+    tilted?: boolean;
+    /** A point in the frame's pixels, such as the pointer: the tilted retry takes the faces whose
+     *  box holds it first. */
+    focus?: {
+        x: number;
+        y: number;
+    } | null;
+    /** True gives each named card on this frame its outline (tilt.ts `outlineRect`): `rotation`,
+     *  `localWidth` and `localHeight` follow a tilted card, `bounds` stays the box. Default false:
+     *  every card's outline is its box, as before. */
+    rotatedOutlines?: boolean;
 }
 export interface PipelineOptions {
     detector: FrameDetector;
@@ -99,6 +121,9 @@ export interface PipelineOptions {
     /** The optional geometric stage (geometric/stage.ts). Without it the pipeline is exactly what
      *  it was before the stage existed. `setGeometric` sets or removes it between frames. */
     geometric?: GeometricStage | null;
+    /** The release's `tiltedRetry` settings (tilt.ts), or null: the retry is off. `setTiltedRetry`
+     *  turns it off between frames. */
+    tiltedRetry?: TiltedRetrySettings | null;
 }
 /** Video time moving back by more than this is a break in continuity (a seek back, a new still). */
 export declare const DISCONTINUITY_BACK_SEC = 0.25;
@@ -128,6 +153,9 @@ export declare class Pipeline {
     private geometric;
     /** The stage that failed during the last frame, and why; taken by `takeGeometricFailure`. */
     private geometricFailure;
+    private tiltedRetry;
+    /** Why the tilted retry failed during the last frame; taken by `takeTiltedFailure`. */
+    private tiltedFailure;
     constructor(options: PipelineOptions);
     /** Rows in the bank. */
     get size(): number;
@@ -137,6 +165,15 @@ export declare class Pipeline {
         stage: GeometricStage;
         error: unknown;
     } | null;
+    /** The tilted retry's error during a frame since the last call, or null. The pipeline has
+     *  already turned the retry off. */
+    takeTiltedFailure(): {
+        error: unknown;
+    } | null;
+    /** The tilted retry's settings in use, or null when it is off. */
+    get tiltedSettings(): TiltedRetrySettings | null;
+    /** Set or remove the tilted retry's settings. Call it between frames. */
+    setTiltedRetry(settings: TiltedRetrySettings | null): void;
     /** The geometric stage in use, or null. */
     get geometricStage(): GeometricStage | null;
     /** Set or remove the geometric stage. Call it between frames: a frame being analyzed keeps
@@ -150,8 +187,9 @@ export declare class Pipeline {
      * it moves backwards, or jumps further forward than any cadence explains, the state between
      * frames is reset first: after a seek the new picture's cards sit where the old ones were,
      * and without a reset the tracker would carry the old identities for a few frames. A detector
-     * or model error rejects the call, and that frame shows nothing.
+     * or model error rejects the call, and that frame shows nothing. `options` says whether the
+     * tilted retry runs on this frame and where its focus is.
      */
-    analyze(frame: Frame, videoTimeSec?: number): Promise<FrameAnalysis>;
+    analyze(frame: Frame, videoTimeSec?: number, options?: AnalyzeOptions): Promise<FrameAnalysis>;
     private boxResults;
 }

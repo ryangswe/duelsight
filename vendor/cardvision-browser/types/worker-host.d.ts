@@ -33,6 +33,8 @@ export interface WorkerHostDeps<D extends VoteDevice = GPUDevice> {
     readBitmap(bitmap: ImageBitmap): FramePixels | null;
     now?: () => number;
     watchdog?: GeometricWatchdog;
+    /** The tilted retry's watchdog; by default one over the release's `budgetMs`. */
+    tiltedWatchdog?: GeometricWatchdog;
 }
 /** The request handler of one worker. */
 export declare function createWorkerHost<D extends VoteDevice>(deps: WorkerHostDeps<D>): {

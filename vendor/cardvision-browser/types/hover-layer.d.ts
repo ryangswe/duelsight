@@ -18,6 +18,8 @@ export interface HoverEntry {
     proposal: number;
     aabb: AABB;
     rect: Rect;
+    /** The card's outline when rotated outlines are on (`ScoredProposal.outline`). */
+    outline?: Rect;
     /** The card id to show, or null: the box takes part and shows nothing. */
     identity: string | null;
     /** The proposal's score. */
@@ -26,7 +28,7 @@ export interface HoverEntry {
     zIndex: number;
 }
 type HoverFrame = Pick<ScoredFrame, "kept"> & {
-    proposals: ReadonlyArray<Pick<ScoredProposal, "aabb" | "rect" | "score" | "detectorScore" | "accepted" | "displayId">>;
+    proposals: ReadonlyArray<Pick<ScoredProposal, "aabb" | "rect" | "score" | "detectorScore" | "accepted" | "displayId" | "outline">>;
 };
 /**
  * The selection's members as indices into `frame.proposals`, bottom of the stack first (entry

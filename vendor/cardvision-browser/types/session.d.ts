@@ -1,5 +1,5 @@
 import { type AABB } from "./boxes.js";
-import { type AnalysisMode } from "./cadence.js";
+import { type SessionMode } from "./cadence.js";
 import { type ClientBox, type FrameSource, pictureBox } from "./capture.js";
 import { type AnalysisState } from "./frame-scheduler.js";
 import type { GeometricStatus, ReleaseStatus } from "./messages.js";
@@ -24,7 +24,7 @@ export interface SessionOptions {
     providers?: ExecutionProvider[];
     /** "pointer" (the default): analyze only around pointer activity. "always-on": analyze for as
      *  long as the session runs. */
-    mode?: AnalysisMode;
+    mode?: SessionMode;
     /** URL of the geometric stage's settings document (it names the packed index). Optional and
      *  off by default: without it recognition is the embedding's alone. With it the stage loads
      *  after the release and joins between frames; `status().geometric` says where it is. */
@@ -35,6 +35,10 @@ export interface SessionOptions {
     /** False turns the geometric watchdog off (default: on). Meant for measuring the stage, not
      *  for showing cards: with it off, a slow stage is never turned off. */
     geometricWatchdog?: boolean;
+    /** True: each named card's `rotation`, `localWidth` and `localHeight` follow the card when it
+     *  sits at an angle (tilt.ts `outlineRect`), for outlines and hit tests that follow tilted
+     *  cards; `bounds` stays the detector's box. Default false: every card is its box, as before. */
+    rotatedOutlines?: boolean;
     /** Called whenever the status or what would be shown may have changed. */
     onUpdate?: () => void;
 }
@@ -73,6 +77,12 @@ export interface SessionStatus {
         state: GeometricStatus["state"];
         reason: string | null;
         bytes: number | null;
+    } | null;
+    /** The tilted retry: on when the release turns it on, off with the worker's reason once it is
+     *  turned off for the session; null when the release does not turn it on. */
+    tilted?: {
+        state: "on" | "off";
+        reason: string | null;
     } | null;
     /** While the release loads: downloading its files (`bytes`, their sum once known) or preparing
      *  the models. Null once it has loaded or failed, and before the worker has said. */

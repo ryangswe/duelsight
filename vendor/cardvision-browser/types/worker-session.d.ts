@@ -1,5 +1,5 @@
 import type { AnalysisWidth } from "./capture.js";
-import type { AnalysisMode } from "./cadence.js";
+import type { SessionMode } from "./cadence.js";
 import type { GeometricStatus, WorkerReply, WorkerRequest } from "./messages.js";
 import type { FrameAnalysis } from "./pipeline.js";
 import type { CardTable } from "./remote/card-table.js";
@@ -36,9 +36,11 @@ export interface WorkerSessionEnv {
     loadRequest: LoadRequest;
     /** The clock, in ms. */
     now(): number;
-    mode?: AnalysisMode;
+    mode?: SessionMode;
     /** Hold a shown card through short gaps (`SHOWN_HOLD`); off when absent. */
     hold?: ShownHold;
+    /** True: named cards follow their outline (`SessionOptions.rotatedOutlines`). */
+    rotatedOutlines?: boolean;
     /** Capture the picture now and answer the core with `frame` or `captureFailed`. */
     capture(requestId: number, analysisWidth: AnalysisWidth): void;
     onShown?(card: Shown | null): void;
@@ -68,7 +70,8 @@ export interface WorkerSessionEnv {
 export interface WorkerSession {
     /** Null only while `chooseRelease` decides. */
     readonly core: SessionCore | null;
-    /** Recognition is off for good: the restart was used up, a worker could not be made, or `stop`. */
+    /** Recognition is off for good: the bundled release failed to load, the restart was used up, a
+     *  worker could not be made, or `stop`. The core's status says why. */
     readonly stopped: boolean;
     readonly restarts: number;
     readonly release: ReleaseInEffect;

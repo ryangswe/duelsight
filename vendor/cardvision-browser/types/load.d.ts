@@ -36,6 +36,42 @@ export type LoadProgress = {
 } | {
     phase: "preparing";
 };
+/** How long one model took to become ready, in whole ms. */
+export interface ModelLoadTimings {
+    /** Creating its session on the execution provider that worked. ONNX Runtime starts a backend
+     *  (and WebGPU its device) on the first session created on it: the recognizer is prepared
+     *  first, so that time is in its `createMs`, or in its `failedProvidersMs` when a provider
+     *  tried before failed. */
+    createMs: number;
+    /** Its first run, a warm-up on a blank input: it pays one-off allocation and, on WebGPU,
+     *  shader compilation, so it can take many times longer than the runs after it. */
+    firstRunMs: number;
+    /** Providers tried before the one that worked, which failed: their sessions, runs and
+     *  release. When ONNX Runtime's backend started on one of them, that time is here. */
+    failedProvidersMs: number;
+    /** All of it: the failed providers, then the create and first run. Each part is rounded on
+     *  its own, so they add up to it to within 1 ms. */
+    totalMs: number;
+}
+/** Where a load's time went, in whole ms, for a product that wants to see why the first card
+ *  is slow on some machine. Measured, never used to decide anything. */
+export interface LoadTimings {
+    /** The thread's clock when the load began. In a worker it counts from the worker's start, so
+     *  it holds loading the worker's script and ONNX Runtime's module. */
+    startedAtMs: number;
+    /** Fetching and reading the release document, then fetching every file it pins and checking
+     *  their sizes and SHA-256. With `options.files` nothing is fetched (a remote release's files were downloaded
+     *  before, and timed by whoever chose it): only the checks. */
+    filesMs: number;
+    /** Reading the files once checked: decoding the bank, parsing the catalog and the identity
+     *  groups, and checking that they belong together. Plain script: its CPU cost shows here. */
+    readMs: number;
+    recognizer: ModelLoadTimings;
+    detector: ModelLoadTimings;
+    /** The whole load, from `startedAtMs`. A little more than its parts: it also holds the short
+     *  steps between them, such as building the pipeline once both models are ready. */
+    totalMs: number;
+}
 /** A release that loaded whole: its document, its catalog and a pipeline ready for frames. */
 export interface LoadedRelease {
     release: VisionRelease;
@@ -55,6 +91,9 @@ export interface LoadedRelease {
         bankIds: string[];
         identities: Map<string, string>;
     };
+    /** Where the load's time went. Set by `loadRelease`; optional so that a stand-in made
+     *  elsewhere need not state it. */
+    timings?: LoadTimings;
     /** Free the models. */
     dispose(): Promise<void>;
 }

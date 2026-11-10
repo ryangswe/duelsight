@@ -13,7 +13,14 @@ export declare function configureOrt(options?: {
 }): void;
 /** The reasons collected since the last call, for an error message; the list is emptied. */
 export declare function takeSessionFailures(): string[];
-export interface OpenSession {
+/** How long a model took to become ready on the provider that worked, in ms: creating its
+ *  session, then its first run (the warm-up check, which also pays one-off allocation and, on
+ *  WebGPU, shader compilation). Providers tried before it and failed are not counted here. */
+export interface SessionSetup {
+    createMs: number;
+    firstRunMs: number;
+}
+export interface OpenSession extends SessionSetup {
     session: ort.InferenceSession;
     /** The execution provider that initialized. */
     ep: ExecutionProvider;

@@ -1,3 +1,4 @@
+import { type SessionSetup } from "./ort.js";
 import type { ExecutionProvider } from "./providers.js";
 /**
  * Most crops one model run takes. A frame can ask for every proposal at once (up to the
@@ -30,6 +31,8 @@ export declare class Embedder implements BatchEmbedder {
     /** The execution provider that initialized. */
     readonly ep: ExecutionProvider;
     private readonly settings;
+    /** How long the session took to create and to run once, on `ep`. */
+    readonly setup: SessionSetup;
     private constructor();
     /**
      * Create a session on the first of `providers` that initializes and returns embeddings of

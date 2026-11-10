@@ -5,6 +5,8 @@ export interface SceneItem {
     instanceId: string;
     aabb: AABB;
     rect: Rect;
+    /** The card's outline (rotated outlines): a named card is placed by it in place of `rect`. */
+    outline?: Rect;
     /** The card id to show, or null: detected, not named. */
     identity: string | null;
 }
