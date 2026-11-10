@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "source": "cardvision-browser, the browser runtime of the cardvision toolkit (source published with the toolkit release)",
-  "commit": "fd0aa3c2531ecd41458787e579992c7300e30671",
+  "commit": "77dcac029e1e351df2d3add687e647463f4b0ce2",
   "toolkitRelease": "cardvision 0.11.0",
   "onnxruntimeWeb": "1.29.0",
   "ortFiles": [
