@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Release | T2, release document id `387bdfb29b4b050f`: T2 (`0927859c6f18302f`) converted with `cardvision convert-release` (toolkit 0.4.0rc2) to a binary bank and a compact catalog. The models, the vectors and the catalog's values are unchanged, so it scores exactly as T2. Game `yugioh`, 14,636 entries in the bank, 14,639 in the catalog |
+| Release | T2 + cards to 2026-11-10, release document id `862aec0f937da326`: release `f3ed25290dde66e9` (T2 with the card updates to 2026-11-10, below) converted with `cardvision convert-release` (toolkit 0.11.0) to a binary bank and a compact catalog. The models, the vectors and the catalog's values are unchanged, so it scores exactly as `f3ed25290dde66e9`. Game `yugioh`, 14,636 entries in the bank, 14,639 in the catalog |
 | Status | Measured on a held-out test before release (docs/accuracy.md). Replaces the early preview release T (`6666477f410559ac`). |
 | License | Apache-2.0 (LICENSE beside this file); NOTICE says what it does not cover |
 | Trained by | the DuelSight project, with the open-source cardvision toolkit 0.2.0rc4 (https://github.com/ryangswe/riftsight-vision) |
@@ -38,3 +38,7 @@
 ## Not included
 
 No card art, no video frames, no labels. The card art and the videos belong to their owners.
+
+## 2026-11-10 (release f3ed25290dde66e9)
+
+Cards added: 0. Card names updated: 15, to the official English names in YGOPRODeck's card list pulled on 2026-11-10 (11 announced for the TCG, 4 released in Master Duel). Detector, recognizer, accept rule and every bank row are unchanged.
