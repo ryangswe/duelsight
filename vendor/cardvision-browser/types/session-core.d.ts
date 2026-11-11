@@ -1,6 +1,6 @@
 import type { AABB } from "./boxes.js";
 import type { AnalysisWidth } from "./capture.js";
-import { type SessionMode } from "./cadence.js";
+import { type MeasuredPacingOption, type SessionMode } from "./cadence.js";
 import { FrameScheduler } from "./frame-scheduler.js";
 import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus, type TiltedStatus, type WorkerReply, type WorkerRequest } from "./messages.js";
 import { type FractionBox } from "./compute-messages.js";
@@ -80,6 +80,9 @@ export interface SessionCoreOptions {
     /** True: named cards follow their outline on every frame (`SessionOptions.rotatedOutlines`).
      *  Default false. */
     rotatedOutlines?: boolean;
+    /** Pace analysis from the measured analysis time (`SessionOptions.measuredPacing`). Off when
+     *  absent. */
+    measuredPacing?: MeasuredPacingOption;
 }
 /** What `status().loading` becomes on a release-progress reply: the reply's phase while the
  *  release loads; `undefined` (no change) once it has loaded or failed, or the session has
@@ -95,6 +98,7 @@ export declare class SessionCore {
     private readonly maxOtherBoxes;
     private readonly rotatedOutlines;
     private readonly hitTest;
+    private readonly pacer;
     private readonly st;
     private cardList;
     private analysisWidth;
@@ -134,6 +138,9 @@ export declare class SessionCore {
      *  blank) and is looked at again after a back-off; otherwise a refusal, retried by nothing. */
     captureFailed(requestId: number, reason: string, retry?: boolean): void;
     fromWorker(reply: WorkerReply): void;
+    /** Arm the scheduler with the cadence for the backend: today's fixed rates, or the measured
+     *  ones with `measuredPacing`. */
+    private applyCadence;
     private onFrameResult;
     /** Call every `DRIVER_TICK_MS`. */
     tick(): void;

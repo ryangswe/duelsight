@@ -65,6 +65,10 @@ describe("compute frame: the pages it serves", () => {
 });
 
 describe("compute frame: the shown card", () => {
+  it("paces analysis from its measured cost (measuredPacing is on)", () => {
+    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).measuredPacing).toBe(true);
+  });
+
   it("asks for turned cards' outlines (rotatedOutlines is on)", () => {
     expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).rotatedOutlines).toBe(true);
   });
