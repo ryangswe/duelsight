@@ -8,8 +8,16 @@
 //     pointer events the browser marks as trusted, checked again against the picture at each
 //     capture, and never more than 60 s after the last one. Pictures go only to the compute frame,
 //     which is the extension's own; nothing is sent over the network.
-//   - Nothing is analyzed until the pointer first comes over a picture: that is when the two
-//     frames are created and the model loads. So a video nobody points at costs nothing.
+//   - The model loads when the main video plays (owner, 2026-11-10: "Products load at video
+//     play"): the compute frame is made then, so the load is usually over by the first hover. A
+//     video that never plays loads on the first pointer move over its picture, as before. With
+//     the popup's switch off, or on a page with no video, nothing loads. Nothing is analyzed
+//     until the pointer comes over the picture; the tooltip frame is made then.
+//   - After IDLE_UNLOAD_MS with no trusted move over the picture and no card showing, both frames
+//     are removed, which frees the model's memory. The next trusted pointer move anywhere in the
+//     page while the video plays (or the video playing again after a pause) loads it again, so the
+//     load runs while the pointer travels to the card. A `playing` with no pause first (after a
+//     stall or a loop) does not.
 //   - It shows the tooltip frame (the card's picture alone, or its name) beside the card the
 //     compute frame names, placed off the cards around it and scaled down when the page has no
 //     room for it, and hides it shortly after. Nothing it shows takes the pointer: hovering goes
@@ -23,7 +31,7 @@
 //     frame (fromExtensionFrame): a page can make up a message event, not a trusted one.
 
 import { CONFIG } from "../config.js";
-import { MIN_VIDEO_WIDTH } from "../constants.js";
+import { IDLE_UNLOAD_MS, MIN_VIDEO_WIDTH } from "../constants.js";
 import { parseTooltipOut, tag, TAG, type TooltipIn, type TooltipSize } from "../shared/messages.js";
 import { type CaptureControl, computeProtocol, createCaptureControl, fromExtensionFrame, type ShownCard } from "../../vendor/cardvision-browser/page-capture.js";
 import { availableSpace, CARD_CORNER, fitBesideCard, fitsBesideCard, fitTooltipSize, fitWithPanel, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
@@ -51,6 +59,9 @@ export interface AgentOptions {
   dev: boolean;
   /** The clock, in ms; default `performance.now()`. For tests. */
   now?: () => number;
+  /** How long the model stays loaded with nobody hovering; default IDLE_UNLOAD_MS. A dev build
+   *  can shorten it to check the unload. */
+  idleUnloadMs?: number;
 }
 
 export class Agent {
@@ -88,6 +99,14 @@ export class Agent {
   private loadError: string | null = null;
   /** The outline around the card the tooltip names (a shadow root in the page). */
   private outline: CardOutline | null = null;
+  /** When the viewer last hovered the picture (or the model loaded, or a card hid), by Date.now(). */
+  private activeAt = 0;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The frames were removed for idleness: a trusted move anywhere in the page loads again. */
+  private unloaded = false;
+  /** The video paused since the unload: playing again then is the viewer back, and loads again.
+   *  A `playing` with no pause first (after a stall, a loop, an ad) is not. */
+  private pausedSinceUnload = false;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */
   private readonly extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
@@ -131,6 +150,9 @@ export class Agent {
     // The page moving under a held card: the tooltip and the outline follow it.
     window.addEventListener("resize", this.onLayout, { passive: true });
     document.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
+    // Media events do not bubble: a video starting to play is caught on the way down.
+    document.addEventListener("playing", this.onPlaying, { capture: true });
+    document.addEventListener("pause", this.onPause, { capture: true });
   }
 
   /** A scroll that can move the video: the page's own, or a box holding the player. Others (a
@@ -169,6 +191,8 @@ export class Agent {
     document.removeEventListener("fullscreenchange", this.onFullscreen);
     window.removeEventListener("resize", this.onLayout);
     document.removeEventListener("scroll", this.onScroll, { capture: true });
+    document.removeEventListener("playing", this.onPlaying, { capture: true });
+    document.removeEventListener("pause", this.onPause, { capture: true });
     this.enabled = false;
     this.teardown();
     this.control.stop();
@@ -186,7 +210,9 @@ export class Agent {
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
+    this.unloaded = false;
     if (!enabled) this.teardown();
+    else this.loadIfPlaying();
   }
 
   // ------------------------------------------------------------------ the pointer
@@ -203,8 +229,58 @@ export class Agent {
   private readonly onPointer = (event: PointerEvent): void => {
     if (event.isTrusted !== true || !this.enabled || !isActivePage(new URL(location.href), this.options.dev)) return;
     const video = this.currentVideo();
-    if (video && fractionIn(this.pictureOf(video), event.clientX, event.clientY)) this.ensureFrames();
+    if (video && fractionIn(this.pictureOf(video), event.clientX, event.clientY)) {
+      this.ensureFrames();
+      this.markActive();
+    } else if (this.unloaded && video && !video.paused) {
+      // Unloaded for idleness: the pointer is moving, so load while it travels to the card.
+      this.ensureCompute();
+    }
   };
+
+  private readonly onPlaying = (): void => {
+    if (this.unloaded && !this.pausedSinceUnload) return;
+    this.loadIfPlaying();
+  };
+
+  private readonly onPause = (): void => {
+    if (this.unloaded) this.pausedSinceUnload = true;
+  };
+
+  /** Makes the compute frame, which loads the model, when the page's main video is playing: on a
+   *  `playing` event, and when the switch is turned on (a video may already be playing). */
+  private loadIfPlaying(): void {
+    if (!this.enabled || !isActivePage(new URL(location.href), this.options.dev)) return;
+    // The video that just started may be a new one: pick again.
+    this.videoPickedAt = -Infinity;
+    const video = this.currentVideo();
+    if (video && !video.paused) this.ensureCompute();
+  }
+
+  // ------------------------------------------------------------------ idleness
+  /** The viewer is here (or the model just loaded, or a card just hid): the idle time starts again. */
+  private markActive(): void {
+    this.activeAt = Date.now();
+    if (this.compute && this.idleTimer === null) this.armIdle(this.idleMs());
+  }
+
+  private idleMs(): number {
+    return this.options.idleUnloadMs ?? IDLE_UNLOAD_MS;
+  }
+
+  private armIdle(ms: number): void {
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (!this.compute) return;
+      // A card showing holds the model; its idle time starts when it hides.
+      if (this.displayedCardId !== null) return this.markActive();
+      const left = this.activeAt + this.idleMs() - Date.now();
+      if (left > 0) return this.armIdle(left);
+      this.teardown();
+      this.unloaded = true;
+      this.pausedSinceUnload = false;
+    }, ms);
+  }
 
   // ------------------------------------------------------------------ the video
   private currentVideo(): HTMLVideoElement | null {
@@ -244,14 +320,20 @@ export class Agent {
 
   // ------------------------------------------------------------------ the frames
   private ensureFrames(): void {
-    // A frame the page removed is made again.
-    if (this.compute && !this.compute.isConnected) this.compute = null;
+    this.ensureCompute();
     if (this.tooltip && !this.tooltip.isConnected) {
       this.tooltip = null;
       this.tooltipReady = false;
       this.displayedCardId = null;
       this.sizedCardId = null;
     }
+    if (!this.tooltip) this.createTooltip();
+  }
+
+  /** The compute frame, made once (and again if the page removed it). It loads the model as soon
+   *  as it is made. */
+  private ensureCompute(): void {
+    if (this.compute && !this.compute.isConnected) this.compute = null;
     if (!this.compute) {
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
@@ -268,8 +350,9 @@ export class Agent {
       });
       document.documentElement.appendChild(frame);
       this.compute = frame;
+      this.unloaded = false;
+      this.markActive();
     }
-    if (!this.tooltip) this.createTooltip();
   }
 
   private createTooltip(): void {
@@ -460,6 +543,7 @@ export class Agent {
     this.sizedCardId = null;
     this.placedFor = null;
     this.outline?.hide();
+    this.markActive();
   }
 
   private teardown(): void {
@@ -479,5 +563,7 @@ export class Agent {
     this.pendingTooltip = null;
     this.outline?.remove();
     this.outline = null;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
   }
 }

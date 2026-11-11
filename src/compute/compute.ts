@@ -4,8 +4,8 @@
 // the toolkit's session, which decides when a picture is analyzed and what is shown at the
 // pointer. DuelSight's options and its card facts channel are in frame.ts.
 //
-// This frame is made on the first pointer move over a video's picture, so the release loads then
-// and never at install. Which release: the bundled one, or the one the settings file names (the
+// This frame is made when the page's main video starts playing (or on the first pointer move over
+// its picture, for a video that never plays), so the release loads then and never at install. Which release: the bundled one, or the one the settings file names (the
 // vendored remote-release module, cdn/SETTINGS.md "release"), read once per page.
 
 import { CONFIG } from "../config.js";

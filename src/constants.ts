@@ -47,6 +47,10 @@ export const IMAGE_TIMEOUT_MS = 5_000;
 /** A source that failed this many times in a row is skipped until fresh settings are read. */
 export const SOURCE_FAILURE_LIMIT = 3;
 
+/** How long the model stays loaded with no trusted move over the picture and no card showing,
+ *  before the frames are removed to free its memory (owner, 2026-11-10). */
+export const IDLE_UNLOAD_MS = 10 * 60_000;
+
 /** Smallest video, in CSS pixels of width on the page, that the extension attaches to. */
 export const MIN_VIDEO_WIDTH = 320;
 
