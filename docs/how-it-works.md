@@ -77,7 +77,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   control). When the page's main video starts playing it makes the compute frame, which loads
   the model, so the load is usually over before the pointer comes to a card (a video that never
   plays loads when the pointer comes over its picture). It makes the tooltip frame, and analyzes
-  nothing, before the pointer comes over the video's picture. From then on it reports the
+  nothing, before the pointer comes over the video's picture. After 10 minutes with no move over
+  the picture and no card showing it removes both frames, freeing the model's memory; the next
+  pointer move in the page while the video plays makes the compute frame again. From then on it reports the
   pointer and seeks to the compute frame,
   and, when asked, draws the video to a canvas at analysis size and transfers it as an
   `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as

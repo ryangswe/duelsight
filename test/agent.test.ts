@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent, HIDE_DELAY_MS } from "../src/content/agent.js";
+import { IDLE_UNLOAD_MS } from "../src/constants.js";
 import { tag } from "../src/shared/messages.js";
 import { NOT_POINTING } from "../vendor/cardvision-browser/page-capture.js";
 
@@ -895,6 +896,126 @@ describe("Agent", () => {
       video.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 169, right: 300, bottom: 169, x: 0, y: 0, toJSON() {} }) as DOMRect;
       agent = await startAgent();
       play();
+      expect(frames()).toEqual([]);
+    });
+  });
+
+  describe("frees the model after a stretch with nobody hovering (owner, 2026-11-10)", () => {
+    const MIN = 60_000;
+    const BLUE_EYES = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+
+    it("removes both frames 10 minutes after the load with no hover, and not before", async () => {
+      expect(IDLE_UNLOAD_MS).toBe(10 * MIN);
+      vi.useFakeTimers();
+      agent = await startAgent();
+      expect(compute()).toBeDefined();
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS - 1);
+      expect(compute()).toBeDefined();
+      vi.advanceTimersByTime(1);
+      expect(frames()).toEqual([]);
+    });
+
+    it("removes both frames 10 minutes after the last hover of a video that loaded on a hover", async () => {
+      vi.useFakeTimers();
+      media.paused = true;
+      agent = await startAgent();
+      move(100, 100);
+      expect(frames()).toHaveLength(2);
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      expect(frames()).toEqual([]);
+    });
+
+    it("starts the 10 minutes again on each move over the picture", async () => {
+      vi.useFakeTimers();
+      agent = await startAgent();
+      vi.advanceTimersByTime(9 * MIN);
+      move(100, 100);
+      vi.advanceTimersByTime(9 * MIN);
+      expect(frames()).toHaveLength(2);
+      vi.advanceTimersByTime(MIN - 1);
+      expect(frames()).toHaveLength(2);
+      vi.advanceTimersByTime(1);
+      expect(frames()).toEqual([]);
+    });
+
+    it("keeps the model while a card shows, and counts the idle time from when it hides", async () => {
+      // A card shows at most 60 s after the pointer last moved, so a 30 s idle time shows the hold.
+      vi.useFakeTimers();
+      agent = new Agent({ dev: true, idleUnloadMs: 30_000 });
+      agent.start();
+      agent.setEnabled(true);
+      await settle();
+      move(100, 100);
+      vi.advanceTimersByTime(1_000);
+      showCard(BLUE_EYES);
+      expect(tooltip()!.style.visibility).toBe("visible");
+      vi.advanceTimersByTime(40_000);
+      expect(frames()).toHaveLength(2);
+      fromFrame(compute(), { kind: "shown", card: null });
+      vi.advanceTimersByTime(HIDE_DELAY_MS);
+      expect(tooltip()!.style.visibility).toBe("hidden");
+      vi.advanceTimersByTime(30_000 - 1);
+      expect(frames()).toHaveLength(2);
+      vi.advanceTimersByTime(1);
+      expect(frames()).toEqual([]);
+    });
+
+    it("loads again on a trusted move anywhere in the page while the video plays, not on a page script's", async () => {
+      vi.useFakeTimers();
+      agent = await startAgent();
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      expect(frames()).toEqual([]);
+      document.dispatchEvent(trusted(new PointerEvent("pointermove", { clientX: 2000, clientY: 2000, bubbles: true }), false));
+      expect(frames()).toEqual([]);
+      move(2000, 2000);
+      expect(compute()).toBeDefined();
+      expect(tooltip()).toBeUndefined();
+      // Over the picture: both frames, as before.
+      move(100, 100);
+      expect(frames()).toHaveLength(2);
+    });
+
+    it("loads again when the video plays again after an unload, and not on a move while it is paused", async () => {
+      vi.useFakeTimers();
+      agent = await startAgent();
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      media.paused = true;
+      move(2000, 2000);
+      expect(frames()).toEqual([]);
+      video.dispatchEvent(new Event("pause"));
+      media.paused = false;
+      video.dispatchEvent(new Event("playing"));
+      expect(compute()).toBeDefined();
+    });
+
+    it("stays unloaded through a `playing` with no pause first (a stall, a loop, an ad)", async () => {
+      vi.useFakeTimers();
+      agent = await startAgent();
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      video.dispatchEvent(new Event("waiting"));
+      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(new Event("seeking"));
+      video.dispatchEvent(new Event("playing"));
+      expect(frames()).toEqual([]);
+    });
+
+    it("loads nothing on a move off the picture of a video that never loaded", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      move(2000, 2000);
+      move(100, 600);
+      expect(frames()).toEqual([]);
+    });
+
+    it("forgets an unload when switched off and on: a move off the picture then loads nothing", async () => {
+      vi.useFakeTimers();
+      agent = await startAgent();
+      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      media.paused = true;
+      agent.setEnabled(false);
+      agent.setEnabled(true);
+      media.paused = false;
+      move(2000, 2000);
       expect(frames()).toEqual([]);
     });
   });

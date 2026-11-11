@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Build the unpacked extension into dist/ (not kept in the repository).
 //
-//   npm run build -- --release <release folder> [--dev] [--store] [--target chrome|firefox] [--out dist]
+//   npm run build -- --release <release folder> [--dev [--idle-unload-ms N]] [--store] [--target chrome|firefox] [--out dist]
 //
 // --release       A release folder as `cardvision build-release` writes it: release.json and the
 //                 files it pins. It is checked with the runtime's own verification (every file
 //                 against its SHA-256 and size, the components against each other, the ONNX
 //                 Runtime version) and copied into dist/release/. It is never committed.
 // --dev           A development build: also runs on the local test page (http://127.0.0.1, http://localhost).
+// --idle-unload-ms  Dev builds only: free the model after N ms with nobody hovering, instead of
+//                 10 minutes (src/constants.ts IDLE_UNLOAD_MS), to check the unload.
 // --store         A Chrome Web Store build: the manifest has no `key` (the store assigns the ID).
 //                 Other builds carry the public key that fixes the ID of unpacked installs.
 // --target        chrome (the default; also Edge and Brave) or firefox: the same bundles with
@@ -43,6 +45,7 @@ const { values } = parseArgs({
     store: { type: "boolean", default: false },
     target: { type: "string", default: "chrome" },
     out: { type: "string", default: "dist" },
+    "idle-unload-ms": { type: "string" },
   },
 });
 if (!values.release) {
@@ -51,6 +54,12 @@ if (!values.release) {
 }
 if (values.dev && values.store) {
   console.error("--dev and --store do not go together");
+  process.exit(2);
+}
+// A dev build may shorten the idle time before the model is freed, to check the unload.
+const idleUnloadMs = values["idle-unload-ms"] === undefined ? null : Number(values["idle-unload-ms"]);
+if (idleUnloadMs !== null && (!values.dev || !(Number.isInteger(idleUnloadMs) && idleUnloadMs > 0))) {
+  console.error("--idle-unload-ms is a whole number of ms above 0, for a --dev build only");
   process.exit(2);
 }
 if (values.target !== "chrome" && values.target !== "firefox") {
@@ -138,7 +147,7 @@ const shared = {
   sourcemap: false,
   logLevel: "warning",
   legalComments: "linked",
-  define: { __DEV__: values.dev ? "true" : "false", __TARGET__: JSON.stringify(values.target) },
+  define: { __DEV__: values.dev ? "true" : "false", __TARGET__: JSON.stringify(values.target), __IDLE_UNLOAD_MS__: JSON.stringify(idleUnloadMs) },
   plugins: [configPlugin],
 };
 await build({ ...shared, format: "iife", entryPoints: { content: join(root, "src/content/index.ts") }, outdir: out });
