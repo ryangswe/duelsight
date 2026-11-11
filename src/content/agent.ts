@@ -8,8 +8,11 @@
 //     pointer events the browser marks as trusted, checked again against the picture at each
 //     capture, and never more than 60 s after the last one. Pictures go only to the compute frame,
 //     which is the extension's own; nothing is sent over the network.
-//   - Nothing is analyzed until the pointer first comes over a picture: that is when the two
-//     frames are created and the model loads. So a video nobody points at costs nothing.
+//   - The model loads when the main video plays (owner, 2026-11-10: "Products load at video
+//     play"): the compute frame is made then, so the load is usually over by the first hover. A
+//     video that never plays loads on the first pointer move over its picture, as before. With
+//     the popup's switch off, or on a page with no video, nothing loads. Nothing is analyzed
+//     until the pointer comes over the picture; the tooltip frame is made then.
 //   - It shows the tooltip frame (the card's picture alone, or its name) beside the card the
 //     compute frame names, placed off the cards around it and scaled down when the page has no
 //     room for it, and hides it shortly after. Nothing it shows takes the pointer: hovering goes
@@ -131,6 +134,8 @@ export class Agent {
     // The page moving under a held card: the tooltip and the outline follow it.
     window.addEventListener("resize", this.onLayout, { passive: true });
     document.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
+    // Media events do not bubble: a video starting to play is caught on the way down.
+    document.addEventListener("playing", this.onPlaying, { capture: true });
   }
 
   /** A scroll that can move the video: the page's own, or a box holding the player. Others (a
@@ -169,6 +174,7 @@ export class Agent {
     document.removeEventListener("fullscreenchange", this.onFullscreen);
     window.removeEventListener("resize", this.onLayout);
     document.removeEventListener("scroll", this.onScroll, { capture: true });
+    document.removeEventListener("playing", this.onPlaying, { capture: true });
     this.enabled = false;
     this.teardown();
     this.control.stop();
@@ -187,6 +193,7 @@ export class Agent {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
     if (!enabled) this.teardown();
+    else this.loadIfPlaying();
   }
 
   // ------------------------------------------------------------------ the pointer
@@ -205,6 +212,18 @@ export class Agent {
     const video = this.currentVideo();
     if (video && fractionIn(this.pictureOf(video), event.clientX, event.clientY)) this.ensureFrames();
   };
+
+  private readonly onPlaying = (): void => this.loadIfPlaying();
+
+  /** Makes the compute frame, which loads the model, when the page's main video is playing: on a
+   *  `playing` event, and when the switch is turned on (a video may already be playing). */
+  private loadIfPlaying(): void {
+    if (!this.enabled || !isActivePage(new URL(location.href), this.options.dev)) return;
+    // The video that just started may be a new one: pick again.
+    this.videoPickedAt = -Infinity;
+    const video = this.currentVideo();
+    if (video && !video.paused) this.ensureCompute();
+  }
 
   // ------------------------------------------------------------------ the video
   private currentVideo(): HTMLVideoElement | null {
@@ -244,14 +263,20 @@ export class Agent {
 
   // ------------------------------------------------------------------ the frames
   private ensureFrames(): void {
-    // A frame the page removed is made again.
-    if (this.compute && !this.compute.isConnected) this.compute = null;
+    this.ensureCompute();
     if (this.tooltip && !this.tooltip.isConnected) {
       this.tooltip = null;
       this.tooltipReady = false;
       this.displayedCardId = null;
       this.sizedCardId = null;
     }
+    if (!this.tooltip) this.createTooltip();
+  }
+
+  /** The compute frame, made once (and again if the page removed it). It loads the model as soon
+   *  as it is made. */
+  private ensureCompute(): void {
+    if (this.compute && !this.compute.isConnected) this.compute = null;
     if (!this.compute) {
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
@@ -269,7 +294,6 @@ export class Agent {
       document.documentElement.appendChild(frame);
       this.compute = frame;
     }
-    if (!this.tooltip) this.createTooltip();
   }
 
   private createTooltip(): void {

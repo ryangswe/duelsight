@@ -59,7 +59,7 @@ flowchart TD
     HS -- "capture request;<br/>card id, name, box" --> CS
     HS <-- "frame out,<br/>boxes and names back" --> W
     PKG -- "release.json<br/>at load" --> W
-    REL -. "checked files,<br/>when hovers start" .-> W
+    REL -. "checked files,<br/>when a video plays" .-> W
     CS -- "card id and name" --> TT
     TT -- "its size" --> CS
     CS -- "the named box" --> OUT
@@ -74,8 +74,10 @@ flowchart TD
 in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
 
 - **The content script** is on for all supported videos (the popup's switch is the sole
-  control), but makes no frame and loads no model before the pointer comes over the
-  video's picture, so a video nobody points at costs nothing. From then on it reports the
+  control). When the page's main video starts playing it makes the compute frame, which loads
+  the model, so the load is usually over before the pointer comes to a card (a video that never
+  plays loads when the pointer comes over its picture). It makes the tooltip frame, and analyzes
+  nothing, before the pointer comes over the video's picture. From then on it reports the
   pointer and seeks to the compute frame,
   and, when asked, draws the video to a canvas at analysis size and transfers it as an
   `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as

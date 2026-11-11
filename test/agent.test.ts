@@ -129,6 +129,8 @@ async function startAgent(isTrusted = true): Promise<Agent> {
 
 describe("Agent", () => {
   it("ignores pointer events a page script made", async () => {
+    // A video that is not playing: a playing one loads at once (the load-at-play tests below).
+    media.paused = true;
     trustedEvents = false;
     agent = new Agent({ dev: true });
     agent.start();
@@ -139,6 +141,8 @@ describe("Agent", () => {
   });
 
   it("makes the two frames when the pointer first comes over the picture, and not before", async () => {
+    // A video that is not playing: a playing one loads at once (the load-at-play tests below).
+    media.paused = true;
     agent = await startAgent();
     move(100, 600);
     expect(frames()).toEqual([]);
@@ -443,6 +447,8 @@ describe("Agent", () => {
   });
 
   it("stays idle on a video nobody points at: no frame for moves off the picture", async () => {
+    // A video that is not playing: a playing one loads at once (the load-at-play tests below).
+    media.paused = true;
     agent = await startAgent();
     move(100, 600);
     move(2000, 2000);
@@ -824,5 +830,72 @@ describe("Agent", () => {
     expect(frames()).toHaveLength(0);
     move(100, 100);
     expect(frames()).toHaveLength(0);
+  });
+
+  describe("loads when the video plays (owner, 2026-11-10)", () => {
+    const play = () => {
+      media.paused = false;
+      video.dispatchEvent(new Event("playing"));
+    };
+
+    it("makes the compute frame when the main video starts playing, with no pointer, and no tooltip frame", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      expect(frames()).toEqual([]);
+      play();
+      const made = compute();
+      expect(made).toBeDefined();
+      expect(tooltip()).toBeUndefined();
+      expect(frames()).toHaveLength(1);
+      // Paused and resumed, sought, the next video in the same player: still the one frame.
+      media.paused = true;
+      play();
+      video.dispatchEvent(new Event("seeking"));
+      play();
+      video.src = "http://127.0.0.1:8770/next.webm";
+      play();
+      expect(frames()).toEqual([made]);
+    });
+
+    it("makes the compute frame at once when the video is already playing as it starts", async () => {
+      agent = await startAgent();
+      const made = compute();
+      expect(made).toBeDefined();
+      expect(tooltip()).toBeUndefined();
+      // The first hover then makes only the tooltip frame.
+      move(100, 100);
+      expect(compute()).toBe(made);
+      expect(tooltip()).toBeDefined();
+      expect(frames()).toHaveLength(2);
+    });
+
+    it("loads nothing with the switch off; switched on while it plays, it loads then; switched off, it is gone", async () => {
+      agent = new Agent({ dev: true });
+      agent.start();
+      await settle();
+      play();
+      expect(frames()).toEqual([]);
+      agent.setEnabled(true);
+      expect(compute()).toBeDefined();
+      agent.setEnabled(false);
+      expect(frames()).toEqual([]);
+      play();
+      expect(frames()).toEqual([]);
+    });
+
+    it("loads nothing for a video playing on a page it does not serve, or one too small to be the main video", async () => {
+      vi.stubGlobal("location", new URL("https://www.youtube.com/"));
+      agent = new Agent({ dev: false });
+      agent.start();
+      agent.setEnabled(true);
+      play();
+      expect(frames()).toEqual([]);
+      agent.stop();
+      vi.stubGlobal("location", new URL("http://127.0.0.1:8770/"));
+      video.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 169, right: 300, bottom: 169, x: 0, y: 0, toJSON() {} }) as DOMRect;
+      agent = await startAgent();
+      play();
+      expect(frames()).toEqual([]);
+    });
   });
 });
