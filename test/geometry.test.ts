@@ -84,6 +84,7 @@ describe("loadsAtPlay", () => {
     ["https://www.twitch.tv/somechannel/", false, true],
     ["https://www.twitch.tv/Some_Channel_42", false, true],
     ["https://www.twitch.tv/videos/123456", false, true],
+    ["https://www.twitch.tv/Videos/123456", false, true],
     ["https://www.twitch.tv/somechannel/clip/SomeClip-Slug_1", false, true],
     ["https://www.twitch.tv/", false, false],
     ["https://www.twitch.tv/directory", false, false],

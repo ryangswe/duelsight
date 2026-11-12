@@ -39,7 +39,7 @@ export function loadsAtPlay(url: URL, dev: boolean, sites: VideoSites = VIDEO_SI
   if (url.hostname === "www.youtube.com") return !url.pathname.startsWith("/embed/");
   if (url.hostname !== "www.twitch.tv") return true;
   const parts = url.pathname.split("/").filter((p) => p !== "");
-  if (parts[0] === "videos") return parts.length === 2 && /^\d+$/.test(parts[1]!);
+  if (parts[0]?.toLowerCase() === "videos") return parts.length === 2 && /^\d+$/.test(parts[1]!);
   if (parts.length === 0 || !TWITCH_CHANNEL.test(parts[0]!) || TWITCH_NOT_CHANNEL.has(parts[0]!.toLowerCase())) return false;
   return parts.length === 1 || (parts.length === 3 && parts[1] === "clip");
 }

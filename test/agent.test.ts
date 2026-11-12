@@ -874,19 +874,22 @@ describe("Agent", () => {
       expect(frames()).toEqual([made, tip]);
     });
 
-    it("makes both frames for a video that replaces the main one and plays, and the old one's events do nothing", async () => {
+    it("makes both frames when a video that replaced the main one plays, not before", async () => {
       media.paused = true;
       agent = await startAgent();
       // The player swaps its video element (a site's own player, an ad, a new page in the same tab).
+      let nextPaused = true;
       const next = video.cloneNode() as HTMLVideoElement;
       Object.defineProperty(next, "videoWidth", { value: 1920 });
       Object.defineProperty(next, "videoHeight", { value: 1080 });
-      Object.defineProperty(next, "paused", { get: () => false });
+      Object.defineProperty(next, "paused", { get: () => nextPaused });
       next.getBoundingClientRect = video.getBoundingClientRect;
       video.remove();
       document.body.appendChild(next);
-      video.dispatchEvent(new Event("playing"));
+      // A `playing` from the page while the new video is still paused (another element): nothing.
+      document.body.dispatchEvent(new Event("playing"));
       expect(frames()).toEqual([]);
+      nextPaused = false;
       next.dispatchEvent(new Event("playing"));
       expect(compute()).toBeDefined();
       expect(tooltip()).toBeDefined();

@@ -295,6 +295,8 @@ export class TooltipController {
         const details = this.details;
         const detailsOn = this.detailsOn;
         const panel = this.fillPanel(card);
+        // From now on a details change (refreshPanel) sends the picture's size, not the placeholder's.
+        this.picture = { cardId: card.id, ...size, panel: panel !== null };
         this.postSize({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(panel ? { panel } : {}) });
         await this.deps.frameFits?.(size, panel !== null);
         if (!live()) return;

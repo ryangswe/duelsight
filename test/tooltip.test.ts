@@ -753,6 +753,21 @@ describe("the details panel", () => {
     expect(elements.panel.name.textContent).toBe("Test Robot");
   });
 
+  it("sends a landscape picture's own size when the details change while the frame takes its shape", async () => {
+    const { c, fit } = heldFrame();
+    controller = c;
+    pixels["https://art.example/art/10000001.jpg"] = { width: 1000, height: 700 };
+    controller.setDetails(DETAILS);
+    controller.show("10000001", 9);
+    await tick();
+    expect(sizes.at(-1)).toMatchObject({ width: 448, height: 314, seq: 9 });
+    controller.setDetailsOn(false);
+    expect(sizes.at(-1)).toEqual({ width: 448, height: 314, shape: "card", cardId: "10000001", seq: 9 });
+    fit();
+    await tick();
+    expect(sizes.at(-1)).toEqual({ width: 448, height: 314, shape: "card", cardId: "10000001", seq: 9 });
+  });
+
   it("drops the panel when the switch goes off while the frame takes the picture's shape", async () => {
     const { c, fit } = heldFrame();
     controller = c;
