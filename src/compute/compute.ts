@@ -14,7 +14,7 @@ import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
 import { readEffectiveSettings } from "../settings/store.js";
 import { FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
-import { readKeepCardOn } from "../shared/keep-card.js";
+import { keepCardForFrame } from "../shared/keep-card.js";
 import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { DRIVER_TICK_MS, type WorkerLike } from "../../vendor/cardvision-browser/compute-session.js";
@@ -46,7 +46,7 @@ void (async () => {
       .then((r) => r.json() as Promise<{ id?: string }>)
       .then((doc) => doc.id ?? "-")
       .catch(() => "-"),
-    readKeepCardOn(chrome.storage.local).catch(() => true),
+    keepCardForFrame(chrome.storage.local),
   ]);
   let lastDecision: ReleaseDecision | null = null;
   const settingsUrl = SETTINGS_URL;
@@ -132,6 +132,7 @@ void (async () => {
         lastFrameError: status?.lastFrameError ?? null,
         lastWorkerMs: status?.lastWorkerMs ?? null,
         restarts: frame.restarts,
+        keepCard,
         stopped: frame.stopped,
         release: { source: frame.release.source, id: frame.release.id, reason: frame.release.reason, decision: lastDecision },
         frames,

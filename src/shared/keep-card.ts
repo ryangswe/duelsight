@@ -17,3 +17,8 @@ export function keepCardFlipped(change: { oldValue?: unknown; newValue?: unknown
 export async function readKeepCardOn(storage: Pick<KeyValueStorage, "get">): Promise<boolean> {
   return (await storage.get(KEEP_CARD_KEY))[KEEP_CARD_KEY] !== false;
 }
+
+/** What the compute frame starts with: the stored choice, or on when it cannot be read. */
+export function keepCardForFrame(storage: Pick<KeyValueStorage, "get">): Promise<boolean> {
+  return readKeepCardOn(storage).catch(() => true);
+}
