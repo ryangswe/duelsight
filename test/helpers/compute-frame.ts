@@ -101,7 +101,7 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
   const started = startDuelSightFrame(env);
   const worker = () => workers.at(-1)!;
   const sent = (kind: string) => toParent.filter((p) => p.message.kind === kind).map((p) => p.message);
-  const lastShown = () => (sent("shown").at(-1)?.card ?? null) as { cardId: string; releaseId?: string } | null;
+  const lastShown = () => (sent("shown").at(-1)?.card ?? null) as { cardId: string; releaseId?: string; held?: true } | null;
 
   /** A message from the page's window, as the content script would post it. */
   const fromContent = (data: object, source: unknown = parent, origin = SITE_ORIGIN) => listener?.({ data: tag(data), source, origin } as unknown as MessageEvent);

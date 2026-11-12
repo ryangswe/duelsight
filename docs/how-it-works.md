@@ -19,8 +19,9 @@ nothing when the match is not clear.
 - A hidden **compute frame** (`src/compute/`), an extension page inside the video page, hosts
   the runtime's session and worker (`startComputeFrame`, vendored `compute-session.js`). It
   decides when to analyze a picture (around pointer activity, with the runtime's scheduler), and
-  which card a tooltip shows at the pointer (the runtime's hover rule, with a shown card held
-  through short gaps). Pictures go from the content script to this frame and nowhere else.
+  which card a tooltip shows at the pointer (the runtime's hover rule, with its reading hold: a
+  shown card stays while the pointer stays on the area it was seen in, even after the card moves
+  away). Pictures go from the content script to this frame and nowhere else.
 - The two halves are the runtime's two-frame contract (its `docs/extension-session.md`):
   DuelSight adds its message tag, the pages it serves, the main video's choice, and the
   tooltip.
@@ -78,8 +79,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   the model, so the load is usually over before the pointer comes to a card (a video that never
   plays loads when the pointer comes over its picture). It makes the tooltip frame, and analyzes
   nothing, before the pointer comes over the video's picture. After 10 minutes with no move over
-  the picture and no card showing it removes both frames, freeing the model's memory; the next
-  pointer move in the page while the video plays makes the compute frame again. From then on it reports the
+  the picture and no card showing, the compute frame ends its worker (the runtime's idle unload)
+  and the content script removes both frames, freeing the model's memory; the next trusted move
+  or tap over the picture makes them again, and the model loads then. From then on it reports the
   pointer and seeks to the compute frame,
   and, when asked, draws the video to a canvas at analysis size and transfers it as an
   `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as
@@ -96,7 +98,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box; a card lying at an
-  angle is outlined, and hovered, along its own edges (the runtime's turned outlines).
+  angle is outlined, and hovered, along its own edges (the runtime's turned outlines). While the
+  reading hold keeps a card that the newest analysis no longer sees there (`held`), the outline
+  is hidden and the tooltip stays.
 - **The details panel:** with card details on, the tooltip frame also loads the card details file
   the settings file names (`src/details/`), once, and keeps it in the extension's Cache Storage.
   For a card it lists, the frame fills a text panel (as plain text, never markup), measures it at a

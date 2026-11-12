@@ -6,10 +6,8 @@ import { ENABLED_KEY, readEnabled } from "../shared/enabled.js";
 import { CARD_SIZE_KEY, clampCardSize, readCardSize } from "../shared/card-size.js";
 
 declare const __DEV__: boolean;
-// Null except in a dev build made with --idle-unload-ms.
-declare const __IDLE_UNLOAD_MS__: number | null;
 
-const agent = new Agent({ dev: __DEV__, ...(__IDLE_UNLOAD_MS__ !== null ? { idleUnloadMs: __IDLE_UNLOAD_MS__ } : {}) });
+const agent = new Agent({ dev: __DEV__ });
 agent.start();
 void readEnabled(chrome.storage.local).then((enabled) => agent.setEnabled(enabled));
 void readCardSize(chrome.storage.local).then((percent) => agent.setCardSize(percent));

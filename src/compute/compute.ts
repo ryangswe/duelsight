@@ -6,7 +6,9 @@
 //
 // This frame is made when the page's main video starts playing (or on the first pointer move over
 // its picture, for a video that never plays), so the release loads then and never at install. Which release: the bundled one, or the one the settings file names (the
-// vendored remote-release module, cdn/SETTINGS.md "release"), read once per page.
+// vendored remote-release module, cdn/SETTINGS.md "release"), read once per page. After
+// IDLE_UNLOAD_MS with no pointer over the picture and no card shown, its worker ends and the
+// content script removes it; a move over the picture makes it again.
 
 import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
@@ -19,6 +21,8 @@ import { startDuelSightFrame } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
 
 declare const __DEV__: boolean;
+// Null except in a dev build made with --idle-unload-ms.
+declare const __IDLE_UNLOAD_MS__: number | null;
 
 // Dev builds only: per-frame figures for the smoke check.
 const frames: Array<Record<string, number | null>> = [];
@@ -46,6 +50,7 @@ void (async () => {
     framed,
     parentOrigin,
     dev: __DEV__,
+    ...(__IDLE_UNLOAD_MS__ !== null ? { idleUnloadMs: __IDLE_UNLOAD_MS__ } : {}),
     createWorker: () => new Worker(workerUrl, { type: "module" }) as unknown as WorkerLike,
     loadRequest,
     now: () => performance.now(),
@@ -113,7 +118,8 @@ void (async () => {
     (window as unknown as { __duelsightDebug: () => unknown }).__duelsightDebug = () => {
       const status = frame.core?.status() ?? null;
       return {
-        state: status?.state ?? "loading",
+        // `idle`: the worker ended for idleness (the frame is about to be removed).
+        state: frame.state === "idle" ? "idle" : (status?.state ?? "loading"),
         error: status?.error ?? null,
         backend: status?.backend ?? null,
         analyzed: status?.frames ?? 0,
