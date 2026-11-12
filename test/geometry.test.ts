@@ -85,6 +85,9 @@ describe("loadsAtPlay", () => {
     ["https://www.twitch.tv/Some_Channel_42", false, true],
     ["https://www.twitch.tv/videos/123456", false, true],
     ["https://www.twitch.tv/Videos/123456", false, true],
+    // The moderator view and the popout player wait for a hover (owner, 2026-11-12, #129).
+    ["https://www.twitch.tv/moderator/somechannel", false, false],
+    ["https://www.twitch.tv/popout/somechannel/player", false, false],
     ["https://www.twitch.tv/somechannel/clip/SomeClip-Slug_1", false, true],
     ["https://www.twitch.tv/", false, false],
     ["https://www.twitch.tv/directory", false, false],

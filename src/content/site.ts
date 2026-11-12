@@ -32,7 +32,8 @@ const TWITCH_CHANNEL = /^[A-Za-z0-9_]{1,25}$/;
  *  not an embedded player, which another website may start on its own, muted (owner, 2026-11-12:
  *  "Wait for a hover"). Twitch: a channel (`/name`), a video (`/videos/123`) and a clip
  *  (`/name/clip/slug`); not the front page, the directory, search or settings, whose players are
- *  previews that play on their own (hover-speed plan, 2026-11-12). On the others, a hover over the
+ *  previews that play on their own (hover-speed plan, 2026-11-12), nor the moderator view or the
+ *  popout player (owner, 2026-11-12, cardvision-hq#129: "Wait for a hover"). On the others, a hover over the
  *  video still loads it, as before the load at play. */
 export function loadsAtPlay(url: URL, dev: boolean, sites: VideoSites = VIDEO_SITES): boolean {
   if (!isActivePage(url, dev, sites)) return false;

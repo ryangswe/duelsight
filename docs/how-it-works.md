@@ -80,9 +80,10 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   both are usually ready before the pointer comes to a card. That is a YouTube watch or live
   page, or a Twitch channel, video or clip page (`site.ts` `loadsAtPlay`); not a YouTube player
   embedded in another website (owner, 2026-11-12: "Wait for a hover"), nor Twitch's front page or
-  directory, whose previews play on their own. A video that never plays, an embed or a preview
-  loads when the pointer comes over its picture. It analyzes nothing before the pointer comes over the video's picture. After 10 minutes with no move over
-  the picture and no card showing, the compute frame ends its worker (the runtime's idle unload)
+  directory, whose previews play on their own, its popout player or its moderator view. A video
+  that never plays, an embed or a preview loads when the pointer comes over its picture. It
+  analyzes nothing before the pointer comes over the video's picture. After 10 minutes with no
+  move over the picture and no card showing, the compute frame ends its worker (the runtime's idle unload)
   and the content script removes both frames, freeing the model's memory; the next trusted move
   or tap over the picture makes them again, and the model loads then. From then on it reports the
   pointer and seeks to the compute frame,
