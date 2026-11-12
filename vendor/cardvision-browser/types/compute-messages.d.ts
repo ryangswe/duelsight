@@ -22,10 +22,15 @@ export interface ShownCard {
     rotation?: number;
     localWidth?: number;
     localHeight?: number;
+    /** Under a reading hold: true when the host should not draw the card's outline. `box` is where
+     *  the card was last seen. Set once two analyses in a row show it gone from there (one on a
+     *  still picture), or once no recent analysis is left and none is coming; cleared when an
+     *  analysis sees it there again. The tooltip stays either way. */
+    held?: true;
 }
 /** The two-frame contract's version. A content script and a compute frame work together only
  *  when they speak the same one: `hello` and `ready` carry it, and each side compares. */
-export declare const PROTOCOL_VERSION = 1;
+export declare const PROTOCOL_VERSION = 2;
 /** Content script -> compute frame. */
 export type ComputeIn = 
 /** Asks the compute frame to say `ready` again, with its current status and shown card (a
@@ -46,6 +51,11 @@ export type ComputeIn =
 /** The pointer left the picture. */
  | {
     kind: "leave";
+}
+/** The viewer is probably about to want recognition: a frame that unloaded its worker when idle
+ *  (status `idle`) loads it again. Otherwise it only counts as activity. */
+ | {
+    kind: "intent";
 }
 /** The video presented a new frame (playback, a seek ended, the video became ready). */
  | {
@@ -86,7 +96,7 @@ export type ComputeOut =
     instance: string;
 } | {
     kind: "status";
-    state: "loading" | "ready" | "failed";
+    state: "loading" | "ready" | "failed" | "idle";
     error: string | null;
     backend: string | null;
 }

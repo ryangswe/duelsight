@@ -88,6 +88,13 @@ export interface ScoredProposal {
      *  box's own rectangle when the tilt is under a degree or cannot be solved exactly. It decides
      *  nothing. Absent otherwise. */
     outline?: Rect;
+    /** With `geometricFocus`, on a face the stage applies to that was not verified on this frame:
+     *  true. The face is then not named: `tauPassed` and `accepted` are false and `embedding` is
+     *  null, whatever its cosine look was. Absent otherwise. */
+    unverified?: true;
+    /** With the tilted retry, on a face it would have tried but its cap (`maxFacesPerFrame`) left
+     *  out on this frame: true. The face is answered by its upright look. Absent otherwise. */
+    tiltedSkipped?: true;
 }
 /** What the tilted retry did with one face (Python: `TiltedOutcome.to_json`). */
 export interface TiltedEvidence {
@@ -183,10 +190,31 @@ export declare function keepAfterNms(proposals: ReadonlyArray<Pick<ScoredProposa
  * earlier scale on equal scores. The tracker still pools the cosine looks (`base`). When the
  * retry throws, the frame is answered as without it and the error is returned (`tiltedError`).
  *
+ * With `geometricFocus` (a point in the frame's pixels, or null for none) the stage verifies only
+ * the faces of the point's group (`focusGroup`): the boxes holding it and, transitively, the ones
+ * overlapping them by the suppression's threshold, so the suppression among them sees the same
+ * scores as without the option. A face the stage applies to outside the group is `unverified`: not
+ * named, not tracked, and left out of the tilted retry. A face the stage does not apply to is
+ * answered as without the option. The tilted retry then takes every not-accepted face of the
+ * group, with no `maxFacesPerFrame` cap, and no face outside it. Without `geometricFocus` (undefined) every face the stage
+ * applies to is verified, in one batch.
+ *
  * With `rotatedOutlines`, every proposal whose score reaches tau carries its card's `outline`,
  * from the same crop; nothing else changes.
  */
-export declare function recognizeFrame(frame: Frame, embedder: BatchEmbedder, recognizer: EmbeddingRecognizer, faces: readonly Candidate[], minCropPx?: number, stage?: GeometricStage | null, tilted?: TiltedRun | null, rotatedOutlines?: boolean): Promise<ScoredFrame>;
+export declare function recognizeFrame(frame: Frame, embedder: BatchEmbedder, recognizer: EmbeddingRecognizer, faces: readonly Candidate[], minCropPx?: number, stage?: GeometricStage | null, tilted?: TiltedRun | null, rotatedOutlines?: boolean, geometricFocus?: {
+    x: number;
+    y: number;
+} | null): Promise<ScoredFrame>;
+/**
+ * The faces the suppression can tie to `point`: those whose box holds it (edges included) and,
+ * transitively, those overlapping one of them by `ACCEPTED_NMS_IOU` or more (the suppression's
+ * own test), since greedy suppression chains. Empty when `point` is null or no box holds it.
+ */
+export declare function focusGroup(boxes: readonly AABB[], point: {
+    x: number;
+    y: number;
+} | null): Set<number>;
 /**
  * The order in which the tilted retry takes the faces that are not accepted: those whose box
  * holds `focus`, smallest box first, then the rest by their score (`similarity`, the chosen

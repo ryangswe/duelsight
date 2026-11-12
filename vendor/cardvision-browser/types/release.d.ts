@@ -106,6 +106,7 @@ export interface ReleaseDeps {
         ok: boolean;
         status: number;
         arrayBuffer(): Promise<ArrayBuffer>;
+        blob?(): Promise<Blob>;
     }>;
     digestSha256Hex: (bytes: ArrayBuffer) => Promise<string>;
 }

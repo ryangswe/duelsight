@@ -1,6 +1,6 @@
-import type { AABB } from "./boxes.js";
+import { type AABB } from "./boxes.js";
 import type { AnalysisWidth } from "./capture.js";
-import { type MeasuredPacingOption, type SessionMode } from "./cadence.js";
+import { type GeometricScope, type MeasuredPacingOption, type SessionMode } from "./cadence.js";
 import { FrameScheduler } from "./frame-scheduler.js";
 import { type GeometricStatus, type ReleaseProgress, type ReleaseStatus, type TiltedStatus, type WorkerReply, type WorkerRequest } from "./messages.js";
 import { type FractionBox } from "./compute-messages.js";
@@ -25,22 +25,48 @@ export interface Shown {
     rotation?: number;
     localWidth?: number;
     localHeight?: number;
+    /** Under a reading hold only: true when the kept card's outline should not be drawn. `box`,
+     *  with the outline fields, is where the card was last seen. It is set when `ShownHold.misses`
+     *  analyses in a row show the card gone from there (another card named there, or nothing named
+     *  or detected there), or one does on a still picture; and when no recent analysis is left and
+     *  none is coming (a resting pointer past its grace period on a playing video). It stays set
+     *  until an analysis sees the card there again. Absent while the card is seen or its box is
+     *  still detected there. */
+    held?: true;
 }
 /** The shown card's hold: how long it survives analyses that do not see it at the pointer. */
 export interface ShownHold {
     /** Analyses in a row with nothing there before it goes. A reply with no analysis, or one too
-     *  old for the picture on screen when it comes back, is not one. */
+     *  old for the picture on screen when it comes back, is not one. Under a reading hold, analyses
+     *  in a row that show the card gone before its outline is hidden (`Shown.held`), so that one
+     *  look missing a card that is still there does not blink it; on a still picture, one. */
     misses: number;
     /** Time with no analysis seeing it before it goes, in ms. */
     maxMs: number;
     /** A box detected at the pointer is the held card's box when they overlap at least this much
      *  (intersection over union); a box overlapping less is another card, and ends the hold. */
     sameBoxIou: number;
+    /** True: a reading hold. Once a card is shown it stays while the pointer stays on the area it
+     *  was seen in at the pointer (the union of its boxes since it was first shown), with no time
+     *  limit: `misses` and `maxMs` do not end it, and a cut does not. Another card at the pointer
+     *  replaces it only when the viewer moved onto it: a card in about the same box (the same card,
+     *  or one not named then) overlapped the kept one in one of the last few analyses that saw the
+     *  kept card at the pointer, and the pointer has since moved into that box from outside it. A card that arrived
+     *  since, one that slid under a pointer at rest, or one uncovered under a pointer that only
+     *  trembles inside its box, does not. The pointer leaving that
+     *  area or the picture, a seek, a new source, a stop or a lost worker end it. It is marked
+     *  `held` once `misses` analyses in a row show it gone (one on a still picture), or once no
+     *  recent analysis is left and none is coming (`Shown.held`). In pointer mode, while it shows a card, a resting pointer is not analyzed
+     *  after its grace period. */
+    untilPointerLeaves?: boolean;
 }
 /** The hold that keeps a tooltip from flickering on a live stream. Counted in analyses because a
  *  resting pointer is analyzed at the slow cadence (1-2 s apart): a short time limit would hide the
  *  card on every single miss. */
 export declare const SHOWN_HOLD: Readonly<ShownHold>;
+/** The reading hold: a shown card stays until the pointer leaves the spot where it was, so that a
+ *  viewer can read it after the card has moved ("ShownHold.untilPointerLeaves"). */
+export declare const READING_HOLD: Readonly<ShownHold>;
 export interface SessionCoreDeps {
     /** The clock, in ms (`performance.now()` in a page). */
     now(): number;
@@ -49,7 +75,8 @@ export interface SessionCoreDeps {
     /** Capture the picture on screen now, at a width within `analysisWidth`, and answer with
      *  `frame(requestId, …)` or `captureFailed(requestId, …)`. */
     capture(requestId: number, analysisWidth: AnalysisWidth): void;
-    /** What is shown at the pointer changed (the card, or its box). */
+    /** What is shown at the pointer changed: the card, whether its outline is drawn (`held`), or its
+     *  box by more than a look's own wobble (`STEADY_BOX`). */
     onShown?(card: Shown | null): void;
     /** Any field of the status changed. */
     onStatus?(status: SessionStatus): void;
@@ -80,9 +107,19 @@ export interface SessionCoreOptions {
     /** True: named cards follow their outline on every frame (`SessionOptions.rotatedOutlines`).
      *  Default false. */
     rotatedOutlines?: boolean;
+    /** "focus": each frame asks the geometric stage to verify only the faces at the pointer
+     *  (`SessionOptions.geometricScope`). Throws unless the mode is "pointer". Default "all". */
+    geometricScope?: GeometricScope;
     /** Pace analysis from the measured analysis time (`SessionOptions.measuredPacing`). Off when
      *  absent. */
     measuredPacing?: MeasuredPacingOption;
+    /** Pointer mode: a look on pointer entry. While the pointer is off the picture (from
+     *  `pointerLeft` until the next `pointer`) no picture is asked for, so a pointer that comes back
+     *  to a playing video finds the newest analyzed frame stale and the staleness rule asks for a
+     *  look on that `pointer` call. A load that ends with the pointer active over the picture asks
+     *  at once instead of at the next `tick`. Off by default here; the compute frame turns it on
+     *  (`startComputeFrame`). No effect in "always-on" mode. */
+    entryLook?: boolean;
 }
 /** What `status().loading` becomes on a release-progress reply: the reply's phase while the
  *  release loads; `undefined` (no change) once it has loaded or failed, or the session has
@@ -97,8 +134,11 @@ export declare class SessionCore {
     private readonly hold;
     private readonly maxOtherBoxes;
     private readonly rotatedOutlines;
+    private readonly focusScope;
     private readonly hitTest;
     private readonly pacer;
+    /** `SessionCoreOptions.entryLook`; always false outside pointer mode. */
+    private readonly entryLook;
     private readonly st;
     private cardList;
     private analysisWidth;
@@ -113,9 +153,17 @@ export declare class SessionCore {
     private sourceCount;
     private result;
     private pointerAt;
+    /** Where the pointer is, for the entry look: a mouse over the picture, or a touch after a tap on
+     *  it (touch has no resting pointer: a tap counts until the host reports a `pointerLeft`, which it
+     *  does for a touch moving outside, a tap elsewhere or a canceled touch); null before any pointer and
+     *  after it left. The scheduler's own notion of inside is set by mouse moves, not by taps. */
+    private pointerOver;
     private mediaTime;
-    private lastShownKey;
+    private lastShown;
     private lastStatusKey;
+    /** The card the hold keeps. Under a reading hold, `area` is the rectangle enclosing every box it
+     *  was seen in at the pointer since it was first shown, which the pointer must stay on, and the
+     *  `reading` fields hold the rest (see `readingHold`). */
     private held;
     constructor(deps: SessionCoreDeps, options?: SessionCoreOptions);
     private get videoKey();
@@ -134,10 +182,22 @@ export declare class SessionCore {
      *  picture of the look in flight (late, given up on, or never asked for), or when a seek, a new
      *  source or a cut came since the capture was asked for (that look is then finished). */
     frame(requestId: number, bitmap: ImageBitmap, mediaTime: number): void;
+    /** Is this capture a repeat of the picture the newest analyzed look was taken at? */
+    private isStillRepeat;
+    /** A still repeat with no unverified face in the newest result has nothing to add. */
+    private stillNeedsNothing;
     /** The capture for `requestId` failed. `retry`: the picture could not be had (not ready yet, or
      *  blank) and is looked at again after a back-off; otherwise a refusal, retried by nothing. */
     captureFailed(requestId: number, reason: string, retry?: boolean): void;
     fromWorker(reply: WorkerReply): void;
+    /** With the entry look, once a load has installed its release, cadence and pending picture: one
+     *  scheduling evaluation now, as the next `tick` would make, when the pointer is eligible. No
+     *  pointer activity is made up for it, and the page's gate still decides on the capture. */
+    private lookOnLoad;
+    /** Whether the pointer is over the picture and active: a mouse with activity within the grace
+     *  period, or a tap whose window (the same grace period, opened by the tap) is still open. A
+     *  pointer that rests past it, or one that left, is not: being over the picture is not enough. */
+    private entryEligible;
     /** Arm the scheduler with the cadence for the backend: today's fixed rates, or the measured
      *  ones with `measuredPacing`. */
     private applyCadence;
@@ -152,20 +212,45 @@ export declare class SessionCore {
      * so nothing is shown. `{ restart: true }`: another worker loads the release, the state is
      * "loading" again (the release in effect is kept until it answers), the geometric stage is
      * reported off with the reason `worker-restarted` (to `onGeometricStatus` in any case, in the
-     * status only when a stage was asked for). `{ error }`: recognition is off ("failed").
+     * status only when a stage was asked for). `{ idle: true }`: the worker was ended on purpose
+     * (worker-session.ts `suspend`): as a restart, but not a loss; a running stage is reported off
+     * with the reason `idle-unload`. `{ error }`: recognition is off ("failed").
      * Ignored once stopped or failed.
      */
     workerStopped(next: {
         restart: true;
     } | {
+        idle: true;
+    } | {
         error: string;
     }): void;
+    /** Whether a look is out: asked for, or being analyzed. */
+    analysisInFlight(): boolean;
     /** Another worker now loads a release in place of one that never loaded (a fallback): the
      *  geometric stage's status starts again ("loading" when this load asks for a stage, null
      *  otherwise), and the previous load's progress is dropped. Nothing else changes. */
     reloading(next: {
         geometric: boolean;
     }): void;
+    /**
+     * Focus scope: the pointer is on a face the stage applies to that the newest analysis did not
+     * verify (or in a group with one), so the picture is analyzed again with the pointer there,
+     * as a look started by the pointer: at most once per `HOVER_TRIGGER_MIN_GAP_MS`, never while
+     * one is in flight, with the repeats a newly presented picture gets. It stops by itself: that
+     * look verifies the pointer's group, so nothing is unverified there any more.
+     *
+     * With a ready stage and the pointer active over the picture (`entryEligible`: a move or a tap
+     * within the grace period), a playing picture is looked at too (`relookDue` with the picture's
+     * time), instead of at the next cadence look: on the pointer message, on the reply of the look
+     * that was in flight when the pointer got there, or on the next tick; the last look of any kind
+     * must have started `HOVER_TRIGGER_MIN_GAP_MS` ago.
+     */
+    private relookForUnverified;
+    /** Whether the geometric stage is ready: only then does a focus look retry the pointer's group
+     *  uncapped (without a stage the worker ignores the scope). */
+    private stageReady;
+    /** The newest look that came back analyzed (`LastLook`). */
+    private lastLook;
     private requestCapture;
     status(): SessionStatus;
     /** The newest result that still describes the picture on screen, or null. */
@@ -183,9 +268,48 @@ export declare class SessionCore {
      * is shown it stays while the pointer stays on its box and the analyses that follow do not name
      * another card there, until `hold.misses` analyses in a row have nothing there, or `hold.maxMs`
      * have passed with no analysis seeing it. A different card or box at the pointer replaces it
-     * at once; the pointer leaving its box, a seek, a new source or a cut end it at once.
+     * at once; the pointer leaving its box, a seek, a new source or a cut end it at once. A reading
+     * hold (`untilPointerLeaves`) keeps it on other terms: see `ShownHold.untilPointerLeaves`.
      */
     shown(): Shown | null;
+    /** Tell the scheduler what is shown. Returns whether the newest analysis sees a card at the
+     *  pointer (with the usual hold or none: whether a card is shown). Under a reading hold the
+     *  scheduler hears both: a card it keeps stops the looks of a resting pointer, and a pointer on
+     *  a spot the newest analysis finds empty is looked at as an empty spot. */
+    private reportShown;
+    /**
+     * `shown()` under a reading hold (`ShownHold.untilPointerLeaves`). `shown()` is called several
+     * times per tick, so what an analysis tells is taken once, the first time it is read
+     * (`reading.evidence`): the overlapping cards (`neighbors`, merged from the last few analyses
+     * that saw the kept card at the pointer, and capped) and whether the card is gone
+     * (`gone`, kept between analyses). With no recent analysis left and none coming, the card is
+     * taken as gone too, until an analysis sees it again.
+     */
+    private readingHold;
+    private newReadingHold;
+    /** The newest analysis, if recent, analyzed afresh (not a reuse) and not yet taken: taken now. */
+    private takeEvidence;
+    /** Whether `fresh` is one of the kept card's neighbors (in about the same box, and the same card,
+     *  or one that was not named then) and the pointer moved into that box from outside it since the
+     *  kept card was last seen at the pointer. */
+    private movedOnto;
+    /** The kept card's neighbors after another analysis saw it at the pointer: `current`'s, merged
+     *  with those of the last `NEIGHBOR_SIGHTINGS` such analyses (a card missed by one look is not
+     *  forgotten), newest first, at most `MAX_NEIGHBORS`. */
+    private mergeNeighbors;
+    /** The cards in the newest result (named or not) whose boxes overlap `area`, but `card` itself. */
+    private neighborsIn;
+    /** Whether the newest analysis names `card` anywhere in the box it was last seen in: at any of a
+     *  grid of points across it, so that a card partly covered (a fan, a stack) still counts. */
+    private seenAt;
+    /** Whether a recent analysis positively shows `card` gone from where it was last seen: there is
+     *  a result for the picture on screen, and it names another card at the center of the card's
+     *  box, or names none there and detects no box overlapping the card's box (a card detected but
+     *  not named this time is still there). With no recent result nothing is known, and the card is
+     *  not called missing. */
+    private missing;
+    /** Whether the pointer is, in the newest result, on a group that holds an unverified face. */
+    private pointerGroupHoldsUnverified;
     private current;
     /** The time of the picture on screen: the host's live time when it gives one, else the time
      *  last reported. */
@@ -194,7 +318,9 @@ export declare class SessionCore {
      *  one, none, or "unknown" when no analysis is recent enough to judge by. */
     private boxAtPointer;
     private publish;
-    /** Report what is shown when it changed (the card, its box, or its outline). */
+    /** Report what is shown when it changed: another card or none, its outline drawn or not
+     *  (`held`), or its box moved beyond a look's own wobble on a still card (`steady`), so that a
+     *  tooltip or outline placed from the box does not jitter. */
     private publishShown;
     private statusKey;
     private publishStatus;

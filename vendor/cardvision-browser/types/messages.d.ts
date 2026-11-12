@@ -119,6 +119,17 @@ export type WorkerRequest = {
     /** False turns the tilted retry's watchdog off (default: on), as `geometricWatchdog` does
      *  for the stage. */
     tiltedWatchdog?: boolean;
+}
+/** Load the geometric stage now, on a release this worker loaded without one (the session's
+ *  `geometricLoad: "pointer"`). The fields are those of `load`; the load's `geometricWatchdog`
+ *  applies. It then loads and joins between frames as one asked for by `load` does: a frame in
+ *  flight is answered without it. Ignored before the release has loaded, when a stage was
+ *  already asked for, and once the stage is off. */
+ | {
+    kind: "load-stage";
+    geometricUrl: string;
+    geometricDebug?: boolean;
+    geometricManifestSha256?: string;
 } | {
     kind: "frame";
     /** The picture, already at analysis size (capture.ts). The worker closes it. */
@@ -134,12 +145,25 @@ export type WorkerRequest = {
         x: number;
         y: number;
     } | null;
+    /** "focus": the geometric stage verifies only the faces at `focus` and those overlapping them (null: none), and a
+     *  face it applies to and did not verify is not named (pipeline.ts `AnalyzeOptions`).
+     *  Absent: every face. */
+    geometricScope?: "focus";
     /** True: named cards on this frame follow their outline (pipeline.ts `AnalyzeOptions`).
      *  Default false. */
     rotatedOutlines?: boolean;
+    /** The request number of the newest frame the worker analyzed, when this picture is a
+     *  repeat of that one (same video time, nothing unverified in its result). The worker
+     *  feeds that frame's detections to the tracker and the gate again instead of analyzing,
+     *  and only while nothing that changes an answer happened since; otherwise it analyzes
+     *  this picture. The reply's analysis then has `reused: true`. */
+    reuseOf?: number;
 };
 /** A frame result's `error` when the frame arrived while another was still being analyzed. */
 export declare const BUSY_ERROR = "busy";
+/** The start of a frame result's `error` when the analysis threw (a model or GPU error):
+ *  `analysis-failed: <message>`. */
+export declare const ANALYSIS_FAILED = "analysis-failed";
 /** The worker's answer to one frame. Every frame gets one. */
 export interface FrameResult {
     kind: "frame-result";

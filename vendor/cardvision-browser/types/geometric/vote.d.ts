@@ -31,7 +31,17 @@ export interface GpuVoterOptions {
     maxQueriesPerDispatch?: number;
     /** Most rows in one storage buffer (at most the device's limit allows). For tests of the split. */
     maxRowsPerBuffer?: number;
+    /** Bytes the index is copied to the GPU in at a time, a multiple of 32 ("writeInPieces"). */
+    uploadPieceBytes?: number;
 }
+/**
+ * Copies `bytes` bytes of `src`, from byte `srcOffset`, to the start of `buffer`, at most
+ * `pieceBytes` (a positive integer) at a time, and waits for the queue after each piece. Chrome
+ * stages a write in memory shared by the page and the GPU process, and keeps it after the write
+ * is done. With a 62.6 MiB index in headless Chrome, 4 MiB pieces left the page about 45 MB
+ * lighter and the GPU process about 25 MB lighter than one write, and the stage was ready as quickly as before.
+ */
+export declare function writeInPieces(queue: Pick<GPUQueue, "writeBuffer" | "onSubmittedWorkDone">, buffer: GPUBuffer, src: Uint8Array, srcOffset: number, bytes: number, pieceBytes: number): Promise<void>;
 /**
  * The device limits to ask for when creating the device the vote runs on: the adapter's own
  * storage-buffer limits, so that a large index fits in few buffers. Pass the result as
@@ -40,7 +50,7 @@ export interface GpuVoterOptions {
  */
 export declare function voteDeviceLimits(adapter: GPUAdapter): Record<string, number>;
 /**
- * The voter on a WebGPU device. The index is copied to the GPU once, split over several storage
- * buffers when it is larger than the device allows in one binding.
+ * The voter on a WebGPU device. The index is copied to the GPU once, in pieces, split over
+ * several storage buffers when it is larger than the device allows in one binding.
  */
 export declare function gpuVoter(device: GPUDevice, desc: Uint8Array, options?: GpuVoterOptions): Promise<Voter>;
