@@ -5,7 +5,7 @@
 // tested there.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PROTOCOL_VERSION, READING_HOLD } from "../vendor/cardvision-browser/compute-session.js";
+import { PROTOCOL_VERSION, READING_HOLD, SHOWN_HOLD } from "../vendor/cardvision-browser/compute-session.js";
 import { IDLE_UNLOAD_MS } from "../src/constants.js";
 import { computeFrameEnv, createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
 import type { ReleasePointer, RemoteReleaseChoice } from "../vendor/cardvision-browser/remote-release.js";
@@ -76,6 +76,23 @@ describe("compute frame: the shown card", () => {
 
   it("keeps a shown card while the pointer stays where it was seen (READING_HOLD is on)", () => {
     expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(READING_HOLD);
+  });
+
+  it("takes the short hold (SHOWN_HOLD) with \"Keep the card I'm pointing at\" off, the reading hold otherwise", () => {
+    const hold = (keepCard?: boolean) => computeFrameEnv({ ...computeHarness().env, ...(keepCard === undefined ? {} : { keepCard }) }, createFactsChannel(() => undefined)).hold;
+    expect(hold(false)).toBe(SHOWN_HOLD);
+    expect(hold(true)).toBe(READING_HOLD);
+    expect(hold()).toBe(READING_HOLD);
+  });
+
+  it("with \"Keep the card I'm pointing at\" off, drops a card gone from under a resting pointer", () => {
+    const h = computeHarness({ keepCard: false });
+    h.loaded();
+    h.analyzeAt();
+    expect(h.lastShown()?.cardId).toBe("89631139");
+    h.scene.card = null;
+    for (let i = 0; i < 5; i += 1) h.analyzeAt();
+    expect(h.lastShown()).toBeNull();
   });
 
   it("ends its worker after 10 idle minutes, or the time a dev build gives (idleUnloadMs)", () => {

@@ -1069,6 +1069,47 @@ describe("Agent", () => {
       expect(outline()!.style.left).toBe(shownAt);
     });
 
+    it("makes the compute frame again at once when \"Keep the card I'm pointing at\" changes: the card shown goes, the tooltip frame stays", async () => {
+      agent = await startAgent();
+      move(100, 100);
+      showCard(BLUE_EYES);
+      const old = compute()!;
+      const oldWindow = old.contentWindow;
+      const tip = tooltip();
+      expect(tip!.style.visibility).toBe("visible");
+      agent.keepCardChanged();
+      expect(old.isConnected).toBe(false);
+      expect(compute()).toBeDefined();
+      expect(compute()).not.toBe(old);
+      expect(tooltip()).toBe(tip);
+      expect(frames()).toHaveLength(2);
+      expect(tip!.style.visibility).toBe("hidden");
+      expect(outline()!.style.display).toBe("none");
+      // The old frame's word counts for nothing now.
+      window.dispatchEvent(message(tag({ kind: "shown", card: BLUE_EYES }), EXT, oldWindow));
+      expect(tip!.style.visibility).toBe("hidden");
+      // The new frame is the one the control speaks to: the card shows again from it.
+      showCard(BLUE_EYES);
+      expect(tip!.style.visibility).toBe("visible");
+    });
+
+    it("makes nothing when \"Keep the card I'm pointing at\" changes with no compute frame (not loaded, idle, switched off)", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      agent.keepCardChanged();
+      expect(frames()).toEqual([]);
+      media.paused = false;
+      video.dispatchEvent(new Event("playing"));
+      expect(frames()).toHaveLength(2);
+      fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+      expect(frames()).toEqual([]);
+      agent.keepCardChanged();
+      expect(frames()).toEqual([]);
+      agent.setEnabled(false);
+      agent.keepCardChanged();
+      expect(frames()).toEqual([]);
+    });
+
     it("draws no outline for a card first shown while held (a new tooltip frame)", async () => {
       agent = await startAgent();
       move(100, 100);

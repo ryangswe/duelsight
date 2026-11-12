@@ -90,6 +90,7 @@ Stored locally by the extension, without Chrome Sync or Firefox Sync, and never 
   - whether it is switched on;
   - the card size you set in the popup (70% to 130%);
   - whether card details are switched on in the popup;
+  - whether "Keep the card I'm pointing at" is switched on in the popup;
   - the card language you chose in the popup (Automatic unless you change it);
   - the last settings file it fetched, and when;
   - if updated recognition data failed its checks, that release's id and why, so that it is not

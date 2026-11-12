@@ -21,7 +21,8 @@ nothing when the match is not clear.
   decides when to analyze a picture (around pointer activity, with the runtime's scheduler), and
   which card a tooltip shows at the pointer (the runtime's hover rule, with its reading hold: a
   shown card stays while the pointer stays on the area it was seen in, even after the card moves
-  away). Pictures go from the content script to this frame and nowhere else.
+  away; with "Keep the card I'm pointing at" off in the popup, the runtime's short hold instead,
+  fixed when the frame starts, so a change makes the frame again). Pictures go from the content script to this frame and nowhere else.
 - The two halves are the runtime's two-frame contract (its `docs/extension-session.md`):
   DuelSight adds its message tag, the pages it serves, the main video's choice, and the
   tooltip.

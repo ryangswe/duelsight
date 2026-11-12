@@ -4,6 +4,7 @@
 import { Agent } from "./agent.js";
 import { ENABLED_KEY, readEnabled } from "../shared/enabled.js";
 import { CARD_SIZE_KEY, clampCardSize, readCardSize } from "../shared/card-size.js";
+import { KEEP_CARD_KEY, keepCardFlipped } from "../shared/keep-card.js";
 
 declare const __DEV__: boolean;
 
@@ -14,4 +15,6 @@ void readCardSize(chrome.storage.local).then((percent) => agent.setCardSize(perc
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && ENABLED_KEY in changes) agent.setEnabled(changes[ENABLED_KEY]?.newValue !== false);
   if (area === "local" && CARD_SIZE_KEY in changes) agent.setCardSize(clampCardSize(changes[CARD_SIZE_KEY]?.newValue));
+  // Only a change between on and off makes the compute frame again.
+  if (area === "local" && keepCardFlipped(changes[KEEP_CARD_KEY])) agent.keepCardChanged();
 });

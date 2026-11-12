@@ -46,7 +46,9 @@ card's name shows instead.
 
 The card stays while the pointer stays where you found it, so you can finish reading it even
 after a player moves the card away. The outline goes when the card is no longer there; the
-picture stays until you move the pointer off that spot or off the video.
+picture stays until you move the pointer off that spot or off the video. To have the picture follow
+whatever card is at the pointer instead, turn off **Keep the card I'm pointing at** in the popup
+(below).
 
 With **Card details** on (the default), the picture comes with a panel of the card's name, type,
 attribute, level, rank or link rating, ATK and DEF, and its text: beside the picture where there is
@@ -74,6 +76,12 @@ settings check above.
 **Card details** shows the card's type, stats and text beside its picture (on unless you turn it
 off). Off, the tooltip is the picture alone.
 
+**Keep the card I'm pointing at** (on unless you turn it off) keeps the card you found while the
+pointer stays on that spot, as above: a card a player lays on top of it, or slides under the
+pointer, won't replace it until you move. Off, the picture follows the card at the pointer, and goes
+shortly after that card is no longer there. A change applies at once: on a video where DuelSight
+has already loaded, the card on show goes and card recognition loads again, which takes a moment.
+
 **Card language** chooses the language of the card details: Automatic (your browser's language,
 as above), or a language from the list. It changes the card's name, type line, stats line and
 text; the picture stays the same. The rest of DuelSight is in English. A language added later
@@ -83,8 +91,8 @@ shows in the list without an update of the extension.
 (100% unless you change it). A card on show changes size at once. The picture still stays inside
 the window and beside the card, so in a small window it can be smaller than the size you set.
 
-While the main switch is off, **Card details**, **Card language** and **Card size** are grayed
-out and can't be changed. **Card language** is grayed out too while **Card details** is off. Your
+While the main switch is off, **Card details**, **Keep the card I'm pointing at**, **Card
+language** and **Card size** are grayed out and can't be changed. **Card language** is grayed out too while **Card details** is off. Your
 choices for them are kept, and they come back as they were when you turn the switches on again.
 
 Below them are two links, to the project page and to the open-source toolkit it is built on.

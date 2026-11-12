@@ -32,8 +32,11 @@
 //     card's own edges when it lies at an angle), shown and hidden with the tooltip, never taking
 //     the pointer. While the reading hold keeps a card that an analysis no longer sees there
 //     (`held`), the outline is hidden and the tooltip stays.
+//   - The popup's "Keep the card I'm pointing at" (shared/keep-card.ts) picks the hold, which the
+//     compute frame fixes when it starts: a change makes the compute frame again at once (the
+//     card shown goes and the model loads again); the tooltip frame stays.
 //   - It is on for every video (owner, 2026-10-27: no per-channel switch; the popup's switch is
-//     the only control). The popup's switch turned off removes the frames again.
+//     the only on/off control). The popup's switch turned off removes the frames again.
 //   - It takes a message from one of its frames only when the browser delivered it from that
 //     frame (fromExtensionFrame): a page can make up a message event, not a trusted one.
 
@@ -212,6 +215,23 @@ export class Agent {
     if (!(scale > 0) || scale === this.cardScale) return;
     this.cardScale = scale;
     this.onLayout();
+  }
+
+  /** The popup's "Keep the card I'm pointing at" changed. The compute frame reads it when it
+   *  starts (frame.ts), so a frame on the page is made again now: the card shown goes, and the
+   *  model loads again in the new frame. With no frame (not loaded yet, removed for idleness,
+   *  switched off), nothing happens: the next frame made reads the new choice. */
+  keepCardChanged(): void {
+    if (!this.enabled || !this.compute) return;
+    this.shown = null;
+    this.displayedCard = null;
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+    this.hideTooltip();
+    this.compute.remove();
+    this.compute = null;
+    // A new iframe: the control says hello to it once it loads (ensureCompute).
+    this.ensureCompute();
   }
 
   setEnabled(enabled: boolean): void {

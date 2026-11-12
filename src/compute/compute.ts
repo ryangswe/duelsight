@@ -14,6 +14,7 @@ import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
 import { readEffectiveSettings } from "../settings/store.js";
 import { FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
+import { readKeepCardOn } from "../shared/keep-card.js";
 import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { DRIVER_TICK_MS, type WorkerLike } from "../../vendor/cardvision-browser/compute-session.js";
@@ -38,11 +39,15 @@ void (async () => {
   const workerUrl = chrome.runtime.getURL(WORKER_PATH);
   const loadRequest = buildLoadRequest(chrome.runtime.getURL(RELEASE_PATH), new URL("./", workerUrl).href);
   const facts = new BroadcastChannel(FACTS_CHANNEL);
-  // The bundled release's id, for the log line (a file inside the extension: nothing is fetched).
-  const bundledId = await fetch(chrome.runtime.getURL(RELEASE_PATH))
-    .then((r) => r.json() as Promise<{ id?: string }>)
-    .then((doc) => doc.id ?? "-")
-    .catch(() => "-");
+  // The bundled release's id, for the log line (a file inside the extension: nothing is fetched),
+  // and the popup's "Keep the card I'm pointing at" (on when unreadable), read together.
+  const [bundledId, keepCard] = await Promise.all([
+    fetch(chrome.runtime.getURL(RELEASE_PATH))
+      .then((r) => r.json() as Promise<{ id?: string }>)
+      .then((doc) => doc.id ?? "-")
+      .catch(() => "-"),
+    readKeepCardOn(chrome.storage.local).catch(() => true),
+  ]);
   let lastDecision: ReleaseDecision | null = null;
   const settingsUrl = SETTINGS_URL;
   const started = startDuelSightFrame({
@@ -50,6 +55,7 @@ void (async () => {
     framed,
     parentOrigin,
     dev: __DEV__,
+    keepCard,
     ...(__IDLE_UNLOAD_MS__ !== null ? { idleUnloadMs: __IDLE_UNLOAD_MS__ } : {}),
     createWorker: () => new Worker(workerUrl, { type: "module" }) as unknown as WorkerLike,
     loadRequest,
