@@ -892,7 +892,7 @@ describe("Agent", () => {
       expect(tooltip()).toBeDefined();
     });
 
-    it("on Twitch, loads at play on a channel, video or clip page, not on the front page or the directory, whose previews play on their own", async () => {
+    it("loads at play on a Twitch channel, video or clip page and a YouTube watch page; not on Twitch's front page or directory, or a YouTube embed", async () => {
       const at = async (href: string): Promise<number> => {
         agent?.stop();
         for (const f of frames()) f.remove();
@@ -909,6 +909,12 @@ describe("Agent", () => {
       expect(await at("https://www.twitch.tv/somechannel")).toBe(2);
       expect(await at("https://www.twitch.tv/videos/123456")).toBe(2);
       expect(await at("https://www.twitch.tv/somechannel/clip/SomeClipSlug")).toBe(2);
+      // YouTube: a watch page loads at play; an embedded player on another website waits for a
+      // hover, even when that website starts it, muted (owner, 2026-11-12).
+      expect(await at("https://www.youtube.com/watch?v=abc")).toBe(2);
+      expect(await at("https://www.youtube.com/embed/abc?autoplay=1&mute=1")).toBe(0);
+      move(100, 100);
+      expect(frames()).toHaveLength(2);
       // A hover over the front page's preview still loads it, as before the load at play.
       expect(await at("https://www.twitch.tv/")).toBe(0);
       move(100, 100);

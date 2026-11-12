@@ -10,10 +10,11 @@
 //     which is the extension's own; nothing is sent over the network.
 //   - The model loads when the main video plays (owner, 2026-11-10: "Products load at video
 //     play"): both frames are made then (the tooltip frame with the compute frame, hover-speed
-//     plan 2026-11-12), so the load is usually over by the first hover. On Twitch that is a
-//     channel, video or clip page, not the front page or the directory, whose players are
-//     previews that play on their own (site.ts loadsAtPlay). A video that never plays, or a
-//     preview, loads on the first pointer move over its picture, as before. With the popup's
+//     plan 2026-11-12), so the load is usually over by the first hover. That is a YouTube watch
+//     or live page, or a Twitch channel, video or clip page (site.ts loadsAtPlay); not a YouTube
+//     embed on another website (owner, 2026-11-12: "Wait for a hover") nor Twitch's front page
+//     or directory, whose players are previews that play on their own. A video that never plays,
+//     an embed or a preview loads on the first pointer move over its picture, as before. With the popup's
 //     switch off, or on a page with no video, nothing loads. Nothing is analyzed until the
 //     pointer comes over the picture.
 //   - The compute frame unloads after IDLE_UNLOAD_MS with no pointer over the picture and no card

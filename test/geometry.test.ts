@@ -75,7 +75,9 @@ describe("isActivePage", () => {
 describe("loadsAtPlay", () => {
   it.each([
     ["https://www.youtube.com/watch?v=abc", false, true],
-    ["https://www.youtube.com/embed/abc", false, true],
+    ["https://www.youtube.com/embed/abc", false, false],
+    ["https://www.youtube.com/embed/abc?autoplay=1&mute=1", false, false],
+    ["https://www.youtube.com/live/abc", false, true],
     ["https://www.youtube.com/@somechannel/live", false, true],
     ["https://www.youtube.com/", false, false],
     ["https://www.twitch.tv/somechannel", false, true],

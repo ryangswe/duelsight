@@ -53,8 +53,9 @@ storage, uploaded or shared.
 Card hovers start in a tab when the pointer comes over a video there, with DuelSight switched on in
 the popup. Card recognition and the tooltip (the card picture beside a hovered card) load in a tab
 when a video starts playing there with DuelSight switched on (or when card hovers start, for a video
-that has not played). On Twitch, that is a channel, video or clip page; on its front page and
-directory, whose previews play on their own, they load when card hovers start.
+that has not played). That is a YouTube watch or live page, or a Twitch channel, video or clip page.
+A YouTube player embedded in another website, and Twitch's front page and directory, whose previews
+play on their own, load them when card hovers start.
 
 | Request | To | When | What the host learns |
 | --- | --- | --- | --- |
