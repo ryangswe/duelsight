@@ -84,6 +84,36 @@ describe("compute frame: the shown card", () => {
     expect(computeFrameEnv({ ...computeHarness().env, idleUnloadMs: 60_000 }, createFactsChannel(() => undefined)).idleUnloadMs).toBe(60_000);
   });
 
+  it("goes idle 10 minutes after the pointer leaves, not before", () => {
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    h.fromContent({ kind: "leave" });
+    for (let i = 0; i < 5; i += 1) h.started!.frame.tick();
+    h.clock.t += IDLE_UNLOAD_MS - 1_000;
+    h.started!.frame.tick();
+    expect(h.started!.frame.state).not.toBe("idle");
+    h.clock.t += 2_000;
+    h.started!.frame.tick();
+    expect(h.started!.frame.state).toBe("idle");
+    expect(h.sent("status").at(-1)).toMatchObject({ state: "idle" });
+  });
+
+  it("does not go idle while a card is kept under a resting pointer, however long", () => {
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    h.scene.card = null;
+    for (let i = 0; i < 3; i += 1) h.analyzeAt();
+    expect(h.lastShown()?.held).toBe(true);
+    for (let i = 0; i < 60; i += 1) {
+      h.clock.t += 60_000;
+      h.started!.frame.tick();
+    }
+    expect(h.started!.frame.state).not.toBe("idle");
+    expect(h.lastShown()?.cardId).toBe("89631139");
+  });
+
   it("keeps the card, marked held, while the pointer stays after the card is gone from there", () => {
     const h = computeHarness();
     h.loaded();

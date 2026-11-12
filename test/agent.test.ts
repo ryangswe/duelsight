@@ -971,6 +971,21 @@ describe("Agent", () => {
       expect(tooltip()).toBeUndefined();
     });
 
+    it("switched off and on while paused after an unload, loads at the next play", async () => {
+      agent = await startAgent();
+      goIdle();
+      media.paused = true;
+      agent.setEnabled(false);
+      agent.setEnabled(true);
+      expect(frames()).toEqual([]);
+      play();
+      expect(compute()).toBeDefined();
+      // Idle again: a `playing` then makes nothing, as before.
+      goIdle();
+      play();
+      expect(frames()).toEqual([]);
+    });
+
     it("loads nothing on a move off the picture of a video that never loaded", async () => {
       media.paused = true;
       agent = await startAgent();

@@ -99,6 +99,9 @@ export class Agent {
   private loadError: string | null = null;
   /** The outline around the card the tooltip names (a shadow root in the page). */
   private outline: CardOutline | null = null;
+  /** Switched on again since the toolkit removed the frames for idleness: a fresh start, so the
+   *  next `playing` loads again (the control's `frameRemoved` lasts until a new frame says ready). */
+  private switchedOnSinceIdle = false;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */
   private readonly extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
@@ -115,7 +118,10 @@ export class Agent {
       // IDLE_UNLOAD_MS): both frames go. The next trusted move or tap over the picture makes them
       // again, and the control connects to the new compute frame itself.
       whenIdle: {
-        remove: () => this.removeFrames(),
+        remove: () => {
+          this.switchedOnSinceIdle = false;
+          this.removeFrames();
+        },
         make: () => this.ensureFrames(),
       },
       ...(options.now ? { now: options.now } : {}),
@@ -207,7 +213,9 @@ export class Agent {
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
-    // Turning it on loads at once if the video plays, even with the frames removed for idleness.
+    // Turning it on is a fresh start: it loads at once if the video plays, or at its next
+    // `playing`, even with the frames removed for idleness.
+    if (enabled) this.switchedOnSinceIdle = true;
     if (!enabled) this.teardown();
     else this.loadIfPlaying();
   }
@@ -231,10 +239,11 @@ export class Agent {
     if (video && fractionIn(this.pictureOf(video), event.clientX, event.clientY)) this.ensureFrames();
   };
 
-  /** A video started playing. Nothing while the frames are removed for idleness: the toolkit
-   *  makes them again on a move over the picture, and a looping clip fires `playing` each loop. */
+  /** A video started playing. Nothing while the frames are removed for idleness (unless switched
+   *  on again since): the toolkit makes them again on a move over the picture, and a looping clip
+   *  fires `playing` each loop. */
   private readonly onPlaying = (): void => {
-    if (this.control.frameRemoved) return;
+    if (this.control.frameRemoved && !this.switchedOnSinceIdle) return;
     this.loadIfPlaying();
   };
 

@@ -26,7 +26,8 @@ Card hovers are on for all supported videos: open a Yu-Gi-Oh! video on YouTube o
 point at a card. When a video starts playing, DuelSight loads its card recognition in the
 background (a short burst of work, then some memory), so the card you point at is named sooner.
 After 10 minutes without pointing at the video it frees that memory, and loads again when you
-point at the video. Nothing is analyzed before the pointer comes over the
+point at the video. A card left showing under a resting pointer keeps it loaded until the
+pointer moves. Nothing is analyzed before the pointer comes over the
 video. To turn card hovers off everywhere, use the switch in DuelSight's toolbar
 popup; there is no per-channel switch. The extension separately checks its settings file when it
 is installed or updated and when the browser starts, and at most once an hour while you use it.
