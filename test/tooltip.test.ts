@@ -530,6 +530,57 @@ describe("the details panel", () => {
     expect(p.text.textContent).toBe("When this test card is summoned, nothing happens.\nIt is only a fixture.");
   });
 
+  it("takes the picture-and-panel shape with the placeholder, so a card-shaped picture comes without a new size (hover speed, 2026-11-12)", async () => {
+    controller = withPanel();
+    frame = { width: 580, height: 466 };
+    release = () => undefined;
+    controller.show("10000001", 5);
+    // At once, before the picture: the placeholder's size with the panel, and the panel beside it.
+    const placeholder = { width: 320, height: 466, shape: "card", cardId: "10000001", seq: 5, panel: [[220, 300], [260, 260], [300, 230]] };
+    expect(sizes).toEqual([placeholder]);
+    expect(elements.art.classList.contains("loading")).toBe(true);
+    expect(elements.panel.root.hidden).toBe(false);
+    expect(elements.panel.name.textContent).toBe("Test Robot");
+    // The picture (the card's shape) replaces the placeholder: no second size.
+    release!();
+    await tick();
+    expect(sizes).toEqual([placeholder]);
+    expect(elements.art.classList.contains("loading")).toBe(false);
+    expect(elements.panel.root.hidden).toBe(false);
+  });
+
+  it("sends a new size, with the panel, for a picture of another shape", async () => {
+    controller = withPanel();
+    pixels["https://art.example/art/10000001.jpg"] = { width: 1000, height: 700 };
+    controller.show("10000001", 6);
+    await tick();
+    expect(sizes).toHaveLength(2);
+    expect(sizes.at(-1)).toEqual({ width: 448, height: 314, shape: "card", cardId: "10000001", seq: 6, panel: [[220, 300], [260, 260], [300, 230]] });
+  });
+
+  it("drops the panel shown with the placeholder when no picture loads: the name alone, in a pill", async () => {
+    controller = withPanel();
+    frame = { width: 580, height: 466 };
+    failing.add("https://art.example/art/10000001.jpg");
+    controller.show("10000001", 7);
+    expect(elements.panel.root.hidden).toBe(false);
+    await tick();
+    expect(sizes.at(-1)).toMatchObject({ shape: "pill", cardId: "10000001", seq: 7 });
+    expect(elements.panel.root.hidden).toBe(true);
+  });
+
+  it("sends the same size again for a new showing of the same card", async () => {
+    controller = withPanel();
+    controller.show("10000001", 8);
+    await tick();
+    controller.clear();
+    controller.show("10000001");
+    await tick();
+    controller.show("10000001");
+    await tick();
+    expect(sizes.filter((x) => x.cardId === "10000001")).toHaveLength(3);
+  });
+
   it("lays the picture and the panel out in the frame's size: side by side, stacked, or the picture alone", async () => {
     controller = withPanel();
     controller.show("10000001");

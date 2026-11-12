@@ -110,7 +110,9 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   for both (`fitWithPanel` in `src/content/geometry.ts`): side by side, or stacked in a narrow
   window, the picture made smaller where the text needs room, the text never. The frame lays both
   out from its own size (`src/shared/panel-layout.ts`) and ends text that does not fit in an
-  ellipsis. The popup's card-size dial scales the picture before this fitting.
+  ellipsis. The popup's card-size dial scales the picture before this fitting. The panel comes
+  with the dark card that holds the card's name while its picture loads, so the frame already has
+  its shape when the picture comes, and the picture takes the dark card's place.
 - **The background** fetches the settings file. The popup and the tooltip frame ask it for a
   refresh, which it makes at most once an hour.
 

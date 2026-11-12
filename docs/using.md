@@ -46,11 +46,13 @@ The card stays while the pointer stays where you found it, so you can finish rea
 after a player moves the card away. The outline goes when the card is no longer there; the
 picture stays until you move the pointer off that spot or off the video.
 
-With **Card details** on (the default), the picture comes with a panel of the card's name,
-type, attribute, level, rank or link rating, ATK and DEF, and its text: beside the picture where
-there is room, under it in a narrow window. The text keeps a readable size; when a small player
-has no room for all of a long text, it ends in "…". On a new install, the details take a moment to
-load, and pictures show alone until then. Pausing works too, on recorded videos and on live streams.
+With **Card details** on (the default), the picture comes with a panel of the card's name, type,
+attribute, level, rank or link rating, ATK and DEF, and its text: beside the picture where there is
+room, under it in a narrow window. The text keeps a readable size; when a small player has no room
+for all of a long text, it ends in "…". The panel shows at once, beside a dark card with the card's
+name, and the picture takes that card's place as soon as it has loaded. On a new install, the
+details take a moment to load, and pictures show alone until then. Pausing works too, on recorded
+videos and on live streams.
 
 The details can be in English, French, German, Italian, Spanish or Portuguese: choose one with
 **Card language** in the popup (below). In a language other than English, the panel shows the
