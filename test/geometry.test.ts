@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CARD_PAD, clearlyBetter, fitBesideCard, fitTooltipSize, fractionIn, MIN_ART_WIDTH, pictureRect, tooltipRadius, placeTooltip, placeTooltipAvoiding, scaleTooltipSize, TOOLTIP_GAP, VIEWPORT_MARGIN } from "../src/content/geometry.js";
-import { isActivePage } from "../src/content/site.js";
+import { isActivePage, loadsAtPlay } from "../src/content/site.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
 const BOTH_SITES = { youtube: true, twitch: true };
@@ -70,6 +70,35 @@ describe("isActivePage", () => {
     ["http://127.0.0.1:8770/", true, true],
     ["https://example.org/watch", true, false],
   ])("%s (dev %s) → %s", (url, dev, active) => expect(isActivePage(new URL(url), dev, BOTH_SITES)).toBe(active));
+});
+
+describe("loadsAtPlay", () => {
+  it.each([
+    ["https://www.youtube.com/watch?v=abc", false, true],
+    ["https://www.youtube.com/embed/abc", false, true],
+    ["https://www.youtube.com/@somechannel/live", false, true],
+    ["https://www.youtube.com/", false, false],
+    ["https://www.twitch.tv/somechannel", false, true],
+    ["https://www.twitch.tv/somechannel/", false, true],
+    ["https://www.twitch.tv/Some_Channel_42", false, true],
+    ["https://www.twitch.tv/videos/123456", false, true],
+    ["https://www.twitch.tv/somechannel/clip/SomeClip-Slug_1", false, true],
+    ["https://www.twitch.tv/", false, false],
+    ["https://www.twitch.tv/directory", false, false],
+    ["https://www.twitch.tv/directory/category/yu-gi-oh-master-duel", false, false],
+    ["https://www.twitch.tv/directory/following", false, false],
+    ["https://www.twitch.tv/search?term=yugioh", false, false],
+    ["https://www.twitch.tv/settings/profile", false, false],
+    ["https://www.twitch.tv/Directory", false, false],
+    ["https://www.twitch.tv/videos", false, false],
+    ["https://www.twitch.tv/videos/abc", false, false],
+    ["https://www.twitch.tv/somechannel/videos", false, false],
+    ["https://www.twitch.tv/somechannel/about", false, false],
+    ["https://www.twitch.tv/somechannel/clip", false, false],
+    ["https://www.twitch.tv/some.channel", false, false],
+    ["http://127.0.0.1:8770/", true, true],
+    ["http://127.0.0.1:8770/", false, false],
+  ])("%s (dev %s) → %s", (url, dev, loads) => expect(loadsAtPlay(new URL(url), dev, BOTH_SITES)).toBe(loads));
 });
 
 describe("placeTooltipAvoiding", () => {

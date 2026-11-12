@@ -9,10 +9,13 @@
 //     capture, and never more than 60 s after the last one. Pictures go only to the compute frame,
 //     which is the extension's own; nothing is sent over the network.
 //   - The model loads when the main video plays (owner, 2026-11-10: "Products load at video
-//     play"): the compute frame is made then, so the load is usually over by the first hover. A
-//     video that never plays loads on the first pointer move over its picture, as before. With
-//     the popup's switch off, or on a page with no video, nothing loads. Nothing is analyzed
-//     until the pointer comes over the picture; the tooltip frame is made then.
+//     play"): both frames are made then (the tooltip frame with the compute frame, hover-speed
+//     plan 2026-11-12), so the load is usually over by the first hover. On Twitch that is a
+//     channel, video or clip page, not the front page or the directory, whose players are
+//     previews that play on their own (site.ts loadsAtPlay). A video that never plays, or a
+//     preview, loads on the first pointer move over its picture, as before. With the popup's
+//     switch off, or on a page with no video, nothing loads. Nothing is analyzed until the
+//     pointer comes over the picture.
 //   - The compute frame unloads after IDLE_UNLOAD_MS with no pointer over the picture and no card
 //     shown (the toolkit's idle unload, `idleUnloadMs` in frame.ts). The toolkit then asks for the
 //     frames to go (`whenIdle.remove`): both are removed, which frees the model's memory and the
@@ -39,7 +42,7 @@ import { parseTooltipOut, tag, TAG, type TooltipIn, type TooltipSize } from "../
 import { type CaptureControl, computeProtocol, createCaptureControl, fromExtensionFrame, type ShownCard } from "../../vendor/cardvision-browser/page-capture.js";
 import { availableSpace, CARD_CORNER, fitBesideCard, fitsBesideCard, fitTooltipSize, fitWithPanel, fractionIn, pictureRect, placeTooltipAvoiding, type Rect, scaleTooltipSize, tooltipRadius } from "./geometry.js";
 import { arrange } from "../shared/panel-layout.js";
-import { isActivePage } from "./site.js";
+import { isActivePage, loadsAtPlay } from "./site.js";
 import { CardOutline, outlinePlacement } from "./outline.js";
 
 /** The two-frame contract under DuelSight's tag; the compute frame uses the same. */
@@ -247,14 +250,16 @@ export class Agent {
     this.loadIfPlaying();
   };
 
-  /** Makes the compute frame, which loads the model, when the page's main video is playing: on a
-   *  `playing` event, and when the switch is turned on (a video may already be playing). */
+  /** Makes both frames when the page's main video is playing, on a page where a playing video is
+   *  the one the viewer watches (site.ts loadsAtPlay): on a `playing` event, and when the switch is
+   *  turned on (a video may already be playing). The compute frame loads the model; the tooltip
+   *  frame loads its card table and settings, so neither waits for the first hover. */
   private loadIfPlaying(): void {
-    if (!this.enabled || !isActivePage(new URL(location.href), this.options.dev)) return;
+    if (!this.enabled || !loadsAtPlay(new URL(location.href), this.options.dev)) return;
     // The video that just started may be a new one: pick again.
     this.videoPickedAt = -Infinity;
     const video = this.currentVideo();
-    if (video && !video.paused) this.ensureCompute();
+    if (video && !video.paused) this.ensureFrames();
   }
 
   // ------------------------------------------------------------------ the video

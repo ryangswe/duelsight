@@ -839,34 +839,79 @@ describe("Agent", () => {
       video.dispatchEvent(new Event("playing"));
     };
 
-    it("makes the compute frame when the main video starts playing, with no pointer, and no tooltip frame", async () => {
+    it("makes both frames when the main video starts playing, with no pointer (hover-speed plan, 2026-11-12)", async () => {
       media.paused = true;
       agent = await startAgent();
       expect(frames()).toEqual([]);
       play();
       const made = compute();
+      const tip = tooltip();
       expect(made).toBeDefined();
-      expect(tooltip()).toBeUndefined();
-      expect(frames()).toHaveLength(1);
-      // Paused and resumed, sought, the next video in the same player: still the one frame.
+      expect(tip).toBeDefined();
+      expect(tip!.style.visibility).toBe("hidden");
+      expect(outline()?.style.display).not.toBe("block");
+      expect(frames()).toHaveLength(2);
+      // Paused and resumed, sought, the next video in the same player: still the same two frames.
       media.paused = true;
       play();
       video.dispatchEvent(new Event("seeking"));
       play();
       video.src = "http://127.0.0.1:8770/next.webm";
       play();
-      expect(frames()).toEqual([made]);
+      expect(frames()).toEqual([made, tip]);
+      // The first hover makes nothing new.
+      move(100, 100);
+      expect(frames()).toEqual([made, tip]);
     });
 
-    it("makes the compute frame at once when the video is already playing as it starts", async () => {
+    it("makes both frames at once when the video is already playing as it starts", async () => {
       agent = await startAgent();
       const made = compute();
+      const tip = tooltip();
       expect(made).toBeDefined();
-      expect(tooltip()).toBeUndefined();
-      // The first hover then makes only the tooltip frame.
+      expect(tip).toBeDefined();
       move(100, 100);
-      expect(compute()).toBe(made);
+      expect(frames()).toEqual([made, tip]);
+    });
+
+    it("makes both frames for a video that replaces the main one and plays, and the old one's events do nothing", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      // The player swaps its video element (a site's own player, an ad, a new page in the same tab).
+      const next = video.cloneNode() as HTMLVideoElement;
+      Object.defineProperty(next, "videoWidth", { value: 1920 });
+      Object.defineProperty(next, "videoHeight", { value: 1080 });
+      Object.defineProperty(next, "paused", { get: () => false });
+      next.getBoundingClientRect = video.getBoundingClientRect;
+      video.remove();
+      document.body.appendChild(next);
+      video.dispatchEvent(new Event("playing"));
+      expect(frames()).toEqual([]);
+      next.dispatchEvent(new Event("playing"));
+      expect(compute()).toBeDefined();
       expect(tooltip()).toBeDefined();
+    });
+
+    it("on Twitch, loads at play on a channel, video or clip page, not on the front page or the directory, whose previews play on their own", async () => {
+      const at = async (href: string): Promise<number> => {
+        agent?.stop();
+        for (const f of frames()) f.remove();
+        vi.stubGlobal("location", new URL(href));
+        agent = new Agent({ dev: false });
+        agent.start();
+        agent.setEnabled(true);
+        play();
+        return frames().length;
+      };
+      expect(await at("https://www.twitch.tv/")).toBe(0);
+      expect(await at("https://www.twitch.tv/directory/category/yu-gi-oh-master-duel")).toBe(0);
+      expect(await at("https://www.twitch.tv/search?term=yugioh")).toBe(0);
+      expect(await at("https://www.twitch.tv/somechannel")).toBe(2);
+      expect(await at("https://www.twitch.tv/videos/123456")).toBe(2);
+      expect(await at("https://www.twitch.tv/somechannel/clip/SomeClipSlug")).toBe(2);
+      // A hover over the front page's preview still loads it, as before the load at play.
+      expect(await at("https://www.twitch.tv/")).toBe(0);
+      move(100, 100);
       expect(frames()).toHaveLength(2);
     });
 
@@ -968,7 +1013,7 @@ describe("Agent", () => {
       agent.setEnabled(false);
       agent.setEnabled(true);
       expect(compute()).toBeDefined();
-      expect(tooltip()).toBeUndefined();
+      expect(tooltip()).toBeDefined();
     });
 
     it("switched off and on while paused after an unload, loads at the next play", async () => {

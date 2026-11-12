@@ -76,9 +76,11 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
 
 - **The content script** is on for all supported videos (the popup's switch is the sole
   control). When the page's main video starts playing it makes the compute frame, which loads
-  the model, so the load is usually over before the pointer comes to a card (a video that never
-  plays loads when the pointer comes over its picture). It makes the tooltip frame, and analyzes
-  nothing, before the pointer comes over the video's picture. After 10 minutes with no move over
+  the model, and the tooltip frame, which loads its card table, settings and details file, so
+  both are usually ready before the pointer comes to a card. On Twitch that is a channel, video
+  or clip page, not the front page or the directory, whose previews play on their own
+  (`site.ts` `loadsAtPlay`). A video that never plays, or a preview, loads when the pointer comes
+  over its picture. It analyzes nothing before the pointer comes over the video's picture. After 10 minutes with no move over
   the picture and no card showing, the compute frame ends its worker (the runtime's idle unload)
   and the content script removes both frames, freeing the model's memory; the next trusted move
   or tap over the picture makes them again, and the model loads then. From then on it reports the

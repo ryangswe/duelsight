@@ -23,8 +23,10 @@ How card hovers work once the extension is installed, what to expect, and how to
 ## Turning card hovers on and off
 
 Card hovers are on for all supported videos: open a Yu-Gi-Oh! video on YouTube or Twitch and
-point at a card. When a video starts playing, DuelSight loads its card recognition in the
-background (a short burst of work, then some memory), so the card you point at is named sooner.
+point at a card. When a video starts playing, DuelSight loads its card recognition and its
+tooltip in the background (a short burst of work, then some memory), so the card you point at is
+named and shown sooner. On Twitch it does this on a channel, video or clip page; on the front
+page and the directory, whose previews play on their own, it waits until you point at one.
 After 10 minutes without pointing at the video it frees that memory, and loads again when you
 point at the video. A card left showing under a resting pointer keeps it loaded until the
 pointer moves. Nothing is analyzed before the pointer comes over the
