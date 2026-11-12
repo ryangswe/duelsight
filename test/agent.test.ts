@@ -1110,6 +1110,56 @@ describe("Agent", () => {
       expect(frames()).toEqual([]);
     });
 
+    describe("in a tab out of view, when it next comes into view (owner, 2026-11-12)", () => {
+      const view = (state: "hidden" | "visible") => {
+        Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      };
+      afterEach(() => Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true }));
+
+      it("keeps the frame while the tab is out of view, and makes it again once when it comes into view", async () => {
+        agent = await startAgent();
+        const old = compute();
+        const tip = tooltip();
+        view("hidden");
+        agent.keepCardChanged();
+        expect(compute()).toBe(old);
+        view("visible");
+        const made = compute();
+        expect(made).toBeDefined();
+        expect(made).not.toBe(old);
+        expect(tooltip()).toBe(tip);
+        // Once only: back and forth again remakes nothing.
+        view("hidden");
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("makes nothing more in view when a new frame was made meanwhile (it read the choice)", async () => {
+        agent = await startAgent();
+        view("hidden");
+        agent.keepCardChanged();
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        expect(frames()).toEqual([]);
+        // Made again out of view (a background tab whose video plays after switching on again).
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        const made = compute();
+        expect(made).toBeDefined();
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("makes nothing in view after the frames went or hovers were switched off", async () => {
+        agent = await startAgent();
+        view("hidden");
+        agent.keepCardChanged();
+        agent.setEnabled(false);
+        view("visible");
+        expect(frames()).toEqual([]);
+      });
+    });
+
     it("draws no outline for a card first shown while held (a new tooltip frame)", async () => {
       agent = await startAgent();
       move(100, 100);

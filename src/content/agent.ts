@@ -33,8 +33,10 @@
 //     the pointer. While the reading hold keeps a card that an analysis no longer sees there
 //     (`held`), the outline is hidden and the tooltip stays.
 //   - The popup's "Keep the card I'm pointing at" (shared/keep-card.ts) picks the hold, which the
-//     compute frame fixes when it starts: a change makes the compute frame again at once (the
-//     card shown goes and the model loads again); the tooltip frame stays.
+//     compute frame fixes when it starts: a change makes the compute frame again (the card shown
+//     goes and the model loads again); the tooltip frame stays. At once in a tab in view; a tab
+//     out of view does it when it next comes into view (owner, 2026-11-12), so a change does not
+//     reload the model in every background tab together.
 //   - It is on for every video (owner, 2026-10-27: no per-channel switch; the popup's switch is
 //     the only on/off control). The popup's switch turned off removes the frames again.
 //   - It takes a message from one of its frames only when the browser delivered it from that
@@ -109,6 +111,10 @@ export class Agent {
   /** Switched on again since the toolkit removed the frames for idleness: a fresh start, so the
    *  next `playing` loads again (the control's `frameRemoved` lasts until a new frame says ready). */
   private switchedOnSinceIdle = false;
+  /** "Keep the card I'm pointing at" changed while this tab was out of view: the compute frame is
+   *  made again when the tab comes into view (cleared by any new compute frame, which reads the
+   *  choice as it starts). */
+  private keepCardPending = false;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */
   private readonly extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
@@ -159,6 +165,7 @@ export class Agent {
     this.stopListening = this.control.listen(window, document);
     window.addEventListener("message", this.onMessage);
     document.addEventListener("fullscreenchange", this.onFullscreen);
+    document.addEventListener("visibilitychange", this.onVisibility);
     // The page moving under a held card: the tooltip and the outline follow it.
     window.addEventListener("resize", this.onLayout, { passive: true });
     document.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
@@ -200,6 +207,7 @@ export class Agent {
     this.stopListening = null;
     window.removeEventListener("message", this.onMessage);
     document.removeEventListener("fullscreenchange", this.onFullscreen);
+    document.removeEventListener("visibilitychange", this.onVisibility);
     window.removeEventListener("resize", this.onLayout);
     document.removeEventListener("scroll", this.onScroll, { capture: true });
     document.removeEventListener("playing", this.onPlaying, { capture: true });
@@ -218,17 +226,33 @@ export class Agent {
   }
 
   /** The popup's "Keep the card I'm pointing at" changed. The compute frame reads it when it
-   *  starts (frame.ts), so a frame on the page is made again now: the card shown goes, and the
-   *  model loads again in the new frame. With no frame (not loaded yet, removed for idleness,
-   *  switched off), nothing happens: the next frame made reads the new choice. */
+   *  starts (frame.ts), so a frame on the page is made again: the card shown goes, and the model
+   *  loads again in the new frame. Now in a tab in view; in a tab out of view, when it comes into
+   *  view (onVisibility). With no frame (not loaded yet, removed for idleness, switched off),
+   *  nothing happens: the next frame made reads the new choice. */
   keepCardChanged(): void {
     if (!this.enabled || !this.compute) return;
+    if (document.visibilityState === "hidden") {
+      this.keepCardPending = true;
+      return;
+    }
+    this.remakeCompute();
+  }
+
+  private readonly onVisibility = (): void => {
+    // The new frame clears the flag (ensureCompute).
+    if (document.visibilityState === "hidden" || !this.keepCardPending) return;
+    if (this.enabled && this.compute) this.remakeCompute();
+  };
+
+  /** The compute frame again, with the card shown gone; the tooltip frame stays. */
+  private remakeCompute(): void {
     this.shown = null;
     this.displayedCard = null;
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
     this.hideTooltip();
-    this.compute.remove();
+    this.compute?.remove();
     this.compute = null;
     // A new iframe: the control says hello to it once it loads (ensureCompute).
     this.ensureCompute();
@@ -336,6 +360,8 @@ export class Agent {
   private ensureCompute(): void {
     if (this.compute && !this.compute.isConnected) this.compute = null;
     if (!this.compute) {
+      // A new frame reads "Keep the card I'm pointing at" as it starts.
+      this.keepCardPending = false;
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
       frame.tabIndex = -1;

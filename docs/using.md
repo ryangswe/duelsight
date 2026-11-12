@@ -79,8 +79,9 @@ off). Off, the tooltip is the picture alone.
 **Keep the card I'm pointing at** (on unless you turn it off) keeps the card you found while the
 pointer stays on that spot, as above: a card a player lays on top of it, or slides under the
 pointer, won't replace it until you move. Off, the picture follows the card at the pointer, and goes
-shortly after that card is no longer there. A change applies at once: on a video where DuelSight
-has already loaded, the card on show goes and card recognition loads again, which takes a moment.
+shortly after that card is no longer there. A change applies at once in the tab you're watching:
+where DuelSight has already loaded, card recognition loads again, which takes a moment. Other tabs
+change when you next switch to them.
 
 **Card language** chooses the language of the card details: Automatic (your browser's language,
 as above), or a language from the list. It changes the card's name, type line, stats line and
