@@ -24,14 +24,16 @@
 // hosts (sign-in, updates). It resolves to nothing here, and the report lists it.
 //
 // Recognition is real (the release's own models, on WebAssembly or WebGPU, whichever the browser
-// offers); the clip is synthetic. The bundled release has no geometric stage.
+// offers); the clip is synthetic. The test's settings turn off any geometric stage, because CI
+// runners have no accelerated WebGPU.
 //
-// Each check has a provisional clause id (the hover spec's ids replace them). An expected failure
-// is listed in the product block with the clause, the old value, the intended value and what
-// removes it, and, where it fails only under a timing condition, that condition (it must pass when
-// the condition does not hold). A setup failure, a timeout, a crash, a missing NetLog or a network
-// violation is never an expected failure. A listed check that passes is an unexpected pass and
-// fails the run, so the list is reviewed. Without --only, every check must have run.
+// Each check names the clause it covers in the toolkit's hover spec (docs/hover-spec.md in
+// ryangswe/riftsight-vision), in the table of checks below. An expected failure is listed in the
+// product block with the old value, the intended value and what removes it, and, where it fails
+// only under a timing condition, that condition (it must pass when the condition does not hold).
+// A setup failure, a timeout, a crash, a missing NetLog or a network violation is never an
+// expected failure. A listed check that passes is an unexpected pass and fails the run, so the
+// list is reviewed. Without --only, every check must have run.
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -86,7 +88,6 @@ const PRODUCT = {
     // Expected only when its condition holds (`when`). When the new tab's model is ready well
     // within the window, the card must be named.
     "second-tab-names-card": {
-      clause: "S-B13",
       // A model ready just inside the window can still miss its look, so a failure counts as this
       // limit from 9 s on. The measured time also runs a little long (it starts before the move
       // and is polled), so a pass counts as unexpected only after 10.5 s. Between the two, either
@@ -113,13 +114,28 @@ const PLACES = {
   D: { x: 152, y: 262, from: 8 },
 };
 
-/** Every check, in the order they run; the last four need --dist-idle. */
-const CHECKS = [
-  "frames-at-play", "no-capture-before-pointer", "art-visible", "outline-shows", "move-off-clears",
-  "covered-kept", "held-outline-hides", "switch-flips", "fake-pointer-ignored", "off-means-off",
-  "on-while-playing-loads", "second-tab-names-card", "cached-reload",
-  "idle-unloads", "loop-no-reload", "idle-reload-on-hover", "switch-on-after-idle-reloads",
-];
+/** Every check, in the order they run, with the hover-spec clause it covers ("no clause" where
+ *  none does). The last four need --dist-idle. */
+const CLAUSES = {
+  "frames-at-play": "S-A1",
+  "no-capture-before-pointer": "S-B7",
+  "art-visible": "S-W1",
+  "outline-shows": "S-F1",
+  "move-off-clears": "S-W4",
+  "covered-kept": "S-W5",
+  "held-outline-hides": "S-F4",
+  "switch-flips": "S-H2",
+  "fake-pointer-ignored": "S-A2",
+  "off-means-off": "S-B11",
+  "on-while-playing-loads": "S-A7",
+  "second-tab-names-card": "S-B13",
+  "cached-reload": "no clause",
+  "idle-unloads": "S-A4",
+  "loop-no-reload": "S-A6",
+  "idle-reload-on-hover": "S-A6",
+  "switch-on-after-idle-reloads": "S-A7",
+};
+const CHECKS = Object.keys(CLAUSES);
 const IDLE_CHECKS = CHECKS.slice(-4);
 /** The whole run's deadline: past it the run stops, fails and still writes its report. */
 const RUN_DEADLINE_MS = 12 * 60_000;
@@ -428,7 +444,8 @@ async function setStored(ext, key, value) {
 
 // ------------------------------------------------------------------ the checks
 const results = [];
-function record(id, clause, ok, detail) {
+function record(id, ok, detail) {
+  const clause = CLAUSES[id];
   const listed = PRODUCT.expectedFail[id];
   const xf = listed && (!listed.when || listed.when(detail, ok)) ? { ...listed, when: listed.condition } : null;
   const outcome = ok ? (xf ? "unexpected-pass" : "pass") : xf ? "expected-fail" : "fail";
@@ -475,8 +492,8 @@ try {
       counts.backend = ready.backend;
       await sleep(3000);
       const analyzedBeforePointer = (await computeDebug(page))?.analyzed ?? -1;
-      if (want("frames-at-play")) record("frames-at-play", "HS-LOAD-AT-PLAY (provisional)", beforePlay.length === 0 && atPlay === true, { beforePlay, atPlay: Boolean(atPlay) });
-      if (want("no-capture-before-pointer")) record("no-capture-before-pointer", "HS-AUTHORITY-POINTER (provisional)", analyzedBeforePointer === 0, { analyzedBeforePointer });
+      if (want("frames-at-play")) record("frames-at-play", beforePlay.length === 0 && atPlay === true, { beforePlay, atPlay: Boolean(atPlay) });
+      if (want("no-capture-before-pointer")) record("no-capture-before-pointer", analyzedBeforePointer === 0, { analyzedBeforePointer });
 
       // A named card's picture, and its outline.
       await video.seek(page, 2, false);
@@ -484,16 +501,16 @@ try {
       const shownB = await hoverCard(page, "B", 30_000);
       const a1 = (await computeDebug(page))?.analyzed ?? 0;
       counts.namedCard = { analyses: a1 - a0, artVisibleMs: shownB?.ms ?? null };
-      if (want("art-visible")) record("art-visible", "HS-SHOW-ART (provisional)", Boolean(shownB), { want: cards.B.name, got: shownB ?? (await tooltip(page)), analyses: a1 - a0 });
+      if (want("art-visible")) record("art-visible", Boolean(shownB), { want: cards.B.name, got: shownB ?? (await tooltip(page)), analyses: a1 - a0 });
       const ol = await outline(page);
       const pB = await pointOf(page, "B");
-      if (want("outline-shows")) record("outline-shows", "HS-OUTLINE (provisional)", Boolean(ol && pB.x > ol.left && pB.x < ol.left + ol.width && pB.y > ol.top && pB.y < ol.top + ol.height), { outline: ol });
+      if (want("outline-shows")) record("outline-shows", Boolean(ol && pB.x > ol.left && pB.x < ol.left + ol.width && pB.y > ol.top && pB.y < ol.top + ol.height), { outline: ol });
 
       // Moving off the video clears the tooltip and the outline.
       const off = await offVideo(page);
       await page.mouse.move(off.x, off.y, { steps: 4 });
       const cleared = await until(async () => (!(await tooltip(page)).visible && !(await outline(page)) ? true : null), 2000);
-      if (want("move-off-clears")) record("move-off-clears", "HS-POINTER-LEAVE (provisional)", Boolean(cleared), {});
+      if (want("move-off-clears")) record("move-off-clears", Boolean(cleared), {});
 
       // Point at A from 5 s, rest, and watch through 12.5 s while D is laid on top of it at 8 s.
       const covered = async () => {
@@ -527,8 +544,8 @@ try {
       // The switch on (the default): the hovered card stays, and its outline goes once it is seen
       // gone and stays gone while the tooltip stays.
       const on = await covered();
-      if (want("covered-kept")) record("covered-kept", "HS-READING-HOLD (provisional)", on.first === cards.A.name && on.last === cards.A.name && !on.names.includes(cards.D.name), on);
-      if (want("held-outline-hides")) record("held-outline-hides", "HS-HELD-OUTLINE (provisional)", on.outlineBefore && on.heldFrom !== null && !on.outlineCameBack && on.last === cards.A.name, on);
+      if (want("covered-kept")) record("covered-kept", on.first === cards.A.name && on.last === cards.A.name && !on.names.includes(cards.D.name), on);
+      if (want("held-outline-hides")) record("held-outline-hides", on.outlineBefore && on.heldFrom !== null && !on.outlineCameBack && on.last === cards.A.name, on);
 
       // The switch off: the card on top replaces the hovered one with no pointer move.
       await page.mouse.move(off.x, off.y);
@@ -536,7 +553,7 @@ try {
       await page.bringToFront();
       await until(async () => ((await computeDebug(page))?.state === "ready" ? true : null), 60_000, 250);
       const offRun = await covered();
-      if (want("switch-flips")) record("switch-flips", "HS-KEEP-CARD-SWITCH (provisional)", offRun.first === cards.A.name && offRun.last === cards.D.name, offRun);
+      if (want("switch-flips")) record("switch-flips", offRun.first === cards.A.name && offRun.last === cards.D.name, offRun);
       await page.mouse.move(off.x, off.y);
       await setStored(ext, PRODUCT.keys.keepCard, true);
       await page.bringToFront();
@@ -552,7 +569,7 @@ try {
         const fake = await extensionFrames(tab);
         await tab.mouse.move(p.x, p.y, { steps: 3 });
         const real = await until(async () => ((await extensionFrames(tab)).length === 2 ? true : null), 5000);
-        if (want("fake-pointer-ignored")) record("fake-pointer-ignored", "HS-TRUSTED-INPUT (provisional)", fake.length === 0 && real === true, { framesAfterFake: fake, framesAfterReal: Boolean(real) });
+        if (want("fake-pointer-ignored")) record("fake-pointer-ignored", fake.length === 0 && real === true, { framesAfterFake: fake, framesAfterReal: Boolean(real) });
         await tab.close();
       }
 
@@ -568,11 +585,11 @@ try {
       await sleep(2500);
       const framesOff = await extensionFrames(page);
       const fetchedOff = standIn.requests.slice(reqBefore).filter((r) => r.path !== settingsUrl.pathname);
-      if (want("off-means-off")) record("off-means-off", "HS-OFF (provisional)", gone === true && framesOff.length === 0 && fetchedOff.length === 0, { framesOff, fetchedOff });
+      if (want("off-means-off")) record("off-means-off", gone === true && framesOff.length === 0 && fetchedOff.length === 0, { framesOff, fetchedOff });
       await setStored(ext, PRODUCT.keys.enabled, true);
       await page.bringToFront();
       const back = await until(async () => ((await extensionFrames(page)).length === 2 ? true : null), 5000);
-      if (want("on-while-playing-loads")) record("on-while-playing-loads", "HS-ENABLE (provisional)", back === true, {});
+      if (want("on-while-playing-loads")) record("on-while-playing-loads", back === true, {});
 
       // A second tab of the same page while the first plays on: one pointer move over its paused
       // video, then the pointer rests, and the card is named.
@@ -603,7 +620,7 @@ try {
         const last = await computeDebug(tab);
         counts.secondTab = { artVisibleMs: named?.ms ?? null, readyMs: readyAt ? readyAt - hoverAt : null };
         if (want("second-tab-names-card"))
-          record("second-tab-names-card", "S-B13", Boolean(named), {
+          record("second-tab-names-card", Boolean(named), {
             ...counts.secondTab,
             analyzed: last?.analyzed ?? null,
             steps,
@@ -628,7 +645,7 @@ try {
         counts.cachedReloadReadyMs = readyAt ? readyAt - hoverAt : null;
         const fetched = standIn.requests.slice(before).filter((r) => r.path.startsWith(PRODUCT.artPath("")));
         counts.cachedReload = { artRequests: fetched.length, artVisibleMs: again?.ms ?? null };
-        if (want("cached-reload")) record("cached-reload", "HS-CACHE (provisional)", Boolean(again) && fetched.length === 0, { shown: Boolean(again), ms: again?.ms ?? null, artRequests: fetched.length, tooltip: again ? undefined : await tooltip(tab) });
+        if (want("cached-reload")) record("cached-reload", Boolean(again) && fetched.length === 0, { shown: Boolean(again), ms: again?.ms ?? null, artRequests: fetched.length, tooltip: again ? undefined : await tooltip(tab) });
         await tab.close();
       }
     } finally {
@@ -654,7 +671,7 @@ try {
         return until(async () => ((await extensionFrames(page)).length === 0 ? true : null), 30_000, 250);
       };
       const idle = await goIdle();
-      if (want("idle-unloads")) record("idle-unloads", "HS-IDLE-UNLOAD (provisional)", idle === true, {});
+      if (want("idle-unloads")) record("idle-unloads", idle === true, {});
       // The video playing again (a pause and play, and the clip looping) makes nothing.
       await page.evaluate(async () => {
         const v = document.querySelector("video");
@@ -664,11 +681,11 @@ try {
       });
       await sleep(3000);
       const afterLoop = await extensionFrames(page);
-      if (want("loop-no-reload")) record("loop-no-reload", "HS-IDLE-NO-RELOAD (provisional)", afterLoop.length === 0, { afterLoop });
+      if (want("loop-no-reload")) record("loop-no-reload", afterLoop.length === 0, { afterLoop });
       // The next pointer move over the video makes them again, and names the card.
       await video.seek(page, 2, true);
       const reloaded = await hoverCard(page, "B", 60_000);
-      if (want("idle-reload-on-hover")) record("idle-reload-on-hover", "HS-IDLE-RELOAD (provisional)", Boolean(reloaded), { ms: reloaded?.ms ?? null });
+      if (want("idle-reload-on-hover")) record("idle-reload-on-hover", Boolean(reloaded), { ms: reloaded?.ms ?? null });
       // Switched off and on after an idle unload, while the video plays.
       if (want("switch-on-after-idle-reloads")) {
         if (!(await goIdle())) throw new Error("setup: the second idle unload did not happen");
@@ -676,7 +693,7 @@ try {
         await setStored(ext, PRODUCT.keys.enabled, true);
         await page.bringToFront();
         const atOnce = await until(async () => ((await extensionFrames(page)).length === 2 ? true : null), 5000);
-        record("switch-on-after-idle-reloads", "S-A7", atOnce === true, {});
+        record("switch-on-after-idle-reloads", atOnce === true, {});
       }
       await page.close();
     } finally {
