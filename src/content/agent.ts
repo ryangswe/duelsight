@@ -115,6 +115,10 @@ export class Agent {
    *  made again when the tab comes into view (cleared by any new compute frame, which reads the
    *  choice as it starts). */
   private keepCardPending = false;
+  /** Hovers turned on again, after an idle unload, while this tab was out of view: the frames are
+   *  made when the tab comes into view (onVisibility), as a keep-card change waits (hover spec
+   *  S-A7, S-H3). One flip of the popup's switch then never reloads every open tab together. */
+  private reloadPending = false;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */
   private readonly extensionOrigin = chrome.runtime.getURL("").replace(/\/$/, "");
@@ -240,8 +244,16 @@ export class Agent {
   }
 
   private readonly onVisibility = (): void => {
+    if (document.visibilityState === "hidden") return;
+    if (this.reloadPending) {
+      // Turned on out of view after an idle unload: a fresh start now, unless frames were made
+      // meanwhile (then nothing is owed). A frame made here reads the keep-card choice as it
+      // starts and clears keepCardPending (ensureCompute).
+      if (this.enabled && this.control.frameRemoved) this.reloadAfterSwitch();
+      else this.reloadPending = false;
+    }
     // The new frame clears the flag (ensureCompute).
-    if (document.visibilityState === "hidden" || !this.keepCardPending) return;
+    if (!this.keepCardPending) return;
     if (this.enabled && this.compute) this.remakeCompute();
   };
 
@@ -261,11 +273,26 @@ export class Agent {
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
-    // Turning it on is a fresh start: it loads at once if the video plays, or at its next
-    // `playing`, even with the frames removed for idleness.
-    if (enabled) this.switchedOnSinceIdle = true;
-    if (!enabled) this.teardown();
-    else this.loadIfPlaying();
+    this.reloadPending = false;
+    if (!enabled) {
+      this.teardown();
+      return;
+    }
+    // After an idle unload, a tab out of view starts afresh only when it comes into view
+    // (onVisibility; hover spec S-A7).
+    if (this.control.frameRemoved && document.visibilityState === "hidden") {
+      this.reloadPending = true;
+      return;
+    }
+    this.reloadAfterSwitch();
+  }
+
+  /** Turning it on is a fresh start: it loads at once if the video plays, or at its next
+   *  `playing`, even with the frames removed for idleness. */
+  private reloadAfterSwitch(): void {
+    this.reloadPending = false;
+    this.switchedOnSinceIdle = true;
+    this.loadIfPlaying();
   }
 
   // ------------------------------------------------------------------ the pointer
@@ -289,8 +316,10 @@ export class Agent {
 
   /** A video started playing. Nothing while the frames are removed for idleness (unless switched
    *  on again since): the toolkit makes them again on a move over the picture, and a looping clip
-   *  fires `playing` each loop. */
-  private readonly onPlaying = (): void => {
+   *  fires `playing` each loop. A page script's made-up `playing` is ignored: only the browser's
+   *  own counts (hover spec S-A1, as the toolkit's `loadWhen`). */
+  private readonly onPlaying = (event: Event): void => {
+    if (event.isTrusted !== true) return;
     if (this.control.frameRemoved && !this.switchedOnSinceIdle) return;
     this.loadIfPlaying();
   };
