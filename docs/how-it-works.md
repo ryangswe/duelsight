@@ -93,7 +93,10 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as
   trusted, and of no others: while the pointer is over the picture and for 10 seconds after it last moved there,
   while a card shows under the resting pointer and 5 seconds after, never more than 60 seconds
-  after the last move, and for 10 seconds after a tap. Before each picture it checks that the
+  after the last move, and for 10 seconds after a tap. When the model finishes loading after those
+  10 seconds while the pointer still rests over the picture, it gives one picture then (within the
+  60 seconds; a tap gets none). If that picture shows no card, it gives no more until the pointer
+  moves. Before each picture it checks that the
   last pointer position is still over the video. It takes a message from its frames when the
   browser delivered it from them, and ignores one a page made up.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the

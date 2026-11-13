@@ -117,7 +117,7 @@ export class Agent {
   private keepCardPending = false;
   /** Hovers turned on again, after an idle unload, while this tab was out of view: the frames are
    *  made when the tab comes into view (onVisibility), as a keep-card change waits (hover spec
-   *  S-A7, S-H3). One flip of the popup's switch then never reloads every open tab together. */
+   *  S-A7, S-H3). Tabs whose frames were not removed for idleness load at once, as before. */
   private reloadPending = false;
 
   /** `chrome-extension://<id>`: the extension's base address without its trailing slash. */

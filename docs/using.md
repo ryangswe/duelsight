@@ -105,7 +105,9 @@ Below them are two links, to the project page and to the open-source toolkit it 
 Once per tab, when you point at a video with card hovers on, the recognition model starts,
 which takes a moment. Recognition runs while the pointer is over the video, and stops by itself
 10 seconds after you stop moving it, unless a card is showing under the resting pointer; even
-then, it stops 60 seconds after the pointer last moved. Move the pointer to start it again. It
+then, it stops 60 seconds after the pointer last moved. If the model finishes loading after those
+10 seconds while the pointer still rests on the video, it looks once then. Move the pointer to
+start it again. It
 stops at once when the pointer leaves the video, the tab goes to the background or the video
 changes.
 

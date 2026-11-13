@@ -24,8 +24,8 @@ differed from the hover spec now follow it. Same bundled cards (`862aec0f937da32
   slow computer is not given more work while it is behind.
 - **Turning card hovers on in a tab in the background**, after its card recognition was unloaded
   for being idle, now waits until you bring the tab to the front (S-A7), as a change of "Keep the
-  card I'm pointing at" already did. The tab in front loads at once, as before. One flip of the
-  switch no longer reloads every open tab together.
+  card I'm pointing at" already did. The tab in front loads at once, as before, and so does a
+  background tab whose card recognition was not unloaded, when its video plays.
 
 ### Added
 
