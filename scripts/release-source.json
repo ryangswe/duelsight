@@ -1,0 +1,7 @@
+{
+  "why": "The card release DuelSight bundles (release-legal/NOTICE names it), taken from the release page of the version that first bundled it and pinned by the zip's SHA-256. CI's build and hover browser test and npm run store:build all read it here. A change that bundles a new card release moves these pins to where that release is published.",
+  "id": "862aec0f937da326",
+  "zipUrl": "https://github.com/ryangswe/duelsight/releases/download/v0.8.0/duelsight-0.8.0.zip",
+  "zipSha256": "dd90b32888b9a6a7441937c4281cc057cf736049185088d269c8f2caa296df1c",
+  "zipFolder": "duelsight-0.8.0"
+}

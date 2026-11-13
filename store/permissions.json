@@ -1,0 +1,48 @@
+{
+  "chrome": {
+    "permissions": [
+      "storage"
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      "https://cdn.duelsight.com/*",
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "optional_host_permissions": [],
+    "content_script_matches": [
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "web_accessible_matches": [
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "externally_connectable": [],
+    "data_collection": []
+  },
+  "firefox": {
+    "permissions": [
+      "storage"
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      "https://cdn.duelsight.com/*",
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "optional_host_permissions": [],
+    "content_script_matches": [
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "web_accessible_matches": [
+      "https://www.twitch.tv/*",
+      "https://www.youtube.com/*"
+    ],
+    "externally_connectable": [],
+    "data_collection": [
+      "required:none"
+    ]
+  }
+}

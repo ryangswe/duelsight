@@ -1,0 +1,13 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+DuelSight shows which Yu-Gi-Oh! card is under the mouse pointer in a YouTube or Twitch video. It runs two small ONNX models (a card detector and a card recognizer) in the browser with ONNX Runtime Web; video frames never leave the browser.
+
+To test: no account is needed. Open https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel), let it play or pause it, and move the mouse pointer onto a face-up card. After a moment a larger picture of the card appears beside it, with its name, type, stats and text. It stays while the pointer rests on the card. The toolbar popup switches the add-on off, sets the card details, their language and the card size, and turns "Keep the card I'm pointing at" on or off.
+
+Source code: the bundles are minified by esbuild. The source archive rebuilds the package: unzip it into an empty folder and run ./build-firefox.sh (Node.js 22 or later, npm, zip, unzip, cmp; tested with Node 24 on macOS). It rebuilds the recognition runtime from its own source (cardvision-browser/browser, the open-source cardvision toolkit at commit 5ef332a, cardvision 0.14.0rc2, https://github.com/ryangswe/riftsight-vision), checks it byte for byte against the copies the add-on bundles, then builds the add-on into out/duelsight-0.8.1-firefox.zip, whose files match the uploaded package one for one. The archive's README.md says where each file of the package comes from.
+
+Linter warnings: the 4 warnings (DANGEROUS_EVAL, UNSAFE_VAR_ASSIGNMENT on import) are in ONNX Runtime Web 1.29.0 (runtime/ort-wasm-simd-threaded.jsep.mjs, unmodified from npm) and in the runtime worker that bundles ONNX Runtime Web's JavaScript (runtime/worker.js). The add-on's own scripts have none. The dynamic import loads ONNX Runtime's own module from the add-on's runtime/ folder (an extension URL); nothing is imported or evaluated from the network. The extension pages' CSP is "script-src 'self' 'wasm-unsafe-eval'".
+
+Network: the add-on requests only https://cdn.duelsight.com, its own server: a settings file, card pictures, a card details file (in the language chosen in the popup, or by default the browser's, when DuelSight has it; otherwise English) and, when one is published, an updated card-recognition release (JSON, binary and ONNX data files, checked against SHA-256 pins before use). It runs no remote code: every script and the WebAssembly are in the package. No data about the user is collected or sent (data_collection_permissions: none).
+
+Permissions: storage (the popup's settings, kept locally); host access to www.youtube.com and www.twitch.tv (to read the video picture around the pointer and show the card) and to cdn.duelsight.com (the files above). Unchanged from 0.8.0.

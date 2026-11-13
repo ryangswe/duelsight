@@ -1,0 +1,9 @@
+{
+  "webExt": "10.8.0",
+  "warnings": [
+    { "code": "DANGEROUS_EVAL", "file": "runtime/ort-wasm-simd-threaded.jsep.mjs", "why": "ONNX Runtime Web 1.29.0, unmodified from npm: the Function constructor in its module loader" },
+    { "code": "DANGEROUS_EVAL", "file": "runtime/worker.js", "why": "the runtime worker bundles ONNX Runtime Web's JavaScript: the same Function constructor" },
+    { "code": "UNSAFE_VAR_ASSIGNMENT", "file": "runtime/worker.js", "why": "ONNX Runtime Web's dynamic import of its own module from the add-on's runtime/ folder (an extension URL)" },
+    { "code": "UNSAFE_VAR_ASSIGNMENT", "file": "runtime/worker.js", "why": "the second such import in the same bundled code" }
+  ]
+}
