@@ -44,7 +44,7 @@ Upstream: https://github.com/ryangswe/riftsight-vision (the cardvision toolkit, 
 
 The card detection and recognition runtime this extension runs on. Its own LICENSE and NOTICE
 are kept beside it, in vendor/cardvision-browser/ and in the built extension's runtime/ folder.
-The commit it was built from is recorded in vendor/cardvision-browser/VENDOR.json.
+The commit it was built from is recorded in vendor/cardvision-browser/cardvision-vendor.json.
 
 ------------------------------------------------------------------------------
 ONNX Runtime Web

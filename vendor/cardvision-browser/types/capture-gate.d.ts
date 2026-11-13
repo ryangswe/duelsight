@@ -22,5 +22,10 @@ export interface GateLimits {
      *  `MAX_REST_MS`. */
     restMs?: number;
 }
+/** A slow start (capture-control.ts): the compute frame became ready while a mouse rests over
+ *  the picture past its grace period. One picture may be given then, as long as the last trusted
+ *  point is over the picture and `MAX_REST_MS` has not passed since it (the caller keeps it to one
+ *  picture, and checks the point against the picture). */
+export declare function slowStartAllowed(state: GateState, now: number, { restMs }?: GateLimits): boolean;
 /** Whether a picture may be given to the compute frame now. */
 export declare function captureAllowed(state: GateState, now: number, { graceMs, lingerMs, restMs }?: GateLimits): boolean;

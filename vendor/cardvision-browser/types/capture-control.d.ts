@@ -2,6 +2,12 @@ import { type GateLimits, type GateState } from "./capture-gate.js";
 import { type ComputeOut, type ComputeProtocol, type ShownCard } from "./compute-messages.js";
 import { type GrabDeps } from "./page-capture.js";
 import { type VideoWatch } from "./video-events.js";
+/** How long a slow start's grant waits for the capture it is for, in ms: the frame asks in the
+ *  same moment it says `ready`, so an unspent grant does not linger. */
+export declare const SLOW_START_GRANT_MS = 500;
+/** After the slow start's capture failed for want of a picture, how long the grant waits for the
+ *  frame's prompt retry, in ms: its longest back-off (2000 ms) and the grant's own 500 ms. */
+export declare const SLOW_START_RETRY_MS = 2500;
 /** The reasons the controller refuses a capture with. */
 export declare const NOT_POINTING = "not pointing at the video";
 export declare const CAPTURE_PENDING = "a capture is already pending";
@@ -144,9 +150,10 @@ export declare const INTENT_INTERVAL_MS = 1000;
 export type PlayWatch = Pick<HTMLVideoElement, "paused" | "ended" | "addEventListener" | "removeEventListener">;
 /**
  * Call `make` once when `video` is playing: at once if it already is (not paused, not ended),
- * else at its next `playing` event. Never for a paused or ended video, never twice. The result's
- * `stop()` removes the listener (and is safe to call after `make` ran). Use it to make the
- * compute frame at play rather than at the first pointer move.
+ * else at its next trusted `playing` event (one the browser fired, not a page script). Never for a
+ * paused or ended video, never twice. The result's `stop()` removes the listener (and is safe to
+ * call after `make` ran). Use it to make the compute frame at play rather than at the first
+ * pointer move.
  */
 export declare function loadWhen(video: PlayWatch, when: "play", make: () => void): {
     stop(): void;

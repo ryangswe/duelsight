@@ -108,17 +108,20 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
   /** The worker loaded this release. */
   const loaded = (id = "r") => worker().reply({ kind: "release-status", ok: true, error: null, release: releaseOf(id), cards: [] });
   let mediaTime = 1;
+  const answered = new Set<number>();
   /** The pointer at (x, y), in fractions, a moment later on a playing video: the capture it asks
-   *  for, the picture, and the worker's answer. */
+   *  for, the picture, and the worker's answer. The capture answered is the first one not answered
+   *  yet: from toolkit 0.14.0 a frame whose model finishes loading under a pointer asks for one at
+   *  once, before this pointer's move. */
   const analyzeAt = (x = 0.2, y = 0.5) => {
     clock.t += 2_000;
     mediaTime += 1;
-    const before = sent("capture").length;
     fromContent({ kind: "presented", mediaTime });
     fromContent({ kind: "pointer", x, y, mediaTime, touch: false });
     started?.frame.tick();
-    const capture = sent("capture")[before] as { requestId: number } | undefined;
+    const capture = (sent("capture") as Array<{ requestId: number }>).find((c) => !answered.has(c.requestId));
     if (!capture) throw new Error("no capture asked for");
+    answered.add(capture.requestId);
     fromContent({ kind: "frame", requestId: capture.requestId, bitmap: new FakeBitmap(), mediaTime });
     const request = worker().posted.at(-1) as unknown as Extract<WorkerRequest, { kind: "frame" }>;
     worker().reply({

@@ -95,10 +95,11 @@ When the cardvision toolkit publishes a better detector or recognizer, or a new 
 1. Build a release folder from the new models (`cardvision build-release`) and verify it. Measure
    it on a fresh held-out set before shipping; a release that was not measured says so in
    [docs/accuracy.md](docs/accuracy.md).
-2. If the runtime changed, vendor the new commit: `node scripts/vendor-runtime.mjs --repo <toolkit
-   checkout> --commit <sha> --opencv <OpenCV.js build>` (see [docs/development.md](docs/development.md);
-   the build copies none of OpenCV into the extension). Keep `onnxruntime-web` in `package.json` at
-   the version `vendor/cardvision-browser/VENDOR.json` names. Run `npm test`.
+2. If the runtime changed, vendor the new commit with the toolkit's vendor tool (see "The runtime"
+   in [docs/development.md](docs/development.md); the build copies none of OpenCV into the
+   extension). Keep `onnxruntime-web` in `package.json` at the version
+   `vendor/cardvision-browser/cardvision-vendor.json` names (`ort.version`). Run `npm run
+   vendor-check` and `npm test`.
 3. Update `release-legal/` (license, notice, provenance of the models). A release with new models
    can be published through the pointer like a card update (`publish-release --sessions`, after its
    held-out measurement), or bundled in a store release: one that needs a newer runtime ships bundled

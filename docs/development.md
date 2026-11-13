@@ -85,25 +85,26 @@ archive into an empty folder, run `./build-firefox.sh`, and `diff -r` the unzipp
 
 ## The runtime
 
-`vendor/cardvision-browser/` holds the runtime's built modules at the commit recorded in its
-`VENDOR.json`, with its license and notice. To update it:
+`vendor/cardvision-browser/` holds the runtime's built modules from one commit of the cardvision
+toolkit, with its licenses, its declarations and the hover spec's index. The toolkit's vendor tool
+writes it, and its manifest, `cardvision-vendor.json`, records the toolkit version, the commit, the
+ONNX Runtime pin and each file's SHA-256. To update it, build that commit of the toolkit (with its
+OpenCV.js build in `browser/vendor/opencv/`, from its `scripts/build-opencv.mjs`), then, from this
+repository:
 
 ```
-node scripts/vendor-runtime.mjs --repo <path to a cardvision toolkit checkout> --commit <sha> \
-    --opencv <folder with the runtime's OpenCV.js build>
+(cd <toolkit checkout>/browser && npm ci && npm run build)
+npm --prefix <toolkit checkout>/browser run vendor -- --into vendor/cardvision-browser --no-ort-wasm --node-tools
 ```
 
-The runtime's own build still wants OpenCV.js, so the vendor step does too; DuelSight's build never
-copies it into the extension (see "The runtime" in [how-it-works.md](how-it-works.md)). Dropping it
-from the vendored folder is a change for the toolkit's build, not for this repository.
+`--no-ort-wasm`: ONNX Runtime Web's WebAssembly files are not vendored. The build copies the files
+the manifest's `ort.files` names from this repository's `onnxruntime-web` dependency, which must be
+the manifest's `ort.version` (the build refuses otherwise). `--node-tools` adds the runtime's Node
+scripts (`node/`), which packaging uses. OpenCV.js is vendored, but DuelSight's build never copies
+it into the extension (see "The runtime" in [how-it-works.md](how-it-works.md)).
 
-It builds the runtime from that commit in a temporary folder (its own `npm ci` and `npm run
-build`) and copies the result here. OpenCV.js (`opencv.mjs`, `opencv_js.wasm`, their
-`opencv.mjs.LEGAL.txt`) is built by the runtime's `scripts/build-opencv.mjs`, which git does not
-keep; `--opencv` names that build, which must match the commit's `opencv.lock.json` (recorded in
-`VENDOR.json`). ONNX Runtime Web's WebAssembly files are not vendored; the
-build copies them from this repository's `onnxruntime-web` dependency, which must be the version
-`VENDOR.json` names.
+`npm run vendor-check` checks the folder against its manifest with the toolkit's stand-alone
+checker (`cardvision-vendor-check.mjs`, Node built-ins only). CI runs it on every pull request.
 
 ## Manual check on a local video
 

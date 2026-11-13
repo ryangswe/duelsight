@@ -14,7 +14,7 @@
     "test": "tsc --noEmit && vitest run",
     "build": "node scripts/build.mjs",
     "package": "node scripts/package.mjs",
-    "vendor": "node scripts/vendor-runtime.mjs",
+    "vendor-check": "node vendor/cardvision-browser/cardvision-vendor-check.mjs vendor/cardvision-browser",
     "manual": "node test/manual/serve.mjs"
   },
   "dependencies": {

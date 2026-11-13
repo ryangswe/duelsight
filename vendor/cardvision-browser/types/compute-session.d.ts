@@ -1,7 +1,7 @@
 export { type AnalysisMode, cadenceMs, type SessionMode } from "./cadence.js";
 export { type AnalysisState, FrameScheduler, HOVER_MAX_AGE_MS, replyRejection } from "./frame-scheduler.js";
 export { hoverAt } from "./hover-at.js";
-export { type ComputeIn, type ComputeOut, type ComputeProtocol, computeProtocol, type FractionBox, MAX_FRAME_SIDE, MAX_OTHER_BOXES, MAX_REASON_LENGTH, MAX_TEXT_LENGTH, type ShownCard, type Tagged, } from "./compute-messages.js";
+export { type ComputeIn, type ComputeOut, type ComputeProtocol, computeProtocol, type FractionBox, MAX_FRAME_SIDE, MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE, MAX_OTHER_BOXES, MAX_REASON_LENGTH, MAX_TEXT_LENGTH, type ShownCard, type Tagged, } from "./compute-messages.js";
 export { neighborBoxes, SessionCore, type SessionCoreDeps, type SessionCoreOptions, READING_HOLD, SHOWN_HOLD, type Shown, type ShownHold, } from "./session-core.js";
 export { createWorkerSession, type GeometricLoad, plainLoad, type ReleaseInEffect, WORKER_RESTARTS, type WorkerLike, type WorkerSession, type WorkerSessionEnv, } from "./worker-session.js";
 export { type ComputeFrame, type ComputeFrameEnv, type ComputeFrameWindow, startComputeFrame } from "./compute-frame.js";

@@ -112,8 +112,10 @@ export declare class FrameScheduler {
     /** Layout mode: the host also wants pointer-driven analysis. */
     private pointerAnalysis;
     /** The least spacing of a playing relook after the last look, besides `HOVER_TRIGGER_MIN_GAP_MS`
-     *  (measured pacing's share; 0 without it). */
+     *  (the fast cadence in a session; 0 when not set). */
     private relookSpacingMs;
+    /** The stale-frame budget (`setStaleBudgetMs`); null: the cadence in effect. */
+    private staleBudgetMs;
     /**
      * @param intervalMs The cadence of the mode: the fast cadence in pointer mode, the slow one
      *   in always-on mode (cadence.ts `cadenceMs`).
@@ -130,11 +132,15 @@ export declare class FrameScheduler {
     setPointerAnalysis(on: boolean): void;
     setIntervalMs(ms: number): void;
     setReadingIntervalMs(ms: number): void;
-    /** Measured pacing: the least spacing, after the last look of any kind, of a look on a playing
-     *  picture that `relookDue` allows (`MeasuredPacer.spacingMs`), so that those looks keep
-     *  analysis within the pacer's share. `HOVER_TRIGGER_MIN_GAP_MS` applies when it is shorter.
-     *  0 (the default): that gap alone. */
+    /** The least spacing, from start to start, of a look on a playing picture that `relookDue`
+     *  allows after the last look of any kind. A session sets the fast cadence of its backend: the
+     *  look is one a viewer waits on, so it is not paced. `HOVER_TRIGGER_MIN_GAP_MS` applies when it
+     *  is shorter. 0 (the default): that gap alone. */
     setRelookSpacingMs(ms: number): void;
+    /** The stale-frame threshold before its `STALE_FRAME_MS` floor, in ms (`staleFrameMs`): a
+     *  session sets its budget B (session-core.ts `staleBudgetMs`). Null (the default): the cadence
+     *  in effect, as a scheduler without a session has it. */
+    setStaleBudgetMs(ms: number | null): void;
     /** A reading hold shows a card (true) or nothing (false, the default). While it does, a
      *  resting pointer past the grace period is not analyzed: the hold keeps the card until the
      *  pointer moves, so no look could change it. Report the card the hold shows here, and whether
@@ -193,6 +199,12 @@ export declare class FrameScheduler {
     pictureReceived(): void;
     /** Has the back-off of an unanswered look run out? */
     private retryReady;
+    /** Is a retry waiting out its back-off? Then no look of any kind starts (the one guard every
+     *  path that starts a look goes through). */
+    retryWaiting(now: number): boolean;
+    /** Is a prompt retry (a failed capture) due now, whatever the state? For the one picture of a
+     *  slow start (session-core.ts), which a failed capture's retry is part of. */
+    promptRetryDue(now: number): boolean;
     /** Is a look asked for by `requestLook` still waiting to start? */
     get lookPending(): boolean;
     /** The pointer moved over the picture, or was pressed on it. Call it for real movement only:
@@ -210,6 +222,9 @@ export declare class FrameScheduler {
     tapped(now: number): void;
     /** Is the grace period of the last pointer activity still running? */
     pointerActive(now: number): boolean;
+    /** Time since the last pointer activity (a move, press or tap, or the pointer leaving), in ms;
+     *  Infinity before any. */
+    msSincePointerActivity(now: number): number;
     analysisState(now: number): AnalysisState;
     private pointerState;
     /** May anything be analyzed right now? */
@@ -217,19 +232,23 @@ export declare class FrameScheduler {
     /** The cadence in effect: the slow reading cadence while reading, `EMPTY_SPOT_INTERVAL_MS` (or
      *  the mode's cadence if longer) while the pointer rests on an empty spot, else the mode's. */
     intervalInEffectMs(now: number): number;
-    /** Should the current picture be analyzed now, by the cadence or as a repeat of a still? */
+    /** Should the current picture be analyzed now, by the cadence or as a repeat of a still? Never
+     *  while a retry waits out its back-off, a cut's look included. */
     due(now: number): boolean;
-    /** The stale-frame threshold in effect, in ms of video time: `STALE_FRAME_MS`, or the cadence
-     *  in effect when that is longer. Below the cadence, a pointer moving over a playing video
-     *  would ask for analyses faster than the cadence runs them. */
+    /** A load ended (the opening load, a fallback, a restart, an idle resume): is a look due now?
+     *  Yes when analysis may run and no retry waits out its back-off. The viewer is waiting on it,
+     *  so the cadence (paced or not) is not consulted. */
+    loadEndDue(now: number): boolean;
+    /** The stale-frame threshold in effect, in ms of video time: `STALE_FRAME_MS`, or the budget
+     *  (`setStaleBudgetMs`) when that is longer; without a budget, the cadence in effect. */
     staleFrameMs(now: number): number;
     /** Is the newest analyzed frame stale against the picture on screen, or is there none yet? */
     frameStale(videoTimeSec: number, now: number): boolean;
     /**
      * The pointer moved over the picture: should the current picture be analyzed at once? Yes
-     * when analysis may run, nothing is in flight, the last analysis started this way is at least
-     * `HOVER_TRIGGER_MIN_GAP_MS` ago, and the newest analyzed frame is stale. The cadence is not
-     * consulted.
+     * when analysis may run, nothing is in flight, no retry waits out its back-off, the last
+     * analysis started this way is at least `HOVER_TRIGGER_MIN_GAP_MS` ago, and the newest analyzed
+     * frame is stale. The cadence is not consulted.
      */
     hoverTriggerDue(now: number, videoTimeSec: number, inFlight: boolean): boolean;
     /**
@@ -246,7 +265,7 @@ export declare class FrameScheduler {
      * presented frame waits, its time has moved since the newest analyzed frame, and no retry is
      * waiting out its back-off. The cadence is not consulted, and the stale-frame threshold is not
      * needed; the last look of any kind must have started at least `HOVER_TRIGGER_MIN_GAP_MS` ago, or
-     * the measured-pacing spacing (`setRelookSpacingMs`) if that is longer.
+     * the fixed spacing (`setRelookSpacingMs`) if that is longer.
      * Without it, a playing picture waits for the cadence, as a still one with repeats left does.
      */
     relookDue(now: number, inFlight: boolean, videoTimeSec?: number): boolean;
