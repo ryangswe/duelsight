@@ -37,7 +37,7 @@ differed from the hover spec now follow it. Same bundled cards (`862aec0f937da32
 ### Fixed
 
 - **A web page's own imitation of a video starting to play** no longer loads card recognition;
-  only the browser's own signal does (S-A1), as with pointer movements already.
+  the browser's own signal is needed (S-A1), as with pointer movements already.
 - **The tooltip's picture after a card's picture was fetched again** gets its own address instead
   of the old one, which had been released. No path in this version reaches it; the fix keeps it
   so.

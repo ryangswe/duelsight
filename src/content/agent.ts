@@ -320,6 +320,8 @@ export class Agent {
    *  own counts (hover spec S-A1, as the toolkit's `loadWhen`). */
   private readonly onPlaying = (event: Event): void => {
     if (event.isTrusted !== true) return;
+    // Switched on out of view after an idle unload: the tab loads when it comes into view.
+    if (this.reloadPending) return;
     if (this.control.frameRemoved && !this.switchedOnSinceIdle) return;
     this.loadIfPlaying();
   };

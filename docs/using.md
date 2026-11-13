@@ -33,9 +33,9 @@ After 10 minutes without pointing at the video it frees that memory, and loads a
 point at the video. A card left showing under a resting pointer keeps it loaded until the
 pointer moves. Nothing is analyzed before the pointer comes over the
 video. To turn card hovers off everywhere, use the switch in DuelSight's toolbar
-popup; there is no per-channel switch. Turned on again, it loads at once in the tab in front while
-its video plays; a tab in the background whose card recognition was freed loads when you bring it
-to the front. The extension separately checks its settings file when it
+popup; there is no per-channel switch. Turned on again, it loads at once in the tab in front when
+its video plays on one of the pages above that load at play; a tab in the background whose card
+recognition was freed does the same when you bring it to the front. The extension separately checks its settings file when it
 is installed or updated and when the browser starts, and at most once an hour while you use it.
 
 ## Hovering a card

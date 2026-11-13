@@ -1179,6 +1179,25 @@ describe("Agent", () => {
         expect(compute()).toBe(made);
       });
 
+      it("switched on out of view after an idle unload: a later play makes nothing, even after an earlier switch-on while paused", async () => {
+        agent = await startAgent();
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        // Switched off and on in view while paused: nothing loads (it would at the next play).
+        media.paused = true;
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        expect(frames()).toEqual([]);
+        // Out of view, switched off and on again; then the video plays there.
+        view("hidden");
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        media.paused = false;
+        video.dispatchEvent(trusted(new Event("playing"), true));
+        expect(frames()).toEqual([]);
+        view("visible");
+        expect(compute()).toBeDefined();
+      });
+
       it("switched on out of view after an idle unload, then off again: makes nothing in view", async () => {
         agent = await startAgent();
         view("hidden");

@@ -184,8 +184,11 @@ describe("compute frame: card facts", () => {
     h.loaded(ID);
     h.analyzeAt();
     h.worker().fail();
+    const asked = h.sent("capture").length;
     h.loaded();
-    h.analyzeAt(0.21, 0.5);
+    // The load ends under the pointer: the frame asks for a picture at once (toolkit 0.14.0).
+    expect(h.sent("capture")).toHaveLength(asked + 1);
+    h.analyzeAt(0.21, 0.5, { afterLoad: true });
     expect(h.started!.frame.release.source).toBe("bundled");
     expect(h.lastShown()?.releaseId).toBeUndefined();
     expect(h.facts).toHaveLength(1);

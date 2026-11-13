@@ -110,17 +110,19 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
   let mediaTime = 1;
   const answered = new Set<number>();
   /** The pointer at (x, y), in fractions, a moment later on a playing video: the capture it asks
-   *  for, the picture, and the worker's answer. The capture answered is the first one not answered
-   *  yet: from toolkit 0.14.0 a frame whose model finishes loading under a pointer asks for one at
-   *  once, before this pointer's move. */
-  const analyzeAt = (x = 0.2, y = 0.5) => {
+   *  for, the picture, and the worker's answer. With `afterLoad`, the capture answered is the one
+   *  still open from the end of a load instead: from toolkit 0.14.0 a frame whose model finishes
+   *  loading under a pointer asks for one at once, and the move then asks for none of its own. */
+  const analyzeAt = (x = 0.2, y = 0.5, { afterLoad = false } = {}) => {
     clock.t += 2_000;
     mediaTime += 1;
+    const before = sent("capture").length;
     fromContent({ kind: "presented", mediaTime });
     fromContent({ kind: "pointer", x, y, mediaTime, touch: false });
     started?.frame.tick();
-    const capture = (sent("capture") as Array<{ requestId: number }>).find((c) => !answered.has(c.requestId));
-    if (!capture) throw new Error("no capture asked for");
+    const captures = sent("capture") as Array<{ requestId: number }>;
+    const capture = afterLoad ? captures.slice(0, before).find((c) => !answered.has(c.requestId)) : captures[before];
+    if (!capture) throw new Error(afterLoad ? "no capture open from the load" : "no capture asked for");
     answered.add(capture.requestId);
     fromContent({ kind: "frame", requestId: capture.requestId, bitmap: new FakeBitmap(), mediaTime });
     const request = worker().posted.at(-1) as unknown as Extract<WorkerRequest, { kind: "frame" }>;
