@@ -32,9 +32,9 @@
     "sha256": "02a3fe19643d82a7642cfcc4d7cef5e4b64eb46174645bdc93040f323730c64b"
   },
   "release": {
-    "id": "f3ed25290dde66e9",
-    "path": "vision/releases/f3ed25290dde66e9/release.json",
-    "sha256": "bdf2ab1e69a1d1e69da06cf1033072cc1fbc7828a8f8795ca9e1ab6d8a136a3f",
-    "minimumExtensionVersion": "0.3.0"
+    "id": "862aec0f937da326",
+    "path": "vision/releases/862aec0f937da326/release.json",
+    "sha256": "d4789dc3ea23d7f1a3c2f15d35a1a7fb9405d1c28ade1d700dea5dab2bacbf23",
+    "minimumExtensionVersion": "0.4.0"
   }
 }
