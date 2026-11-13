@@ -57,6 +57,9 @@ const PRODUCT = {
   outlineSelector: '[data-duelsight="outline"]',
   /** The extension's two frames, and the tooltip frame's picture, picture box and name pill. */
   frames: { compute: "compute.html", tooltip: "tooltip.html" },
+  /** An extension page that starts the background worker again when Chrome has stopped it. The
+   *  popup does so because it sends the background a settings:refresh message as it opens. */
+  wakePage: "popup.html",
   tooltipIds: { img: "img", art: "art", pill: "pill" },
   /** The settings file the stand-in serves, in the product's schema: no release pointer (the
    *  bundled release only), only the given picture address, no update notice and no card details
@@ -80,19 +83,20 @@ const PRODUCT = {
   cardAspect: 86 / 59,
   /** Checks expected to fail on this product's code, each until the change named fixes it. */
   expectedFail: {
-    // Expected only when its condition holds (`when`): on a fast computer the model is ready
-    // within the window and the card must be named.
+    // Expected only when its condition holds (`when`). When the new tab's model is ready well
+    // within the window, the card must be named.
     "second-tab-names-card": {
-      clause: "HS-FIRST-HOVER-PAUSED (provisional)",
-      // The measured time runs a little long (it starts before the move and is polled), so a
-      // failure counts as this limit from 9 s on and a pass counts as unexpected only after 10.5 s.
-      // Between the two, either outcome is accepted. A model never ready within 60 s (readyMs null)
-      // is a real failure, not this limit.
-      when: (detail, ok) => detail.readyMs !== null && detail.readyMs > (ok ? 10_500 : 9_000),
-      condition: "the new tab's model was ready more than 9 s after the pointer's one move for a failure, or more than 10.5 s after it for a pass (the window is 10 s)",
+      clause: "S-B13",
+      // A model ready just inside the window can still miss its look, so a failure counts as this
+      // limit from 9 s on. The measured time also runs a little long (it starts before the move
+      // and is polled), so a pass counts as unexpected only after 10.5 s. Between the two, either
+      // outcome is accepted. A model never ready within 60 s (readyMs null), or a first tab whose
+      // model was not ready before the second tab opened, is a real failure, not this limit.
+      when: (detail, ok) => detail.firstReady === true && detail.readyMs !== null && detail.readyMs > (ok ? 10_500 : 9_000),
+      condition: "the new tab's model was ready more than 9 s after the pointer's one move for a failure, or more than 10.5 s after it for a pass (the window is 10 s), and the first tab's model was ready before the second tab opened",
       old: "nothing is read once 10 s have passed since the pointer's last move, so a resting pointer gets no card when the model loads later than that",
       intended: "a look when the model becomes ready while the pointer still rests on the picture",
-      clearedBy: "toolkit 0.14.0, which takes one look when the model becomes ready while the pointer still rests",
+      clearedBy: "the planned toolkit 0.14.0, which will take one look when the model becomes ready while the pointer still rests",
     },
   },
 };
@@ -183,7 +187,6 @@ for (const [slot, id] of Object.entries(PRODUCT.cards)) {
   if (!card) throw new Error(`setup: ${id} is not in the release's catalog`);
   const file = join(resolve(values.art), card.art);
   if (!existsSync(file) && values["fetch-art"]) {
-    // A catalog's picture path may have folders in it (DuelSight's are full/<id>.jpg).
     mkdirSync(dirname(file), { recursive: true });
     const response = await fetch(`https://${cdnHost}${PRODUCT.artPath(card.art)}`);
     if (!response.ok) throw new Error(`setup: ${id}'s picture: HTTP ${response.status}`);
@@ -271,7 +274,7 @@ async function launch(dist, profile, netlog) {
   browsers.add(browser);
   chromeVersion = await browser.version();
   const sw = await browser.waitForTarget((t) => t.type() === "service_worker" && t.url().startsWith("chrome-extension://"), { timeout: 20_000 });
-  return { browser, ext: { origin: sw.url().split("/").slice(0, 3).join("/"), worker: sw } };
+  return { browser, ext: { browser, origin: sw.url().split("/").slice(0, 3).join("/") } };
 }
 
 /** Open the test page with the clip paused at the start. */
@@ -385,11 +388,41 @@ async function hoverCard(page, slot, ms, { wiggle: moveNowAndThen = false } = {}
   return shown ? { ...shown, ms: Date.now() - moved } : null;
 }
 
-/** Set a stored setting as the popup does (chrome.storage.local), from the extension's background. */
+/** The extension's background worker as it is now. Chrome stops an idle worker and starts a new
+ *  one later, so a worker found earlier may be gone. When none is running, opening one of the
+ *  extension's pages starts it again. */
+async function extensionWorker(ext) {
+  const isOurs = (t) => t.type() === "service_worker" && t.url().startsWith(`${ext.origin}/`);
+  let target = ext.browser.targets().find(isOurs);
+  if (!target) {
+    // In the background, so the test page stays in front: a hidden page treats some settings
+    // differently.
+    const page = await ext.browser.newPage({ background: true });
+    try {
+      await page.goto(`${ext.origin}/${PRODUCT.wakePage}`);
+      target = await ext.browser.waitForTarget(isOurs, { timeout: 10_000 });
+      log("worker-woken", {});
+    } finally {
+      await page.close();
+    }
+  }
+  return target.worker();
+}
+
+/** Set a stored setting as the popup does (chrome.storage.local), from the extension's background.
+ *  If the worker stops between finding it and using it, the next one is tried once. */
 async function setStored(ext, key, value) {
-  const worker = await ext.worker.worker();
-  if (!worker) throw new Error("setup: the extension's background worker is not running");
-  await worker.evaluate((k, v) => chrome.storage.local.set({ [k]: v }), key, value);
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      const worker = await extensionWorker(ext);
+      if (!worker) throw new Error("setup: the extension's background worker is not running");
+      await worker.evaluate((k, v) => chrome.storage.local.set({ [k]: v }), key, value);
+      break;
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      log("worker-retry", { error: String(error?.message ?? error) });
+    }
+  }
   await sleep(1000);
 }
 
@@ -544,8 +577,9 @@ try {
       // A second tab of the same page while the first plays on: one pointer move over its paused
       // video, then the pointer rests, and the card is named.
       // The first tab's model is ready before the second tab opens, so the two never load at once.
-      // The states of both tabs and each step of the second tab's load are logged, so a late load
-      // can be traced to its cause.
+      // Both tabs' visibility, the first tab's state, and each change in the second tab's load
+      // state, backend or restarts are logged with their times. The debug global reports a load as
+      // one "loading" step, so this shows when a load ended, not where its time went.
       {
         const firstReady = await until(async () => ((await computeDebug(page))?.state === "ready" ? true : null), 30_000);
         const tab = await openPage(browser);
@@ -557,8 +591,11 @@ try {
         const steps = [];
         const readyWatch = until(async () => {
           const d = await computeDebug(tab);
-          const state = d ? d.state : "no frame";
-          if (steps.at(-1)?.state !== state) steps.push({ ms: Date.now() - hoverAt, state, ...(d?.error ? { error: d.error } : {}) });
+          const step = d ? { state: d.state, backend: d.backend, restarts: d.restarts } : { state: "no frame" };
+          const prev = steps.at(-1);
+          if (!prev || prev.state !== step.state || prev.backend !== step.backend || prev.restarts !== step.restarts)
+            steps.push({ ms: Date.now() - hoverAt, ...step, ...(d?.error ? { error: d.error } : {}) });
+          const state = step.state;
           return state === "ready" ? Date.now() : null;
         }, 60_000, 100);
         const named = await hoverCard(tab, "B", 60_000);
@@ -566,11 +603,11 @@ try {
         const last = await computeDebug(tab);
         counts.secondTab = { artVisibleMs: named?.ms ?? null, readyMs: readyAt ? readyAt - hoverAt : null };
         if (want("second-tab-names-card"))
-          record("second-tab-names-card", "HS-FIRST-HOVER-PAUSED (provisional)", Boolean(named), {
+          record("second-tab-names-card", "S-B13", Boolean(named), {
             ...counts.secondTab,
             analyzed: last?.analyzed ?? null,
             steps,
-            release: last?.release?.source ?? null,
+            release: last?.release ? { source: last.release.source, reason: last.release.reason ?? null } : null,
             firstReady: atOpen.firstReady,
             visibility: { first: atOpen.firstVisibility, second: atOpen.secondVisibility },
           });
@@ -639,7 +676,7 @@ try {
         await setStored(ext, PRODUCT.keys.enabled, true);
         await page.bringToFront();
         const atOnce = await until(async () => ((await extensionFrames(page)).length === 2 ? true : null), 5000);
-        record("switch-on-after-idle-reloads", PRODUCT.expectedFail["switch-on-after-idle-reloads"]?.clause ?? "HS-ENABLE-AFTER-IDLE (provisional)", atOnce === true, {});
+        record("switch-on-after-idle-reloads", "S-A7", atOnce === true, {});
       }
       await page.close();
     } finally {
