@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "toolkit": {
-    "version": "0.14.0rc1",
-    "commit": "4d04d1d777a35980c613b9d2a8243785f599bc95"
+    "version": "0.14.0rc2",
+    "commit": "5ef332a7da58508b1ff9747fe1cf0ba4f70af30b"
   },
   "options": {
     "opencv": true,
@@ -55,8 +55,8 @@
       "sha256": "efd03a2b1b82f1bec947e1b87e4427480260f9ca580557b8660608a36a6cae97"
     },
     "cardvision.js": {
-      "bytes": 990251,
-      "sha256": "cfba78db7aa176aa9c497a177265f3701e9a74e68cd33fa0dd66a7b9bc578080"
+      "bytes": 991901,
+      "sha256": "75cb8a7161da35e0fc1077fede8c1ae04790aeee7fe98efd89774e1c4376e90b"
     },
     "cardvision.js.LEGAL.txt": {
       "bytes": 3345,
@@ -67,12 +67,12 @@
       "sha256": "d03428dab77a136bd86512276724526798b5d402c92646899255a1e91bf97cf1"
     },
     "compute-session.js": {
-      "bytes": 44358,
-      "sha256": "c51db70573b261341844239e2750e2b49be301829817203442df916a0308345d"
+      "bytes": 46008,
+      "sha256": "a5b98994b5976941bf575a304420bdce3b69838e41343608a3334f7b88a86db3"
     },
     "hover-spec.json": {
-      "bytes": 40320,
-      "sha256": "c29bd6cf97c95cfce8f52c47a810e7bb366da68caa5dc056c4950a07790c7acc"
+      "bytes": 42974,
+      "sha256": "bf1219d38e799461018df56931251c0d25b1ebe6b17ad819be54dddd8e3c600e"
     },
     "node/package-zip.mjs": {
       "bytes": 2861,
@@ -167,8 +167,8 @@
       "sha256": "71213c6c658e10d6c0c71c0f382c724b2402b8a4906c90d37fd8a1f7a5009412"
     },
     "types/frame-scheduler.d.ts": {
-      "bytes": 18116,
-      "sha256": "3f9fb5326533abfa81b23b371cee25bec6a7c691b9472b92759ec6d29833e590"
+      "bytes": 19532,
+      "sha256": "967aec986e17efa5439ddbfad26c2494fb0d6e236966813549146a26dd73a42d"
     },
     "types/geometric/config.d.ts": {
       "bytes": 3304,
@@ -331,8 +331,8 @@
       "sha256": "e4e92893ebddbb87de0d15db950dabde67ac8a324b75f448227050285cc6db4f"
     },
     "types/session-core.d.ts": {
-      "bytes": 25083,
-      "sha256": "a69e28a1065270bb540435b6b6f1f4bdbde53bc26f6ad75b71a3e46efff9a66d"
+      "bytes": 26800,
+      "sha256": "967a2137bb1c4c9a8425f737e3c38c49c95d8f93c378c49de154758f6a93eb01"
     },
     "types/session.d.ts": {
       "bytes": 7617,

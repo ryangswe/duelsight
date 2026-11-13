@@ -8,7 +8,7 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
 
 ## [0.8.1] - unreleased
 
-The recognition runtime moves to cardvision 0.14.0rc1, and two places where DuelSight's own code
+The recognition runtime moves to cardvision 0.14.0rc2, and two places where DuelSight's own code
 differed from the hover spec now follow it. Same bundled cards (`862aec0f937da326`).
 
 ### Changed
@@ -20,8 +20,10 @@ differed from the hover spec now follow it. Same bundled cards (`862aec0f937da32
   by the pace. The background checks that keep a resting card fresh still are.
 - **With "Keep the card I'm pointing at" off, a still card keeps showing between checks.** On a
   slower computer the card could disappear briefly before each check while the pointer rested.
-- **After a check that got no answer, nothing starts until its retry is due**, on every path, so a
-  slow computer is not given more work while it is behind.
+- **After a check that got no answer, the next one waits until its retry is due**, so a slow
+  computer is not given more work while it is behind. Moving the pointer onto a different card is
+  the exception: it starts a check without waiting for the retry, still one at a time and at least
+  250 ms apart.
 - **Turning card hovers on in a tab in the background**, after its card recognition was unloaded
   for being idle, now waits until you bring the tab to the front (S-A7), as a change of "Keep the
   card I'm pointing at" already did. The tab in front loads at once, as before, and so does a

@@ -134,6 +134,11 @@ export interface SessionCoreOptions {
 export declare function progressUpdate(state: SessionStatus["state"], reply: ReleaseProgress): SessionStatus["loading"] | undefined;
 /** The boxes of an analysis's named and unnamed hover cards other than `box`, in fractions. */
 export declare function neighborBoxes(analysis: FrameAnalysis, box: FractionBox, limit?: number): FractionBox[];
+/** How far (as a fraction of the picture's width or height) the pointer must be from where the
+ *  last look started to count as on a different card when no analyzed answer shows the cards yet.
+ *  Half a card's width: a card is about 8 % of a broadcast frame's width (a board of a dozen cards
+ *  spans it). */
+export declare const NEW_CARD_DISTANCE = 0.04;
 export declare class SessionCore {
     private readonly deps;
     readonly scheduler: FrameScheduler;
@@ -193,6 +198,24 @@ export declare class SessionCore {
      *  with the video at `mediaTime` seconds, playing at `rate` when the host knows it. Report real
      *  movement only. */
     pointer(x: number, y: number, mediaTime: number, touch?: boolean, rate?: number): void;
+    /** The newest analyzed answer for this source (it stays through a look that comes back
+     *  unanswered, unlike `result`), and where the pointer was and the card under it when the last
+     *  look started: what a move is compared with (`ontoNewCard`). While a retry waits, no analyzed
+     *  answer arrives (one would end the wait), so both boxes come from this one analysis. */
+    private answered;
+    private lookStart;
+    private answeredFresh;
+    private cardUnderPointer;
+    /** Did a pointer move or tap put the pointer on a different card from the one it was on when the
+     *  last look started? The card is the face box under it in the newest analyzed answer: a box that
+     *  differs (or any box where there was none) is another card; an empty spot is not. Without a
+     *  fresh answer for this source, the pointer is further than `NEW_CARD_DISTANCE` from where it was. */
+    private ontoNewCard;
+    /** A move or tap onto a different card that the gap, the re-look spacing or a look in flight held
+     *  back is asked for again here, at the tick, while the retry still waits: a pointer that landed
+     *  and rests gets its look as soon as those limits allow, not when the retry is due. It stays due
+     *  until a look starts, because `ontoNewCard` compares with where the last look started. */
+    private heldMoveDue;
     /** The pointer left the picture. */
     pointerLeft(): void;
     /** The video presented a frame (playback, a seek ended, a re-arm on canplay/playing), playing at
