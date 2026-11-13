@@ -119,7 +119,9 @@ export class TooltipController {
   private settings: Settings | null = null;
   private readonly health = new SourceHealth();
   private readonly cache = new Map<string, Promise<Resolution>>();
-  private readonly objectUrls = new Map<string, string>();
+  /** The object URL of each picture shown, with the picture it was made from: a URL is used again
+   *  only for that same picture, never for a newer one of the same card. */
+  private readonly objectUrls = new Map<string, { blob: Blob; url: string }>();
   /** One per show(): a picture's chain acts only while its show() is the latest. */
   private seq = 0;
   current: string | null = null;
@@ -156,7 +158,7 @@ export class TooltipController {
     if (this.settings && sameSettings(this.settings, settings)) return;
     this.settings = settings;
     this.cache.clear();
-    for (const url of this.objectUrls.values()) this.deps.revokeObjectURL(url);
+    for (const { url } of this.objectUrls.values()) this.deps.revokeObjectURL(url);
     this.objectUrls.clear();
     if (this.current !== null) this.show(this.current, this.currentSeq, this.currentRelease);
   }
@@ -277,12 +279,15 @@ export class TooltipController {
         const pixels = await this.deps.imageSize(r.blob);
         if (!live()) return;
         const size = artSize(pixels.width, pixels.height);
-        let url = this.objectUrls.get(pictureKey(card));
-        if (!url) {
-          url = this.deps.createObjectURL(r.blob);
-          this.objectUrls.set(pictureKey(card), url);
+        // A newer picture of the same card (its cache entry was let go and fetched again) gets a URL
+        // of its own, and the older URL is revoked.
+        let kept = this.objectUrls.get(pictureKey(card));
+        if (kept?.blob !== r.blob) {
+          if (kept) this.deps.revokeObjectURL(kept.url);
+          kept = { blob: r.blob, url: this.deps.createObjectURL(r.blob) };
+          this.objectUrls.set(pictureKey(card), kept);
         }
-        e.img.src = url;
+        e.img.src = kept.url;
         // Shown once it is drawable, so the placeholder never gives way to an empty box; a
         // picture that does not decode here shows the name (the catch below). Chrome rejects a
         // pending decode() whenever src is set again, even to the same value: the token keeps a
@@ -422,8 +427,8 @@ export class TooltipController {
       while (this.cache.size > CACHE_LIMIT) {
         const oldest = this.cache.keys().next().value as string;
         this.cache.delete(oldest);
-        const url = this.objectUrls.get(oldest);
-        if (url) this.deps.revokeObjectURL(url);
+        const kept = this.objectUrls.get(oldest);
+        if (kept) this.deps.revokeObjectURL(kept.url);
         this.objectUrls.delete(oldest);
       }
     }
