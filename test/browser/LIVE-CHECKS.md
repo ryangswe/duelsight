@@ -7,8 +7,10 @@ check is still done by hand.
 
 The hover browser test is `test/browser/hover-browser.mjs`. It runs in CI on every pull request,
 with a synthetic clip on a local page, so it never sees YouTube, Twitch, real footage or the real
-CDN. Its settings file names no card details file, so the details panel is not shown there. Unit
-tests are the vitest files in `test/`.
+CDN. Its settings file names no card details file, so the details panel is not shown there. Each
+browser check names the clause it covers in the toolkit's hover spec
+([docs/hover-spec.md](https://github.com/ryangswe/riftsight-vision/blob/main/docs/hover-spec.md)),
+in the `CLAUSES` table of the test. Unit tests are the vitest files in `test/`.
 
 The test serves only the four pictures of its clip. A card can be named by another of its
 printings (another Dark Magician, say), whose picture the test does not serve, so the tooltip shows
@@ -33,7 +35,7 @@ future check on the picture must accept any printing of the card.
 | Card hovers on again while a video plays: it loads at once | browser test `on-while-playing-loads` | none |
 | The popup's settings are grayed out while card hovers are off | unit tests in `popup.test.ts` | the look of the popup |
 | Card size and the details switch in the popup | unit tests in `popup.test.ts`, `card-size.test.ts` | the look of the tooltip at 70% and 130% |
-| A second tab of the same page names a card while the first tab plays on | browser test `second-tab-names-card` (one pointer move, then a resting pointer; an expected failure, until toolkit 0.14.0, when the tab's model loads more than 9 s after that move) | none |
+| A second tab of the same page names a card while the first tab plays on | browser test `second-tab-names-card` (one pointer move, then a resting pointer; an expected failure, until the planned toolkit 0.14.0, when the tab's model loads more than 9 s after that move and the first tab's model was ready before the second tab opened) | none |
 | The page opened again uses the browser's cache | browser test `cached-reload` | none |
 | After 10 idle minutes the model is unloaded, and a hover loads it again | browser test `idle-unloads`, `loop-no-reload`, `idle-reload-on-hover` (with a 6-second idle time) | the real 10 minutes |
 | Turning hovers off and on after an idle unload loads at once | browser test `switch-on-after-idle-reloads` | none |
