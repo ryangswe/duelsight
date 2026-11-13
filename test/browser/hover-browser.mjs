@@ -84,22 +84,7 @@ const PRODUCT = {
   cardWidth: 158,
   cardAspect: 86 / 59,
   /** Checks expected to fail on this product's code, each until the change named fixes it. */
-  expectedFail: {
-    // Expected only when its condition holds (`when`). When the new tab's model is ready well
-    // within the window, the card must be named.
-    "second-tab-names-card": {
-      // A model ready just inside the window can still miss its look, so a failure counts as this
-      // limit from 9 s on. The measured time also runs a little long (it starts before the move
-      // and is polled), so a pass counts as unexpected only after 10.5 s. Between the two, either
-      // outcome is accepted. A model never ready within 60 s (readyMs null), or a first tab whose
-      // model was not ready before the second tab opened, is a real failure, not this limit.
-      when: (detail, ok) => detail.firstReady === true && detail.readyMs !== null && detail.readyMs > (ok ? 10_500 : 9_000),
-      condition: "the new tab's model was ready more than 9 s after the pointer's one move for a failure, or more than 10.5 s after it for a pass (the window is 10 s), and the first tab's model was ready before the second tab opened",
-      old: "nothing is read once 10 s have passed since the pointer's last move, so a resting pointer gets no card when the model loads later than that",
-      intended: "a look when the model becomes ready while the pointer still rests on the picture",
-      clearedBy: "the planned toolkit 0.14.0, which will take one look when the model becomes ready while the pointer still rests",
-    },
-  },
+  expectedFail: {},
 };
 
 // The clip: 20 s at 15 frames a second, looping. Each card's place, and when it is on show.

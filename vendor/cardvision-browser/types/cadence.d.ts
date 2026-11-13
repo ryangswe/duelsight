@@ -46,6 +46,8 @@ export type GeometricScope = "all" | "focus";
 /** The scope a session runs. Throws on a value that is not a scope, and on "focus" outside
  *  pointer mode (it needs the pointer to say which faces to verify). */
 export declare function resolveGeometricScope(scope: GeometricScope | undefined, mode: AnalysisMode | undefined): GeometricScope;
+/** The median of the last `MEASURED_PACING_WINDOW` values. */
+export declare function recentMedian(timesMs: readonly number[]): number;
 /**
  * The wait between analyses under measured pacing.
  * @param fixedMs Today's fixed interval for the mode and backend: the wait is never shorter, and
@@ -71,12 +73,4 @@ export declare class MeasuredPacer {
     activeMs(ep: ExecutionProvider | null): number;
     /** The wait in always-on mode. */
     slowMs(ep: ExecutionProvider | null): number;
-    /** The least spacing between looks that keeps analysis within the share, up to the ceiling: the
-     *  median of the measured times divided by the share, at most `MEASURED_PACING_ACTIVE_CEILING_MS`
-     *  (4000 ms), with no fixed rate under it. Above the ceiling (an analysis longer than the share of
-     *  4000 ms: 1000 ms at the default 0.25) the spacing stays 4000 ms and analysis takes a larger
-     *  share, as the cadence does at its own ceiling. It applies from the first measured analysis
-     *  (0 before), because the looks it spaces (the playing relook,
-     *  `FrameScheduler.setRelookSpacingMs`) have no fixed rate to fall back on. */
-    spacingMs(): number;
 }

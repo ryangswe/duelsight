@@ -84,7 +84,8 @@ const legalDir = join(root, "release-legal");
 const out = resolve(root, values.out);
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
 const vendorDir = join(root, "vendor", "cardvision-browser");
-const vendor = JSON.parse(readFileSync(join(vendorDir, "VENDOR.json"), "utf-8"));
+// The toolkit's vendor manifest: the commit, and the ONNX Runtime version and files the worker loads.
+const vendor = JSON.parse(readFileSync(join(vendorDir, "cardvision-vendor.json"), "utf-8"));
 
 // ------------------------------------------------------------------ 1. the release, verified
 const { loadReleaseData } = await import(pathToFileURL(join(vendorDir, "cardvision.js")).href);
@@ -96,7 +97,7 @@ const fileFetch = async (url) => {
 };
 const digestSha256Hex = async (bytes) => createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 const releaseUrl = pathToFileURL(join(releaseDir, "release.json")).href;
-const checked = await loadReleaseData(releaseUrl, { fetchFn: fileFetch, digestSha256Hex }, { ortWeb: vendor.onnxruntimeWeb });
+const checked = await loadReleaseData(releaseUrl, { fetchFn: fileFetch, digestSha256Hex }, { ortWeb: vendor.ort.version });
 if (!checked.ok) {
   console.error(`the release in ${releaseDir} did not pass the runtime's verification: ${checked.reason}`);
   process.exit(1);
@@ -115,8 +116,8 @@ if (legalProblem) {
 // ------------------------------------------------------------------ 2. ONNX Runtime's files
 const ortPkgDir = join(dirname(createRequire(import.meta.url).resolve("onnxruntime-web")), "..");
 const ortVersion = JSON.parse(readFileSync(join(ortPkgDir, "package.json"), "utf-8")).version;
-if (ortVersion !== vendor.onnxruntimeWeb) {
-  console.error(`onnxruntime-web ${ortVersion} is installed; the vendored runtime is built on ${vendor.onnxruntimeWeb}. Run npm ci.`);
+if (ortVersion !== vendor.ort.version) {
+  console.error(`onnxruntime-web ${ortVersion} is installed; the vendored runtime is built on ${vendor.ort.version}. Run npm ci.`);
   process.exit(1);
 }
 
@@ -175,7 +176,7 @@ writeFileSync(join(out, "popup.html"), readFileSync(join(root, "static", "popup.
 for (const name of ["worker.js", "worker.js.LEGAL.txt"]) {
   copyFileSync(join(vendorDir, name), join(out, "runtime", name));
 }
-for (const name of vendor.ortFiles) copyFileSync(join(ortPkgDir, "dist", name), join(out, "runtime", name));
+for (const name of vendor.ort.files) copyFileSync(join(ortPkgDir, "dist", name), join(out, "runtime", name));
 
 // ------------------------------------------------------------------ 4. the release and card data
 const pinned = [release.detector.path, release.recognizer.path, release.bank.path, release.identity.groups.path, release.catalog.path];
@@ -219,7 +220,7 @@ const kind = firefox
   : values.dev ? "(dev build) " : values.store ? "(Web Store build, no key) " : "(unpacked build, fixed ID) ";
 console.log(`dist/ ${kind}${config.name} ${pkg.version} at ${commit}`);
 console.log(`  release ${release.id} (${release.game}, ${release.bank.cardCount} cards in the bank), verified by the runtime`);
-console.log(`  runtime ${vendor.package} ${vendor.version} at ${vendor.commit.slice(0, 7)}, onnxruntime-web ${ortVersion}`);
+console.log(`  runtime cardvision ${vendor.toolkit.version} at ${vendor.toolkit.commit.slice(0, 7)}, onnxruntime-web ${ortVersion}`);
 console.log(`  content.js ${kb("content.js")}, compute.js ${kb("compute.js")}, tooltip.js ${kb("tooltip.js")}, runtime/worker.js ${kb("runtime/worker.js")}`);
 console.log(`  ${Object.keys(table).length} cards in data/cards.json (names from the release catalog)`);
 // A dev build may hold them (a smoke on an unconverted release); `npm run package` refuses them.

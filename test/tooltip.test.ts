@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Settings } from "../src/settings/schema.js";
-import { artSize, connectTooltipFrame, FACTS_LIMIT, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
+import { artSize, CACHE_LIMIT, connectTooltipFrame, FACTS_LIMIT, LANDSCAPE_WIDTH, PORTRAIT_WIDTH, TooltipController, type TooltipDeps, type TooltipElements } from "../src/tooltip/controller.js";
 import { parseDetailsFile } from "../src/details/details.js";
 import { DETAILS_FIXTURE, DETAILS_FR_FIXTURE } from "./helpers/details-fixture.js";
 import { parseCardFacts, tag, type TooltipSize } from "../src/shared/messages.js";
@@ -336,6 +336,28 @@ describe("settings read again while a card is on show", () => {
     await tick();
     expect(loads).toEqual(["https://art.example/art/89631139.jpg", "https://art.example/art/token_1.png"]);
     expect(revoked).toBe(0);
+  });
+
+  it("gives a card's picture fetched again its own URL, and revokes the one it replaced", async () => {
+    // More cards than the picture cache keeps: the first card's picture is let go, then fetched again.
+    const many = Object.fromEntries(Array.from({ length: CACHE_LIMIT + 2 }, (_, i) => [`c${i}`, [`Card ${i}`, "TST", `c${i}.jpg`]]));
+    let made = 0;
+    const revoked: string[] = [];
+    controller = build({ table: many as never, createObjectURL: () => `blob:${(made += 1)}`, revokeObjectURL: (url) => void revoked.push(url) });
+    controller.setSettings(defaultSettings());
+    controller.show("c0");
+    await tick();
+    const first = elements.img.getAttribute("src");
+    for (let i = 1; i <= CACHE_LIMIT; i += 1) {
+      controller.show(`c${i}`);
+      await tick();
+    }
+    expect(revoked).toEqual([first]);
+    controller.show("c0");
+    await tick();
+    expect(loads.filter((u) => u.endsWith("/c0.jpg"))).toHaveLength(2);
+    expect(elements.img.getAttribute("src")).not.toBe(first);
+    expect(revoked).not.toContain(elements.img.getAttribute("src"));
   });
 
   it("still tries every source again when the settings are the same (the hourly retry of a failing source)", async () => {

@@ -93,6 +93,11 @@ export interface SessionCoreDeps {
      *  date then use it; without it, the time last reported by `pointer` or `presented` (a paused
      *  video reports none, so a host that can read the time should give it). */
     mediaTimeNow?(): number;
+    /** The video's playback rate now, for a host that can read it (`createSession`: its own video).
+     *  It sets how long an answer may stay on screen in wall time (the max age over the rate), which
+     *  the stale-picture look and the shown hold's reading wait are timed by. Without it the rate is
+     *  measured from the video times reported with `pointer` and `presented` (1 until measured). */
+    playbackRate?(): number;
 }
 export interface SessionCoreOptions {
     /** "pointer" (the default): analyze only around pointer activity. "always-on": analyze for as
@@ -117,8 +122,10 @@ export interface SessionCoreOptions {
      *  `pointerLeft` until the next `pointer`) no picture is asked for, so a pointer that comes back
      *  to a playing video finds the newest analyzed frame stale and the staleness rule asks for a
      *  look on that `pointer` call. A load that ends with the pointer active over the picture asks
-     *  at once instead of at the next `tick`. Off by default here; the compute frame turns it on
-     *  (`startComputeFrame`). No effect in "always-on" mode. */
+     *  at once instead of at the next `tick` or the cadence, and one that ends under a mouse resting
+     *  past its grace period, within `MAX_REST_MS` of its last move, asks one look (a slow start,
+     *  `lookOnLoad`). Off by default here; the compute frame turns it on (`startComputeFrame`). No
+     *  effect in "always-on" mode. */
     entryLook?: boolean;
 }
 /** What `status().loading` becomes on a release-progress reply: the reply's phase while the
@@ -127,6 +134,11 @@ export interface SessionCoreOptions {
 export declare function progressUpdate(state: SessionStatus["state"], reply: ReleaseProgress): SessionStatus["loading"] | undefined;
 /** The boxes of an analysis's named and unnamed hover cards other than `box`, in fractions. */
 export declare function neighborBoxes(analysis: FrameAnalysis, box: FractionBox, limit?: number): FractionBox[];
+/** How far (as a fraction of the picture's width or height) the pointer must be from where the
+ *  last look started to count as on a different card when no analyzed answer shows the cards yet.
+ *  Half a card's width: a card is about 8 % of a broadcast frame's width (a board of a dozen cards
+ *  spans it). */
+export declare const NEW_CARD_DISTANCE = 0.04;
 export declare class SessionCore {
     private readonly deps;
     readonly scheduler: FrameScheduler;
@@ -165,15 +177,50 @@ export declare class SessionCore {
      *  was seen in at the pointer since it was first shown, which the pointer must stay on, and the
      *  `reading` fields hold the rest (see `readingHold`). */
     private held;
+    /** The round trips (capture asked for to reply, ms) of the latest analyzed replies that were not
+     *  reused, oldest first: R is their median (`staleBudgetMs`). */
+    private roundTrips;
+    /** The playback rate, measured from the video times the host reports (`noteMediaTime`); 1 until
+     *  measured. */
+    private playbackRate;
+    /** Where the rate is measured from: a report of the video's time, in this generation, and the
+     *  latest report since it (the play from the anchor has been continuous up to it). */
+    private rateAnchor;
+    /** A slow start's one picture is out (`lookOnLoad`): the prompt retry of its failed capture is
+     *  part of it. Cleared once a picture arrives for it, or anything else happens. */
+    private slowStart;
+    /** A load ended under an eligible pointer while a retry waited out its back-off: the load's look
+     *  is asked once the retry is due (`loadEndDue`), not at the paced cadence. */
+    private loadEndPending;
     constructor(deps: SessionCoreDeps, options?: SessionCoreOptions);
     private get videoKey();
     /** The pointer moved over the picture (or touched it) at (x, y) in fractions of the picture,
-     *  with the video at `mediaTime` seconds. Report real movement only. */
-    pointer(x: number, y: number, mediaTime: number, touch?: boolean): void;
+     *  with the video at `mediaTime` seconds, playing at `rate` when the host knows it. Report real
+     *  movement only. */
+    pointer(x: number, y: number, mediaTime: number, touch?: boolean, rate?: number): void;
+    /** The newest analyzed answer for this source (it stays through a look that comes back
+     *  unanswered, unlike `result`), and where the pointer was and the card under it when the last
+     *  look started: what a move is compared with (`ontoNewCard`). While a retry waits, no analyzed
+     *  answer arrives (one would end the wait), so both boxes come from this one analysis. */
+    private answered;
+    private lookStart;
+    private answeredFresh;
+    private cardUnderPointer;
+    /** Did a pointer move or tap put the pointer on a different card from the one it was on when the
+     *  last look started? The card is the face box under it in the newest analyzed answer: a box that
+     *  differs (or any box where there was none) is another card; an empty spot is not. Without a
+     *  fresh answer for this source, the pointer is further than `NEW_CARD_DISTANCE` from where it was. */
+    private ontoNewCard;
+    /** A move or tap onto a different card that the gap, the re-look spacing or a look in flight held
+     *  back is asked for again here, at the tick, while the retry still waits: a pointer that landed
+     *  and rests gets its look as soon as those limits allow, not when the retry is due. It stays due
+     *  until a look starts, because `ontoNewCard` compares with where the last look started. */
+    private heldMoveDue;
     /** The pointer left the picture. */
     pointerLeft(): void;
-    /** The video presented a frame (playback, a seek ended, a re-arm on canplay/playing). */
-    presented(mediaTime: number): void;
+    /** The video presented a frame (playback, a seek ended, a re-arm on canplay/playing), playing at
+     *  `rate` when the host knows it. */
+    presented(mediaTime: number, rate?: number): void;
     /** A seek, or a new source: nothing analyzed before it is shown again. */
     discontinuity(newSource: boolean): void;
     /** The picture under the shown card changed without a seek: look again at once. */
@@ -190,17 +237,67 @@ export declare class SessionCore {
      *  blank) and is looked at again after a back-off; otherwise a refusal, retried by nothing. */
     captureFailed(requestId: number, reason: string, retry?: boolean): void;
     fromWorker(reply: WorkerReply): void;
-    /** With the entry look, once a load has installed its release, cadence and pending picture: one
-     *  scheduling evaluation now, as the next `tick` would make, when the pointer is eligible. No
-     *  pointer activity is made up for it, and the page's gate still decides on the capture. */
+    /**
+     * With the entry look, once a load has installed its release, cadence and pending picture: a
+     * look at once when the pointer is eligible. The viewer is waiting on it, so the cadence (paced
+     * or not) does not hold it back; a retry waiting out its back-off does (`loadEndDue`). No
+     * pointer activity is made up for it, and the page's gate still decides on the capture.
+     *
+     * A slow start: a mouse that still rests over the picture past its grace period, within
+     * `MAX_REST_MS` of its last activity, gets one look (one picture: a failed capture's prompt
+     * retry is part of it, `tick`). If it finds a card, the card keeps analysis going under the usual
+     * rules (the "reading" state); if not, nothing more is asked until the pointer moves. A tap gets
+     * none: its window is the grace period alone.
+     */
     private lookOnLoad;
+    /** A mouse over the picture, past its grace period, within `MAX_REST_MS` of its last activity. */
+    private slowStartEligible;
+    /** A slow start's failed capture is retried when its back-off runs out (prompt), as long as the
+     *  pointer still rests within `MAX_REST_MS`. */
+    private slowStartRetryDue;
     /** Whether the pointer is over the picture and active: a mouse with activity within the grace
      *  period, or a tap whose window (the same grace period, opened by the tap) is still open. A
      *  pointer that rests past it, or one that left, is not: being over the picture is not enough. */
     private entryEligible;
-    /** Arm the scheduler with the cadence for the backend: today's fixed rates, or the measured
-     *  ones with `measuredPacing`. */
+    /**
+     * Arm the scheduler with the cadence for the backend: today's fixed rates, or the measured ones
+     * with `measuredPacing`, and the limits the measured round trip and playback rate set:
+     *
+     *   - the stale-picture threshold (pointer mode): the budget `staleBudgetMs` in video time (B
+     *     times the playback rate);
+     *   - the focus re-look of a playing picture: the fast cadence F, start to start, not paced (a
+     *     viewer waits on it);
+     *   - with a hold that ends (`SHOWN_HOLD`, not a reading hold), the reading wait comes before the
+     *     card's hold runs out: at most L + `maxMs` - R - M once a round trip is known, not below the
+     *     slow cadence and not above the paced wait (L the lifetime, R the round trip, M one driver
+     *     tick).
+     */
     private applyCadence;
+    /** L: how long an answer may stay on screen, in ms of wall time: the release's max age over the
+     *  playback rate. */
+    private lifetimeMs;
+    /**
+     * B, the budget of the stale-picture look, in wall ms: max(F, min(P, L - R - M)), with F the
+     * fast cadence, P the paced wait of an active pointer (F with pacing off, and until enough
+     * analyses are measured), L the lifetime, R the median round trip and M one driver tick. The
+     * look starts as late as keeps its answer on screen for the whole of its lifetime, and no later
+     * than the paced wait. F until a round trip is known. It is in wall time: the scheduler compares
+     * video age with B times the playback rate.
+     */
+    private staleBudgetMs;
+    /**
+     * A report of the video's time (a pointer message or a presented frame) at `now`, with the rate
+     * the report carries, if any. The rate is, in order: the one the host reads
+     * (`SessionCoreDeps.playbackRate`); the one the report carries (the content script reads its
+     * video's, `ComputeIn` `rate`); else measured from reports of continuous play: two reports at
+     * least `RATE_WINDOW_MS` apart in one generation (no seek, source or cut between), each report
+     * between them advancing the video and coming within `RATE_GAP_MS` of the one before. A report
+     * that shows no advance (paused, stalled), comes later than that (a page in the background), or a
+     * new generation starts the measure over, and keeps the rate as it was. A measure is rounded to
+     * `RATE_STEP` and one under `MIN_RATE` is dropped. A changed rate re-arms the scheduler.
+     */
+    private noteMediaTime;
+    private setPlaybackRate;
     private onFrameResult;
     /** Call every `DRIVER_TICK_MS`. */
     tick(): void;

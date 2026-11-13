@@ -8,7 +8,7 @@
 // tracked files. It writes <packageName>-<version>-firefox-source.zip holding:
 //   duelsight/            this repository at HEAD (git archive)
 //   cardvision-browser/   the vendored runtime's source: the toolkit's browser/ folder, LICENSE
-//                         and NOTICE at the commit vendor/cardvision-browser/VENDOR.json records
+//                         and NOTICE at the commit vendor/cardvision-browser/cardvision-vendor.json records
 //   release/<id>/         the release the package bundles (models and card data: data, not code)
 //   README.md             what reviewers need: requirements, steps, what is third-party
 //   build-firefox.sh      the steps, as one script: it rebuilds the runtime, checks it against
@@ -49,12 +49,12 @@ if (dirty) {
 }
 const commit = git(root, "rev-parse", "HEAD");
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).version;
-const vendor = JSON.parse(readFileSync(join(root, "vendor", "cardvision-browser", "VENDOR.json"), "utf-8"));
+const vendor = JSON.parse(readFileSync(join(root, "vendor", "cardvision-browser", "cardvision-vendor.json"), "utf-8"));
 const runtimeRepo = resolve(values["runtime-repo"]);
 try {
-  git(runtimeRepo, "cat-file", "-e", `${vendor.commit}^{commit}`);
+  git(runtimeRepo, "cat-file", "-e", `${vendor.toolkit.commit}^{commit}`);
 } catch {
-  console.error(`${runtimeRepo} does not have the runtime's commit ${vendor.commit} (vendor/cardvision-browser/VENDOR.json)`);
+  console.error(`${runtimeRepo} does not have the runtime's commit ${vendor.toolkit.commit} (vendor/cardvision-browser/cardvision-vendor.json)`);
   process.exit(1);
 }
 const releaseDir = resolve(values.release);
@@ -73,7 +73,7 @@ try {
   };
   for (const [dir, tar] of [
     ["duelsight", untar(root, "HEAD")],
-    ["cardvision-browser", untar(runtimeRepo, vendor.commit, "browser", "LICENSE", "NOTICE")],
+    ["cardvision-browser", untar(runtimeRepo, vendor.toolkit.commit, "browser", "LICENSE", "NOTICE")],
   ]) {
     mkdirSync(join(top, dir));
     execFileSync("tar", ["-x", "-C", join(top, dir)], { input: tar });
@@ -94,7 +94,7 @@ try {
   rmSync(work, { recursive: true, force: true });
 }
 console.log(`wrote ${outZip}`);
-console.log(`  ${config.name} ${version} at ${commit.slice(0, 7)}; runtime source at ${vendor.commit.slice(0, 7)}; release ${release.id}`);
+console.log(`  ${config.name} ${version} at ${commit.slice(0, 7)}; runtime source at ${vendor.toolkit.commit.slice(0, 7)}; release ${release.id}`);
 console.log("  check it: unzip it into an empty folder, run ./build-firefox.sh, and compare out/ with the package you upload");
 
 function buildScript({ releaseId, packageZip }) {
@@ -162,7 +162,7 @@ It does three things:
 | --- | --- |
 | \`background.js\`, \`content.js\`, \`compute.js\`, \`tooltip.js\`, \`popup.js\` | \`duelsight/src/\` (TypeScript), bundled and minified by esbuild (\`duelsight/scripts/build.mjs\`). \`compute.js\` includes the runtime's \`compute-session.js\` and \`remote-release.js\`, and \`content.js\` its \`page-capture.js\`. |
 | \`runtime/worker.js\` | the runtime's worker, built from \`cardvision-browser/browser/src/\` by esbuild (step 1). It includes ONNX Runtime Web's JavaScript. |
-| \`runtime/ort-wasm-simd-threaded.jsep.mjs\`, \`.wasm\` | ONNX Runtime Web ${vendor.onnxruntimeWeb} from npm (\`onnxruntime-web\`), unmodified. |
+| \`runtime/ort-wasm-simd-threaded.jsep.mjs\`, \`.wasm\` | ONNX Runtime Web ${vendor.ort.version} from npm (\`onnxruntime-web\`), unmodified. |
 | \`release/\` | the recognition release ${releaseId}: two ONNX models and JSON card data (a card list and reference vectors). Data, not code. |
 | \`data/cards.json\` | card names, made from the release's card list at build time. |
 | \`*.html\`, \`*.css\`, \`icons/\` | \`duelsight/static/\` and \`duelsight/icons/\`, copied. |
@@ -174,6 +174,6 @@ and ONNX data, checked against SHA-256 pins). Every script and the WebAssembly a
 ## Versions
 
 - ${config.name}: commit \`${commit}\`.
-- cardvision-browser (the runtime, Apache-2.0): commit \`${vendor.commit}\` (${vendor.toolkitRelease ?? "the toolkit"}).
+- cardvision-browser (the runtime, Apache-2.0): commit \`${vendor.toolkit.commit}\` (cardvision ${vendor.toolkit.version}).
 `;
 }

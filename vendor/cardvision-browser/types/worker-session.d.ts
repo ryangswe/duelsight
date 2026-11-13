@@ -84,6 +84,8 @@ export interface WorkerSessionEnv {
     /** The time of the picture on screen now, when the host can read it (the core's
      *  `mediaTimeNow`). */
     mediaTimeNow?(): number;
+    /** The video's playback rate now, when the host can read it (the core's `playbackRate`). */
+    playbackRate?(): number;
 }
 export interface WorkerSession {
     /** Null only while `chooseRelease` decides. */

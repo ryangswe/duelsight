@@ -836,8 +836,19 @@ describe("Agent", () => {
   describe("loads when the video plays (owner, 2026-11-10)", () => {
     const play = () => {
       media.paused = false;
-      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(trusted(new Event("playing"), true));
     };
+
+    it("ignores a `playing` a page script makes: only the browser's own loads (hover spec S-A1)", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      media.paused = false;
+      video.dispatchEvent(trusted(new Event("playing"), false));
+      document.body.dispatchEvent(trusted(new Event("playing"), false));
+      expect(frames()).toEqual([]);
+      play();
+      expect(compute()).toBeDefined();
+    });
 
     it("makes both frames when the main video starts playing, with no pointer (hover-speed plan, 2026-11-12)", async () => {
       media.paused = true;
@@ -887,10 +898,10 @@ describe("Agent", () => {
       video.remove();
       document.body.appendChild(next);
       // A `playing` from the page while the new video is still paused (another element): nothing.
-      document.body.dispatchEvent(new Event("playing"));
+      document.body.dispatchEvent(trusted(new Event("playing"), true));
       expect(frames()).toEqual([]);
       nextPaused = false;
-      next.dispatchEvent(new Event("playing"));
+      next.dispatchEvent(trusted(new Event("playing"), true));
       expect(compute()).toBeDefined();
       expect(tooltip()).toBeDefined();
     });
@@ -960,7 +971,7 @@ describe("Agent", () => {
     const goIdle = () => fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
     const play = () => {
       media.paused = false;
-      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(trusted(new Event("playing"), true));
     };
 
     it("removes both frames when the compute frame goes idle, a card shown or not", async () => {
@@ -1099,7 +1110,7 @@ describe("Agent", () => {
       agent.keepCardChanged();
       expect(frames()).toEqual([]);
       media.paused = false;
-      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(trusted(new Event("playing"), true));
       expect(frames()).toHaveLength(2);
       fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
       expect(frames()).toEqual([]);
@@ -1139,13 +1150,77 @@ describe("Agent", () => {
         agent = await startAgent();
         view("hidden");
         agent.keepCardChanged();
-        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
-        expect(frames()).toEqual([]);
-        // Made again out of view (a background tab whose video plays after switching on again).
+        // Made again out of view: switched off and on, with no idle unload, while the video plays.
         agent.setEnabled(false);
         agent.setEnabled(true);
         const made = compute();
         expect(made).toBeDefined();
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("switched on out of view after an idle unload: makes the frames once, when the tab comes into view (hover spec S-A7)", async () => {
+        agent = await startAgent();
+        view("hidden");
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        expect(frames()).toEqual([]);
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        expect(frames()).toEqual([]);
+        // The video's own `playing` (a loop) still makes nothing out of view.
+        video.dispatchEvent(trusted(new Event("playing"), true));
+        expect(frames()).toEqual([]);
+        view("visible");
+        const made = compute();
+        expect(made).toBeDefined();
+        expect(tooltip()).toBeDefined();
+        view("hidden");
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("switched on out of view after an idle unload: a later play makes nothing, even after an earlier switch-on while paused", async () => {
+        agent = await startAgent();
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        // Switched off and on in view while paused: nothing loads (it would at the next play).
+        media.paused = true;
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        expect(frames()).toEqual([]);
+        // Out of view, switched off and on again; then the video plays there.
+        view("hidden");
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        media.paused = false;
+        video.dispatchEvent(trusted(new Event("playing"), true));
+        expect(frames()).toEqual([]);
+        view("visible");
+        expect(compute()).toBeDefined();
+      });
+
+      it("switched on out of view after an idle unload, then off again: makes nothing in view", async () => {
+        agent = await startAgent();
+        view("hidden");
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        agent.setEnabled(false);
+        view("visible");
+        expect(frames()).toEqual([]);
+      });
+
+      it("switched on out of view after an idle unload, with a keep-card change pending: one frame in view", async () => {
+        agent = await startAgent();
+        view("hidden");
+        agent.keepCardChanged();
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        view("visible");
+        const made = compute();
+        expect(made).toBeDefined();
+        expect(document.querySelectorAll("iframe")).toHaveLength(2);
+        view("hidden");
         view("visible");
         expect(compute()).toBe(made);
       });

@@ -40,13 +40,16 @@ export type ComputeIn =
     kind: "hello";
     version: number;
 }
-/** The pointer over the picture, in fractions of the picture; `mediaTime` is the video's time. */
+/** The pointer over the picture, in fractions of the picture; `mediaTime` is the video's time,
+ *  `rate` its playback rate (optional; a finite number, clamped to `MIN_PLAYBACK_RATE` to
+ *  `MAX_PLAYBACK_RATE` on arrival). */
  | {
     kind: "pointer";
     x: number;
     y: number;
     mediaTime: number;
     touch: boolean;
+    rate?: number;
 }
 /** The pointer left the picture. */
  | {
@@ -57,10 +60,12 @@ export type ComputeIn =
  | {
     kind: "intent";
 }
-/** The video presented a new frame (playback, a seek ended, the video became ready). */
+/** The video presented a new frame (playback, a seek ended, the video became ready); `rate` as
+ *  for `pointer`. */
  | {
     kind: "presented";
     mediaTime: number;
+    rate?: number;
 }
 /** A seek started, or the video was given another source (`newSource`). */
  | {
@@ -114,6 +119,9 @@ export type ComputeOut =
     kind: "shown";
     card: ShownCard | null;
 };
+/** The least and most playback rate a `rate` field is clamped to: the rates a browser plays at. */
+export declare const MIN_PLAYBACK_RATE = 0.0625;
+export declare const MAX_PLAYBACK_RATE = 16;
 /** The largest picture the compute frame takes, per side: above the widest analysis frame (1920)
  *  and any sane height at that width. A larger one (only a page posting to the frame could send
  *  it) is refused and closed. */

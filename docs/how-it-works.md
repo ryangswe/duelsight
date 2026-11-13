@@ -93,7 +93,10 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   `ImageBitmap`. It gives a picture on the authority of pointer events the browser marks as
   trusted, and of no others: while the pointer is over the picture and for 10 seconds after it last moved there,
   while a card shows under the resting pointer and 5 seconds after, never more than 60 seconds
-  after the last move, and for 10 seconds after a tap. Before each picture it checks that the
+  after the last move, and for 10 seconds after a tap. When the model finishes loading after those
+  10 seconds while the pointer still rests over the picture, it gives one picture then (within the
+  60 seconds; a tap gets none). If that picture shows no card, it gives no more until the pointer
+  moves. Before each picture it checks that the
   last pointer position is still over the video. It takes a message from its frames when the
   browser delivered it from them, and ignores one a page made up.
 - **The compute frame** decides when to analyze and runs the hover rule; its worker runs the
@@ -141,9 +144,6 @@ another source, or off, without a new extension release:
   the lowest extension version that may load it), so that new cards reach installs without a store
   update. See "The release pointer" in [cdn/SETTINGS.md](../cdn/SETTINGS.md).
 - `cardLink` and `geometric` are retired fields: a file may still carry them; they are ignored.
-- The tooltip's link to Konami's official card database is built by `src/tooltip/card-link.ts` as
-  an address (a card page when the catalog row has a `konamiId`, else a name search). It is
-  never fetched.
 
 The file is checked strictly. A file that cannot be used leaves the last good copy in effect, or
 the copy built into the extension. An image source on a host the extension has no permission

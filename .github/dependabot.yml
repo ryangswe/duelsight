@@ -7,8 +7,8 @@
 # they arrive apart from everything else (a major update of one still goes to the main group).
 #
 # Held:
-#   - onnxruntime-web: it stays at exactly the version vendor/cardvision-browser/VENDOR.json
-#     records; the build refuses a mismatch. Moving it means re-vendoring the cardvision runtime
+#   - onnxruntime-web: it stays at exactly the version vendor/cardvision-browser/cardvision-vendor.json
+#     records (ort.version); the build refuses a mismatch. Moving it means re-vendoring the cardvision runtime
 #     and a store release, which is its own change.
 #   - @types/node 25 and later: the types stay on the Node versions CI runs (22 and 24).
 # tools/promo-video/ is not covered: Remotion, React and puppeteer-core are pinned there so the
