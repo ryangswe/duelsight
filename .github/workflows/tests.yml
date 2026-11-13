@@ -11,6 +11,14 @@
 # page of the version that first bundled it, pinned by the zip's SHA-256. A change that bundles a
 # new card release (release-legal/NOTICE names it) moves these pins to where that release is
 # published.
+#
+# The hover browser test (test/browser/hover-browser.mjs) loads two dev builds, from the same card
+# release, in headless Chrome for Testing on a local page. Its clip is rendered from official card
+# pictures fetched at setup, which are never kept. It asserts the hover behaviors: frames at play,
+# the card's picture, the outline, the kept card, the switches, the idle unload and no request
+# leaving the machine. Chrome needs one kernel setting on Ubuntu 24.04, because AppArmor otherwise
+# blocks the user namespaces of its sandbox ("No usable sandbox"). The smoke scripts in test/smoke/
+# print and assert nothing, so they stay local tools.
 name: Tests
 
 on:
@@ -81,3 +89,57 @@ jobs:
           version=$(node -p 'require("./package.json").version')
           unzip -q "duelsight-$version-firefox.zip" -d "$RUNNER_TEMP/firefox"
           npx --yes "web-ext@$WEB_EXT_VERSION" lint --source-dir "$RUNNER_TEMP/firefox"
+
+  hover-browser:
+    name: Hover browser test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # The same card release and pins as the build job: move them together.
+      RELEASE_ID: 862aec0f937da326
+      RELEASE_ZIP_URL: https://github.com/ryangswe/duelsight/releases/download/v0.8.0/duelsight-0.8.0.zip
+      RELEASE_ZIP_SHA256: dd90b32888b9a6a7441937c4281cc057cf736049185088d269c8f2caa296df1c
+      RELEASE_ZIP_FOLDER: duelsight-0.8.0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: The card release, from its release page
+        run: |
+          zip="$RUNNER_TEMP/release-source.zip"
+          curl -fsSL --retry 3 -o "$zip" "$RELEASE_ZIP_URL"
+          echo "$RELEASE_ZIP_SHA256  $zip" | sha256sum -c -
+          unzip -q "$zip" "$RELEASE_ZIP_FOLDER/release/*" -d "$RUNNER_TEMP/release-source"
+          dir="$RUNNER_TEMP/release-source/$RELEASE_ZIP_FOLDER/release"
+          node -e 'const r = require(process.argv[1]); if (r.id !== process.argv[2]) { console.error(`release ${r.id}, expected ${process.argv[2]}`); process.exit(1); }' "$dir/release.json" "$RELEASE_ID"
+          echo "RELEASE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Two dev builds (the second unloads after 6 idle seconds)
+        run: |
+          npm run build -- --dev --release "$RELEASE_DIR" --out dist
+          npm run build -- --dev --release "$RELEASE_DIR" --idle-unload-ms 6000 --out dist-idle
+      - name: Install Chrome for Testing, puppeteer-core and ffmpeg
+        run: |
+          set -eu
+          npm install --no-save --prefix "$RUNNER_TEMP/pcore" puppeteer-core@25.17.0
+          # Pinned, so a new Chrome release never changes a run on its own: move both pins together.
+          npx --yes @puppeteer/browsers@3.2.7 install chrome@157.0.8103.78 --path "$RUNNER_TEMP/cft" | tee "$RUNNER_TEMP/cft.txt"
+          echo "CHROME=$(tail -n1 "$RUNNER_TEMP/cft.txt" | cut -d' ' -f2-)" >> "$GITHUB_ENV"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Run the hover browser test
+        env:
+          PUPPETEER_CORE_DIR: ${{ runner.temp }}/pcore
+        run: |
+          node test/browser/hover-browser.mjs --chrome "$CHROME" --release "$RELEASE_DIR" \
+            --art "$RUNNER_TEMP/art" --fetch-art --dist dist --dist-idle dist-idle --out "$RUNNER_TEMP/hover-browser"
+      - name: Keep the report, the event log and the NetLogs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hover-browser
+          path: ${{ runner.temp }}/hover-browser
+          if-no-files-found: warn

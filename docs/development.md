@@ -121,6 +121,11 @@ pointer on a card.
 `test/smoke/smoke.mjs` does the same headlessly in Chrome for Testing and prints the cards it
 was shown (see the comment at its top; it needs `puppeteer-core`, which is not a dependency).
 
+`test/browser/hover-browser.mjs` is the asserting version: it renders its own clip from four card
+pictures fetched at setup (never kept), checks the hover behaviors and fails when one breaks. CI
+runs it on every pull request ("Hover browser test"); the comment at its top says how to run it
+here. `test/browser/LIVE-CHECKS.md` lists the release's live checks and which of them it covers.
+
 ## Maintainer notes
 
 - **The card-art CDN** (card images and the settings file) is published from `cdn/` with

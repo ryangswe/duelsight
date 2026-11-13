@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-idle/
 release/
 *.zip
 .DS_Store
