@@ -12,7 +12,7 @@ starts from the same files. How to make new ones is in
 | `1-hover-1280x800.jpg` | 1280×800 | Chrome Web Store, addons.mozilla.org | A paused frame of Konami's Master Duel Challenger Cup broadcast: a hover on Dracotail Gulamel, with the card details beside it. |
 | `2-paper-1280x800.jpg` | 1280×800 | Chrome Web Store, addons.mozilla.org | A paused frame of Konami's NAWCQ Minneapolis broadcast, a paper table seen from above: a hover on S:P Little Knight, with the card details. |
 | `3-card-alone-1280x800.jpg` | 1280×800 | Chrome Web Store, addons.mozilla.org | The same hover with card details switched off: the enlarged card on its own. |
-| `4-popup-1280x800.jpg` | 1280×800 | Chrome Web Store, addons.mozilla.org | The toolbar popup: on/off, card details, card language, card size. |
+| `4-popup-1280x800.jpg` | 1280×800 | Chrome Web Store, addons.mozilla.org | The toolbar popup: on/off, card details, card language, keep the card, card size. |
 | `promo-small-440x280.jpg` | 440×280 | Chrome Web Store (small promo tile) | Drawn around the S:P Little Knight card picture from the paper hover. |
 | `promo-marquee-1400x560.jpg` | 1400×560 | Chrome Web Store (marquee promo tile) | Drawn around a crop of the Master Duel hover. |
 
@@ -48,3 +48,7 @@ Konami.
 The Card language menu came in 0.7.0 (2026-11-09): `4-popup` was captured again from the built
 extension (dark color scheme, as before), and its caption in `scripts/store-templates.mjs` now names
 the language. The other images are unchanged.
+
+The "Keep the card I'm pointing at" switch came in 0.8.0 (2026-11-12): `4-popup` was captured again
+from the built extension in the same way, and its caption names the switch. The other images are
+unchanged.

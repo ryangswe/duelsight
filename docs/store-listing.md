@@ -21,7 +21,7 @@ anything. Read the store's current policies before each submission: they change.
 | 0.5.0 | release `387bdfb29b4b050f` bundled; card details in French, German, Italian, Spanish and Portuguese (the browser's language); the paused-video fix; runtime cardvision 0.5.0rc2 | Public | Chrome: submitted 2026-10-29, replaced by 0.6.0; Firefox: skipped (0.4.0 went straight to 0.6.0) |
 | 0.6.0 | release `387bdfb29b4b050f` bundled; the session on the toolkit's two-frame contract (pictures stop 60 s after the pointer last moved; a tap opens 10 s); the "Ancient eye" icon and new store images; runtime cardvision 0.6.0rc2 | Public | Chrome: submitted 2026-10-30, live 2026-10-31, replaced by 0.7.0; Firefox: public 2026-10-31, replaced by 0.7.0 |
 | 0.7.0 | release `387bdfb29b4b050f` bundled; the Card language menu in the popup; the tooltip keeps its picture through a settings refresh and retries a details file that failed; runtime cardvision 0.6.0rc2 (unchanged) | Public | Chrome: submitted 2026-11-09, live 2026-11-09; Firefox: submitted 2026-11-09, public 2026-11-09 |
-| 0.8.0 | release `862aec0f937da326` bundled (the 2026-11-10 card update `f3ed25290dde66e9`, converted to a binary bank); a card lying at an angle is outlined and hovered along its own edges; analysis paced from what it costs on the computer, so a slower computer is not kept busy; runtime cardvision 0.11.0 (toolkit main 77dcac0) | Public | Chrome: not yet submitted; Firefox: not yet submitted |
+| 0.8.0 | release `862aec0f937da326` bundled (the 2026-11-10 card update `f3ed25290dde66e9`, converted to a binary bank); a card lying at an angle is outlined and hovered along its own edges; analysis paced from what it costs on the computer, so a slower computer is not kept busy; a card stays while the pointer rests on it, even after a player moves it, with a popup switch to turn that off ("Keep the card I'm pointing at"); card recognition and the tooltip load when a video plays, and the model is freed after 10 minutes without pointing at the video; runtime cardvision 0.13.0 (toolkit e4d7343) | Public | Chrome: not yet submitted; Firefox: not yet submitted |
 
 Update this table with each submission (date submitted, date approved, store item ID). Chrome's item is
 `okngcckiafmekbmdgoakggfbicgoagnc`; Firefox's add-on is `duelsight@duelsight.com`
@@ -74,7 +74,7 @@ Full test report: https://github.com/ryangswe/duelsight/blob/main/docs/accuracy.
 
 - Aimed at Master Duel, Dueling Book and paper tables with the camera above the table. Results vary by video, and it can miss a card or show a wrong one.
 - Rest the pointer on a card in a supported video; nothing to set up per channel. The toolbar switch turns it off everywhere.
-- Choose the card size (70% to 130%) and whether the card's text shows beside its picture, in the toolbar popup.
+- Choose the card size (70% to 130%), whether the card's text shows beside its picture, and whether to keep the card you're pointing at, in the toolbar popup.
 - Card names and text in French, German, Italian, Spanish or Portuguese: choose the language in the popup, or follow your browser's (official card texts; English where none exists).
 - No accounts, analytics, telemetry or advertising. Video frames are analyzed inside your browser and never uploaded.
 - Open source (Apache-2.0), built on the cardvision toolkit: https://github.com/ryangswe/riftsight-vision
@@ -95,7 +95,7 @@ that it can miss a card or show a wrong one; no keyword lists (the store rejects
 1. `1-hover`: a hover on a Master Duel card, with the card details beside it;
 2. `2-paper`: a hover on a card on a paper table;
 3. `3-card-alone`: the same hover with card details switched off: the enlarged card on its own;
-4. `4-popup`: the toolbar popup (on/off, card details, card size).
+4. `4-popup`: the toolbar popup (on/off, card details, card language, keep the card, card size).
 
 The version that removed the in-player button (always-on hovers) also removed the listing's
 "Click the DuelSight button" screenshot: delete it from the dashboard at that upload.
@@ -166,7 +166,7 @@ was done before launch. 0.2.1 was the launch release (Public since 2026-10-24); 
 ## Test instructions (if the dashboard asks)
 
 ```text
-No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size and turns the card details on or off.
+No account or login. Open a public Yu-Gi-Oh! video, for example https://www.youtube.com/watch?v=7l_ppqK18qM&t=23359s (paper tournament) or https://www.youtube.com/watch?v=LX4yGLhQaQ0&t=11036s (Master Duel). Rest the mouse pointer on a face-up card: a larger picture of the card appears beside it, with its details. The toolbar popup switches the extension off, sets the card size, and turns the card details and "Keep the card I'm pointing at" on or off.
 ```
 
 ## Firefox Add-ons (addons.mozilla.org)
