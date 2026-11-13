@@ -46,7 +46,7 @@
     }
   },
   "0.8.0": {
-    "vendoredCommit": "77dcac029e1e351df2d3add687e647463f4b0ce2",
+    "vendoredCommit": "e4d73435d1777286eb216db75a35d5b750ffb2a7",
     "ortWeb": "1.29.0",
     "bundledRelease": {
       "id": "862aec0f937da326",

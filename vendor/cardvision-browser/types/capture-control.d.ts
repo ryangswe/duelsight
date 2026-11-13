@@ -55,6 +55,33 @@ export interface CaptureControlOptions {
     limits?: GateLimits;
     /** Passed to `grabFrame`. */
     grab?: GrabDeps;
+    /** "page": a trusted pointer move anywhere in the document, while the watched video plays and
+     *  at most once a second, sends an `intent` message to the frame. Off when absent. */
+    intent?: "page";
+    /** Opt in to dropping the whole compute frame when it goes idle. When the frame reports the
+     *  status `idle` (start it with `idleUnloadMs`), the control calls `remove()` once and sends
+     *  nothing more to that frame. The next trusted pointer move over the watched video calls
+     *  `make()` once. An `intent` moment (a trusted move anywhere while the video plays, with
+     *  `intent: "page"`) does not: while the frame is removed it does nothing and sends nothing,
+     *  because rebuilding on any page move cost more than it saved for viewers who do not hover. The control then connects
+     *  to the new frame as it does for any replaced iframe, so `frame()` must return the new frame's
+     *  window once `make()` returns. A trusted `pointerdown` over the picture (a touch tap) makes the
+     *  frame too. After `make()` the usual `no-answer` problem can fire if the frame never answers;
+     *  the product handles it as it does for its first frame. If `make()` throws, the control stays
+     *  in the removed state (the throw is not reported: no problem kind fits) and only the next
+     *  trusted move or tap over the video tries again (a move elsewhere on the page does not). A frame the product makes and connects itself also ends the removed state,
+     *  so do not make the frame on your own load triggers while `control.frameRemoved` is true:
+     *  `loadWhen` fires once, so it is safe, but a reload on every `playing` event (a looping clip
+     *  fires one) would quietly undo the unload.
+     *
+     *  The product deletes the iframe in `remove` and creates a new one in `make`: the same function
+     *  it gives `loadWhen` works. Dropping the frame frees its renderer (about 90 MB on a real
+     *  release) that keeping the frame and ending only its worker does not. Without this option an
+     *  idle frame stays and reloads in place when a pointer or intent message reaches it. */
+    whenIdle?: {
+        remove(): void;
+        make(): void;
+    };
     /** Timers; default the global `setTimeout` / `clearTimeout`. */
     timers?: {
         set(fn: () => void, ms: number): unknown;
@@ -77,6 +104,9 @@ export interface CaptureControl {
     readonly watch: VideoWatch | null;
     /** Whether a compatible frame said `ready` (and is still the frame). */
     readonly connected: boolean;
+    /** With `whenIdle`: true from the call to `remove()` until the next accepted handshake, so a
+     *  product can check it before making a frame of its own. Always false without the option. */
+    readonly frameRemoved: boolean;
     /** The gate's four fields now (a copy, for diagnostics). */
     gateState(): GateState;
     /** Whether a capture would be allowed now. A trusted point no longer over the picture clears
@@ -108,5 +138,18 @@ export declare function acceptComputeOut(event: MessageEvent, { frame, origin, p
  * here. A bitmap that was transferred is not touched. Returns whether it was sent.
  */
 export declare function postWithTransfer(target: Window | null, message: unknown, targetOrigin: string, bitmap: ImageBitmap): boolean;
+/** The least time between two `intent` messages, in ms. */
+export declare const INTENT_INTERVAL_MS = 1000;
+/** The part of a video `loadWhen` uses. */
+export type PlayWatch = Pick<HTMLVideoElement, "paused" | "ended" | "addEventListener" | "removeEventListener">;
+/**
+ * Call `make` once when `video` is playing: at once if it already is (not paused, not ended),
+ * else at its next `playing` event. Never for a paused or ended video, never twice. The result's
+ * `stop()` removes the listener (and is safe to call after `make` ran). Use it to make the
+ * compute frame at play rather than at the first pointer move.
+ */
+export declare function loadWhen(video: PlayWatch, when: "play", make: () => void): {
+    stop(): void;
+};
 /** The page side of the two-frame contract: see the top of this file. */
 export declare function createCaptureControl(options: CaptureControlOptions): CaptureControl;

@@ -50,15 +50,19 @@ storage, uploaded or shared.
 
 ## What it sends, and to whom
 
-Card hovers start in a tab when the pointer comes over a video there, with DuelSight
-switched on in the popup. Card recognition loads in a tab when a video starts playing there with
-DuelSight switched on (or when card hovers start, for a video that has not played).
+Card hovers start in a tab when the pointer comes over a video there, with DuelSight switched on in
+the popup. Card recognition and the tooltip (the card picture beside a hovered card) load in a tab
+when a video starts playing there with DuelSight switched on (or when card hovers start, for a video
+that has not played). That is a YouTube watch or live page, or a Twitch channel, video or clip page.
+A YouTube player embedded in another website, and other Twitch pages (the front page and directory,
+whose previews play on their own, the popout player and the moderator view), load them when card
+hovers start.
 
 | Request | To | When | What the host learns |
 | --- | --- | --- | --- |
-| The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when the browser starts, then at most once an hour while you use it (when you open the popup, or when card hovers start in a tab) | Your IP address and that the extension asked for its settings |
+| The settings file (`config.json`) | DuelSight's card CDN | When the extension is installed or updated and when the browser starts, then at most once an hour while you use it (when you open the popup, or when the tooltip loads in a tab) | Your IP address and that the extension asked for its settings |
 | A card's picture | DuelSight's card CDN | When a card is shown and its picture is not already loaded | Your IP address and which card picture was asked for |
-| The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When card hovers start in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover). A browser in another language DuelSight has asks for that language's file instead, so the host also learns that, as it does from the language every browser sends with its requests |
+| The card details file (the type, stats and text of the catalog's cards, in one file) | DuelSight's card CDN | When the tooltip loads in a tab with card details switched on and no copy of the file is kept yet: in practice once, and again when the settings file names a new version of it | Your IP address and that the extension asked for the details file (not which card you looked at: it is the same file whatever card you hover). A browser in another language DuelSight has asks for that language's file instead, so the host also learns that, as it does from the language every browser sends with its requests |
 | Updated card-recognition data (a release: its card list, card fingerprints and, after a model update, the recognition models; data files, never code) | DuelSight's card CDN | When card recognition loads in a tab and the settings file names a release other than the one built into your version of the extension: a newer one, or an earlier one after a rollback (otherwise never). About 4.4 MB once per release when cards are added, about 19 MB when the models themselves are updated; afterwards it is read from your browser's cache. Your browser may keep a separate copy for each website, so watching on both YouTube and Twitch can download it twice. Nothing is downloaded at install or with card hovers off | Your IP address, the time, your browser's user agent and language, that this browser downloaded that release, and the extension's own id (sent as the request's origin) |
 
 These requests carry no cookies, no account ID or per-user tracking identifier, and not the
@@ -86,6 +90,7 @@ Stored locally by the extension, without Chrome Sync or Firefox Sync, and never 
   - whether it is switched on;
   - the card size you set in the popup (70% to 130%);
   - whether card details are switched on in the popup;
+  - whether "Keep the card I'm pointing at" is switched on in the popup;
   - the card language you chose in the popup (Automatic unless you change it);
   - the last settings file it fetched, and when;
   - if updated recognition data failed its checks, that release's id and why, so that it is not

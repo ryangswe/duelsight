@@ -34,6 +34,13 @@ export interface FaceResult {
      *  the "accepted-nms" hover selection, and, without a geometric stage, the tracker's input;
      *  with one, the tracker is given the cosine looks that would be kept without it). */
     kept: boolean;
+    /** True on a face the geometric stage applies to that was not verified on this frame
+     *  (`geometricScope: "focus"`): it is not named, whatever its cosine look. Absent otherwise. */
+    unverified?: true;
+    /** True on a face the tilted retry would have tried but its cap (`maxFacesPerFrame`) left out
+     *  on this frame. In focus scope a pointer moving onto it asks for a look there, which retries
+     *  the pointer's faces with no cap. Absent otherwise. */
+    tiltedSkipped?: true;
     /** With a geometric stage that ran on this face: what it found and what the embedding alone
      *  answered (Python: `GeometricOutcome.to_json`). The fields above are the fused look's. */
     geometric?: GeometricEvidence;
@@ -76,6 +83,11 @@ export interface FrameAnalysis {
     /** How many faces had their turned looks computed, and how many embeddings were computed. */
     retried: number;
     embeddings: number;
+    /** True when this is not a new analysis: the previous frame's detections were fed to the
+     *  tracker and the temporal gate again (`Pipeline.reuse`). `tracks` and `timings` are new,
+     *  `discontinuity` is false, `retried` and `embeddings` are 0; every other field is the
+     *  previous analysis's. Absent on an analyzed frame. */
+    reused?: true;
     /** Where the time went, in ms. `geometricMs` and `tiltedMs`, parts of `recognizeMs`, are
      *  there only while a geometric stage is set and while the tilted retry runs. */
     timings: {
@@ -97,6 +109,10 @@ export interface AnalyzeOptions {
         x: number;
         y: number;
     } | null;
+    /** "focus" verifies with the geometric stage only the faces whose box holds `focus`
+     *  and those joined to them by overlapping boxes (recognition.ts `focusGroup`), and names no
+     *  face the stage applies to and did not verify; no `focus` then means no face is verified. Default "all": every face the stage applies to. */
+    geometricScope?: "all" | "focus";
     /** True gives each named card on this frame its outline (tilt.ts `outlineRect`): `rotation`,
      *  `localWidth` and `localHeight` follow a tilted card, `bounds` stays the box. Default false:
      *  every card's outline is its box, as before. */
@@ -156,6 +172,9 @@ export declare class Pipeline {
     private tiltedRetry;
     /** Why the tilted retry failed during the last frame; taken by `takeTiltedFailure`. */
     private tiltedFailure;
+    /** What the newest analyzed frame left for `reuse`; null once anything that could change an
+     *  answer happened since (a reset, a stage or retry set, removed or failed). */
+    private lastRun;
     constructor(options: PipelineOptions);
     /** Rows in the bank. */
     get size(): number;
@@ -182,6 +201,20 @@ export declare class Pipeline {
     /** Forget everything carried between frames: tracks, the gate's run, the hover ids. Models
      *  and the bank stay. */
     reset(): void;
+    /**
+     * The newest analyzed frame again, for a picture that did not change: its detections go to the
+     * tracker and the temporal gate once more, as an analysis of the same picture would, and the
+     * result is the previous analysis with six fields set: `tracks` (this step of the tracker and
+     * the gate), `timings` (detector and recognize 0, `analyzeMs` the time of the reuse, no
+     * stage or retry times), `discontinuity: false`, `retried: 0`, `embeddings: 0` (no work was
+     * done) and `reused: true`. Every other field is the previous analysis's, and the nested
+     * objects (`boxes`, `hover`, `frame`) are shared with it, not cloned: do not modify them.
+     * No detector, recognizer or stage runs. Null (analyze instead) when nothing was analyzed
+     * since the last reset, or a stage or the tilted retry was set, removed or failed since.
+     */
+    reuse(videoTimeSec?: number): FrameAnalysis | null;
+    /** One step of the tracker and the gate: the track layer for these detections. */
+    private trackLayer;
     /**
      * Analyze one frame, already at analysis size. `videoTimeSec` is its time in the video; when
      * it moves backwards, or jumps further forward than any cadence explains, the state between

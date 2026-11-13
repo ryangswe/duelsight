@@ -14,6 +14,7 @@ import { memoryStorage } from "./helpers/memory-storage.js";
 
 const HTML = `<main class="panel"><span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <button id="details" role="switch" aria-checked="false" aria-busy="true" disabled></button>
+<button id="keep-card" role="switch" aria-checked="false" aria-busy="true" disabled></button>
 <div class="picker"><select id="card-language" aria-busy="true" disabled></select></div>
 <input id="card-size" type="range" disabled><output id="card-size-value"></output>
 <p id="update" hidden><a id="update-link"></a><button id="update-dismiss"></button></p>
@@ -274,6 +275,61 @@ describe("popup", () => {
     listeners.forEach((l) => l({ enabled: { newValue: true } }, "local"));
     await settle();
     expect([details.getAttribute("aria-checked"), details.disabled]).toEqual(["false", false]);
+  });
+
+  describe("Keep the card I'm pointing at (owner, 2026-11-12)", () => {
+    const keep = () => document.getElementById("keep-card") as HTMLButtonElement;
+
+    it("is on by default, and turns off and on, stored apart from the other switches", async () => {
+      const local = memoryStorage();
+      initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0" });
+      expect(keep().disabled).toBe(true);
+      await settle();
+      expect([keep().getAttribute("aria-checked"), keep().disabled]).toEqual(["true", false]);
+      keep().click();
+      await settle();
+      expect(local.data.keepCard).toBe(false);
+      expect(keep().getAttribute("aria-checked")).toBe("false");
+      expect([local.data.enabled, local.data.details]).toEqual([undefined, undefined]);
+      keep().click();
+      await settle();
+      expect(local.data.keepCard).toBe(true);
+    });
+
+    it("shows off when stored off, and follows a change made elsewhere", async () => {
+      const local = memoryStorage({ keepCard: false });
+      const { listeners, onChanged } = listenersOf();
+      initPopup({ doc: document, local, onChanged, version: "0.1.0" });
+      await settle();
+      expect(keep().getAttribute("aria-checked")).toBe("false");
+      local.data.keepCard = true;
+      listeners[0]!({ keepCard: { newValue: true } }, "local");
+      await settle();
+      expect(keep().getAttribute("aria-checked")).toBe("true");
+    });
+
+    it("is grayed out and still while card hovers are off, keeping its stored choice", async () => {
+      const local = memoryStorage({ keepCard: false });
+      initPopup({ doc: document, local, onChanged: listenersOf().onChanged, version: "0.1.0" });
+      await settle();
+      await settle();
+      document.getElementById("enabled")!.click();
+      await settle();
+      expect([keep().getAttribute("aria-checked"), keep().disabled]).toEqual(["false", true]);
+      keep().disabled = false;
+      keep().click();
+      await settle();
+      expect(local.data.keepCard).toBe(false);
+      document.getElementById("enabled")!.click();
+      await settle();
+      expect([keep().getAttribute("aria-checked"), keep().disabled]).toEqual(["false", false]);
+    });
+
+    it("is in the popup page with its help line", () => {
+      const html = readFileSync(resolve(process.cwd(), "static/popup.html"), "utf-8");
+      expect(html).toContain(`<span id="keep-card-label" class="label">Keep the card I'm pointing at</span>`);
+      expect(html).toContain(`<p id="keep-card-hint" class="hint needs-hovers">A card laid on top won't replace it until you move.</p>`);
+    });
   });
 
   describe("card language", () => {

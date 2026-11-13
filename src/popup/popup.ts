@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// The popup: the master switch, the card details switch, the card language menu, the card-size dial, and a "New version
+// The popup: the master switch, the card details switch, the "Keep the card I'm pointing at"
+// switch, the card language menu, the card-size dial, and a "New version
 // available" line when there is one (view.ts).
 
 import { initPopup } from "./view.js";

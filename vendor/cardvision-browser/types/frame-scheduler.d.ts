@@ -6,6 +6,9 @@ export declare const REPEAT_INTERVAL_MS = 250;
 export declare const DRIVER_TICK_MS = 250;
 /** Pointer mode: analysis keeps running this long after the pointer's last activity. */
 export declare const POINTER_GRACE_MS = 10000;
+/** Pointer mode: the gap between cadence looks while the pointer rests where the newest look found
+ *  no card. A longer gap from the cadence (measured pacing) still wins. */
+export declare const EMPTY_SPOT_INTERVAL_MS = 2000;
 /** Pointer mode: the "reading" state outlasts the tooltip's last showing by this long. */
 export declare const READING_LINGER_MS = 5000;
 /** The least the stale-frame threshold can be: a moving pointer asks for a fresh analysis when
@@ -84,9 +87,13 @@ export declare class FrameScheduler {
     /** The last pointer activity: a move, press or tap over the picture, or the pointer leaving. */
     private lastPointerAt;
     private tooltipShowing;
+    private readingHoldShowing;
     /** The last time a showing tooltip was reported while the pointer was inside. */
     private lastTooltipAt;
     private lastHoverTriggerAt;
+    /** The newest finished look, started after the pointer's last activity, found no card at the
+     *  pointer: the slow gap applies in the "fast" state until anything new happens. */
+    private emptySpot;
     private lastVideoTimeSec;
     private discontinuitySinceLast;
     private lastTriggerKind;
@@ -104,6 +111,9 @@ export declare class FrameScheduler {
     private refused;
     /** Layout mode: the host also wants pointer-driven analysis. */
     private pointerAnalysis;
+    /** The least spacing of a playing relook after the last look, besides `HOVER_TRIGGER_MIN_GAP_MS`
+     *  (measured pacing's share; 0 without it). */
+    private relookSpacingMs;
     /**
      * @param intervalMs The cadence of the mode: the fast cadence in pointer mode, the slow one
      *   in always-on mode (cadence.ts `cadenceMs`).
@@ -120,6 +130,16 @@ export declare class FrameScheduler {
     setPointerAnalysis(on: boolean): void;
     setIntervalMs(ms: number): void;
     setReadingIntervalMs(ms: number): void;
+    /** Measured pacing: the least spacing, after the last look of any kind, of a look on a playing
+     *  picture that `relookDue` allows (`MeasuredPacer.spacingMs`), so that those looks keep
+     *  analysis within the pacer's share. `HOVER_TRIGGER_MIN_GAP_MS` applies when it is shorter.
+     *  0 (the default): that gap alone. */
+    setRelookSpacingMs(ms: number): void;
+    /** A reading hold shows a card (true) or nothing (false, the default). While it does, a
+     *  resting pointer past the grace period is not analyzed: the hold keeps the card until the
+     *  pointer moves, so no look could change it. Report the card the hold shows here, and whether
+     *  the newest analysis sees a card at the pointer with `setTooltipShowing`. */
+    setReadingHoldShowing(showing: boolean): void;
     /** Is a tooltip showing at the resting pointer? Report it before each evaluation and after
      *  each result. `now` is remembered as the last showing, for `READING_LINGER_MS`. */
     setTooltipShowing(showing: boolean, now: number): void;
@@ -148,6 +168,12 @@ export declare class FrameScheduler {
     lookUnanswered(now: number, opts?: {
         prompt?: boolean;
     }): void;
+    /** The newest look came back analyzed and named no card at the pointer (nothing shown, no
+     *  hold). If it started after the pointer's last activity, the pointer rests on an empty spot
+     *  and cadence looks are spaced `EMPTY_SPOT_INTERVAL_MS` apart. A look that started before a
+     *  move says nothing about where the pointer is now. Report a card found with
+     *  `setTooltipShowing(true)`, which ends it. */
+    lookFoundNoCard(): void;
     /** A look came back analyzed: no retry is waiting, and the back-off starts over (as after
      *  `discontinuity`). */
     lookAnswered(): void;
@@ -188,7 +214,8 @@ export declare class FrameScheduler {
     private pointerState;
     /** May anything be analyzed right now? */
     analysisActive(now: number): boolean;
-    /** The cadence in effect: the slow reading cadence while reading, else the mode's cadence. */
+    /** The cadence in effect: the slow reading cadence while reading, `EMPTY_SPOT_INTERVAL_MS` (or
+     *  the mode's cadence if longer) while the pointer rests on an empty spot, else the mode's. */
     intervalInEffectMs(now: number): number;
     /** Should the current picture be analyzed now, by the cadence or as a repeat of a still? */
     due(now: number): boolean;
@@ -205,6 +232,28 @@ export declare class FrameScheduler {
      * consulted.
      */
     hoverTriggerDue(now: number, videoTimeSec: number, inFlight: boolean): boolean;
+    /**
+     * May the current picture be looked at again at once because the pointer is on a face the last
+     * analysis left unverified (session option `geometricScope: "focus"`)? Yes when analysis may
+     * run, nothing is in flight, the picture is still (`idle`: nothing newly presented, no repeats
+     * or retry waiting) and no capture was refused, and the last analysis started by the pointer is
+     * at least `HOVER_TRIGGER_MIN_GAP_MS` ago. Unlike `hoverTriggerDue` it does not need a stale frame, and
+     * unlike `requestLook` it marks nothing stale and clears nothing: a still picture is analyzed
+     * again with the repeats a newly presented one gets (`started` with the "hover" trigger).
+     *
+     * With `videoTimeSec`, the time of the picture on screen (the session gives it while the pointer
+     * is active over the picture, with a ready geometric stage), a playing picture may be looked at again too: a newly
+     * presented frame waits, its time has moved since the newest analyzed frame, and no retry is
+     * waiting out its back-off. The cadence is not consulted, and the stale-frame threshold is not
+     * needed; the last look of any kind must have started at least `HOVER_TRIGGER_MIN_GAP_MS` ago, or
+     * the measured-pacing spacing (`setRelookSpacingMs`) if that is longer.
+     * Without it, a playing picture waits for the cadence, as a still one with repeats left does.
+     */
+    relookDue(now: number, inFlight: boolean, videoTimeSec?: number): boolean;
+    /** Is the picture playing on from the newest analyzed frame: a newly presented frame waits, its
+     *  time has moved since that frame, and no retry is waiting out its back-off? A still picture
+     *  (its repeats, a seek's duplicate reports at the same time) is not. */
+    private playingSinceLast;
     /** An analysis of the current picture was started. */
     started(now: number, info?: StartedInfo): void;
     /** Why the last analysis ran; null before the first. */

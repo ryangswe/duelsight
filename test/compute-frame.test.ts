@@ -5,7 +5,8 @@
 // tested there.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SHOWN_HOLD } from "../vendor/cardvision-browser/compute-session.js";
+import { PROTOCOL_VERSION, READING_HOLD, SHOWN_HOLD } from "../vendor/cardvision-browser/compute-session.js";
+import { IDLE_UNLOAD_MS } from "../src/constants.js";
 import { computeFrameEnv, createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
 import type { ReleasePointer, RemoteReleaseChoice } from "../vendor/cardvision-browser/remote-release.js";
 import { computeHarness } from "./helpers/compute-frame.js";
@@ -32,7 +33,7 @@ describe("compute frame: the pages it serves", () => {
     expect(h.started).not.toBeNull();
     const ready = h.toParent.find((p) => p.message.kind === "ready")!;
     expect(ready.origin).toBe(SITE_ORIGIN);
-    expect(ready.message).toMatchObject({ duelsight: 1, kind: "ready", version: 1 });
+    expect(ready.message).toMatchObject({ duelsight: 1, kind: "ready", version: PROTOCOL_VERSION });
     expect(ready.message.instance).toMatch(/^[0-9a-f]{16}$/);
   });
 
@@ -73,19 +74,75 @@ describe("compute frame: the shown card", () => {
     expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).rotatedOutlines).toBe(true);
   });
 
-  it("holds the shown card through short gaps (SHOWN_HOLD is on)", () => {
-    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(SHOWN_HOLD);
+  it("keeps a shown card while the pointer stays where it was seen (READING_HOLD is on)", () => {
+    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(READING_HOLD);
+  });
+
+  it("takes the short hold (SHOWN_HOLD) with \"Keep the card I'm pointing at\" off, the reading hold otherwise", () => {
+    const hold = (keepCard?: boolean) => computeFrameEnv({ ...computeHarness().env, ...(keepCard === undefined ? {} : { keepCard }) }, createFactsChannel(() => undefined)).hold;
+    expect(hold(false)).toBe(SHOWN_HOLD);
+    expect(hold(true)).toBe(READING_HOLD);
+    expect(hold()).toBe(READING_HOLD);
+  });
+
+  it("with \"Keep the card I'm pointing at\" off, drops a card gone from under a resting pointer", () => {
+    const h = computeHarness({ keepCard: false });
+    h.loaded();
+    h.analyzeAt();
+    expect(h.lastShown()?.cardId).toBe("89631139");
+    h.scene.card = null;
+    for (let i = 0; i < 5; i += 1) h.analyzeAt();
+    expect(h.lastShown()).toBeNull();
+  });
+
+  it("ends its worker after 10 idle minutes, or the time a dev build gives (idleUnloadMs)", () => {
+    expect(IDLE_UNLOAD_MS).toBe(10 * 60_000);
+    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).idleUnloadMs).toBe(IDLE_UNLOAD_MS);
+    expect(computeFrameEnv({ ...computeHarness().env, idleUnloadMs: 60_000 }, createFactsChannel(() => undefined)).idleUnloadMs).toBe(60_000);
+  });
+
+  it("goes idle 10 minutes after the pointer leaves, not before", () => {
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    h.fromContent({ kind: "leave" });
+    for (let i = 0; i < 5; i += 1) h.started!.frame.tick();
+    h.clock.t += IDLE_UNLOAD_MS - 1_000;
+    h.started!.frame.tick();
+    expect(h.started!.frame.state).not.toBe("idle");
+    h.clock.t += 2_000;
+    h.started!.frame.tick();
+    expect(h.started!.frame.state).toBe("idle");
+    expect(h.sent("status").at(-1)).toMatchObject({ state: "idle" });
+  });
+
+  it("does not go idle while a card is kept under a resting pointer, however long", () => {
+    const h = computeHarness();
+    h.loaded();
+    h.analyzeAt();
+    h.scene.card = null;
+    for (let i = 0; i < 3; i += 1) h.analyzeAt();
+    expect(h.lastShown()?.held).toBe(true);
+    for (let i = 0; i < 60; i += 1) {
+      h.clock.t += 60_000;
+      h.started!.frame.tick();
+    }
+    expect(h.started!.frame.state).not.toBe("idle");
+    expect(h.lastShown()?.cardId).toBe("89631139");
+  });
+
+  it("keeps the card, marked held, while the pointer stays after the card is gone from there", () => {
     const h = computeHarness();
     h.loaded();
     h.analyzeAt();
     expect(h.lastShown()?.cardId).toBe("89631139");
-    // One analysis with nothing there: still shown (without the hold it would go at once).
+    expect(h.lastShown()?.held).toBeUndefined();
+    // Nothing there any more (a player moved the card), analysis after analysis: still shown,
+    // marked held (the short hold, SHOWN_HOLD, would drop it on the second).
     h.scene.card = null;
-    h.analyzeAt();
+    for (let i = 0; i < 5; i += 1) h.analyzeAt();
     expect(h.lastShown()?.cardId).toBe("89631139");
-    // A second in a row: gone.
-    h.analyzeAt();
-    expect(h.lastShown()).toBeNull();
+    expect(h.lastShown()?.held).toBe(true);
   });
 });
 

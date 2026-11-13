@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // The popup: one switch (the master on/off), the card details switch (details-control.ts), the
+// "Keep the card I'm pointing at" switch (shared/keep-card.ts, switch-control.ts), the
 // card language menu (card-language-control.ts; also grayed out while the details are off), the
-// card-size dial (card-size-control.ts; all three grayed out and still while the master switch is
+// card-size dial (card-size-control.ts; all four grayed out and still while the master switch is
 // off), a "New version available" line only when the settings file names a newer version
 // (installs that never update by themselves; never in Firefox, which installs only signed add-ons
 // and updates them itself), and two links (the project page, and the open-source toolkit it is
@@ -16,6 +17,8 @@ import { CARD_SIZE_KEY } from "../shared/card-size.js";
 import { initCardSize } from "./card-size-control.js";
 import { DETAILS_KEY } from "../shared/details-pref.js";
 import { initDetailsSwitch } from "./details-control.js";
+import { KEEP_CARD_KEY, readKeepCardOn } from "../shared/keep-card.js";
+import { initStoredSwitch } from "./switch-control.js";
 import { CARD_LANGUAGE_KEY } from "../shared/card-language.js";
 import { initCardLanguage } from "./card-language-control.js";
 
@@ -59,11 +62,13 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
     detailsOn = on;
     showLanguage();
   });
-  // The card details switch, the language menu and the size dial only matter while card hovers
+  const keepCard = initStoredSwitch(env.doc, env.local, { id: "keep-card", key: KEEP_CARD_KEY, read: readKeepCardOn });
+  // The card details and keep-card switches, the language menu and the size dial only matter while card hovers
   // are on: off, they are grayed out and still, and their stored choices wait for the master switch.
   const panel = env.doc.querySelector(".panel");
   const showActive = (on: boolean): void => {
     details.setActive(on);
+    keepCard.setActive(on);
     cardSize.setActive(on);
     hoversOn = on;
     showLanguage();
@@ -127,6 +132,7 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
     if (ENABLED_KEY in changes) void renderSwitch();
     if (CARD_SIZE_KEY in changes) void cardSize.render();
     if (DETAILS_KEY in changes) void details.render();
+    if (KEEP_CARD_KEY in changes) void keepCard.render();
   });
   return { renderUpdate, renderSwitch };
 }

@@ -18,6 +18,11 @@
 //     with the picture's size, and the frame lays both out in the size it is given
 //     (panel-layout.ts). No details for the card (the file not loaded yet, or the card not in it)
 //     is the picture alone, as with the panel off; names only and the name pill never have one.
+//     The panel comes at once, beside the dark card with the name that stands in for the picture
+//     while it loads: the frame takes the picture-and-panel shape then, so a picture in the card's
+//     shape replaces the stand-in without waiting for the frame to be resized (hover speed,
+//     2026-11-12). A picture of another shape sends its own size; no picture drops the panel for
+//     the name pill.
 
 import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
@@ -132,6 +137,8 @@ export class TooltipController {
   private detailsOn = true;
   /** The picture on show (decoded and shown): its card, size and whether a panel goes with it. */
   private picture: { cardId: string; width: number; height: number; panel: boolean } | null = null;
+  /** The last size sent (postSize), as JSON; null at each new showing. */
+  private lastSize: string | null = null;
 
   constructor(private readonly deps: TooltipDeps) {}
 
@@ -234,6 +241,7 @@ export class TooltipController {
     if (ask) this.deps.requestFacts?.(releaseId!, cardId);
     this.currentSeq = messageSeq;
     const seq = ++this.seq;
+    this.lastSize = null;
     const settings = this.settings;
     const live = (): boolean => this.seq === seq && this.current === card.id && this.settings === settings;
     this.picture = null;
@@ -251,7 +259,14 @@ export class TooltipController {
     e.art.hidden = false;
     e.art.classList.add("loading");
     e.img.removeAttribute("src");
-    this.deps.onSize?.({ ...artSize(0, 0), shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}) });
+    // The frame takes its final shape now, with the details panel beside the name: a card's
+    // picture has the card's shape, so when it comes it replaces the placeholder in place, without
+    // waiting for the frame to be resized (about 50 ms). The details show while it loads.
+    const placeholder = artSize(0, 0);
+    const placeholderPanel = this.fillPanel(card);
+    this.picture = { cardId: card.id, ...placeholder, panel: placeholderPanel !== null };
+    this.postSize({ ...placeholder, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(placeholderPanel ? { panel: placeholderPanel } : {}) });
+    this.layout();
     void this.resolve(card, settings)
       .then(async (r) => {
         if (!live()) return;
@@ -275,11 +290,14 @@ export class TooltipController {
         await e.img.decode?.();
         if (!live()) return;
         // The frame takes the picture's shape first (with its panel, both together), then the
-        // picture replaces the placeholder.
+        // picture replaces the placeholder. A picture in the card's shape needs no new size: the
+        // frame took it with the placeholder.
         const details = this.details;
         const detailsOn = this.detailsOn;
         const panel = this.fillPanel(card);
-        this.deps.onSize?.({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(panel ? { panel } : {}) });
+        // From now on a details change (refreshPanel) sends the picture's size, not the placeholder's.
+        this.picture = { cardId: card.id, ...size, panel: panel !== null };
+        this.postSize({ ...size, shape: "card", cardId: card.id, ...(messageSeq !== undefined ? { seq: messageSeq } : {}), ...(panel ? { panel } : {}) });
         await this.deps.frameFits?.(size, panel !== null);
         if (!live()) return;
         e.pill.hidden = true;
@@ -295,6 +313,14 @@ export class TooltipController {
         if (live()) this.showPill(card.id, messageSeq);
       });
     return true;
+  }
+
+  /** Tell the content script the frame's size, unless it is the size it was told last. */
+  private postSize(size: TooltipSize): void {
+    const key = JSON.stringify(size);
+    if (key === this.lastSize) return;
+    this.lastSize = key;
+    this.deps.onSize?.(size);
   }
 
   clear(): void {
@@ -366,7 +392,7 @@ export class TooltipController {
     const panel = this.fillPanel(card);
     this.picture = { ...picture, panel: panel !== null };
     const seq = this.currentSeq;
-    this.deps.onSize?.({ width: picture.width, height: picture.height, shape: "card", cardId: card.id, ...(seq !== undefined ? { seq } : {}), ...(panel ? { panel } : {}) });
+    this.postSize({ width: picture.width, height: picture.height, shape: "card", cardId: card.id, ...(seq !== undefined ? { seq } : {}), ...(panel ? { panel } : {}) });
     this.layout();
   }
 
@@ -379,7 +405,7 @@ export class TooltipController {
     e.art.classList.remove("loading");
     e.pill.hidden = false;
     const r = e.pill.getBoundingClientRect();
-    this.deps.onSize?.({ width: Math.ceil(r.width), height: Math.ceil(r.height), shape: "pill", cardId, ...(messageSeq !== undefined ? { seq: messageSeq } : {}) });
+    this.postSize({ width: Math.ceil(r.width), height: Math.ceil(r.height), shape: "pill", cardId, ...(messageSeq !== undefined ? { seq: messageSeq } : {}) });
   }
 
   private resolve(card: CardFacts, settings: Settings): Promise<Resolution> {

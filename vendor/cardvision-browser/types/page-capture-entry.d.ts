@@ -4,4 +4,4 @@ export { BLANK_PICTURE, blankFrame, type CaptureSource, createSourceCanvas, type
 export { type VideoSink, type VideoWatch, watchVideo } from "./video-events.js";
 export { captureAllowed, type GateLimits, type GateState, MAX_REST_MS, POINTER_GRACE_MS, READING_LINGER_MS } from "./capture-gate.js";
 export { type ComputeIn, type ComputeOut, type ComputeProtocol, computeProtocol, type FractionBox, MAX_FRAME_SIDE, MAX_OTHER_BOXES, MAX_REASON_LENGTH, MAX_TEXT_LENGTH, PROTOCOL_VERSION, type ShownCard, type Tagged, } from "./compute-messages.js";
-export { acceptComputeOut, CAPTURE_PENDING, type CaptureControl, type CaptureControlOptions, type CaptureProblem, createCaptureControl, fromExtensionFrame, NOT_POINTING, PICTURE_CHANGED, postWithTransfer, } from "./capture-control.js";
+export { acceptComputeOut, CAPTURE_PENDING, type CaptureControl, type CaptureControlOptions, type CaptureProblem, createCaptureControl, fromExtensionFrame, INTENT_INTERVAL_MS, loadWhen, type PlayWatch, NOT_POINTING, PICTURE_CHANGED, postWithTransfer, } from "./capture-control.js";

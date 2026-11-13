@@ -5,9 +5,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent, HIDE_DELAY_MS } from "../src/content/agent.js";
-import { IDLE_UNLOAD_MS } from "../src/constants.js";
 import { tag } from "../src/shared/messages.js";
-import { NOT_POINTING } from "../vendor/cardvision-browser/page-capture.js";
+import { NOT_POINTING, PROTOCOL_VERSION } from "../vendor/cardvision-browser/page-capture.js";
 
 const EXT = "chrome-extension://igfdjmpikcbplijnlpkligaafepgoaaa";
 
@@ -75,7 +74,7 @@ const INSTANCE = "0123456789abcdef";
 function fromFrame(frame: HTMLIFrameElement | undefined, data: object): void {
   if (frame === compute() && !readied.has(frame!) && (data as { kind?: string }).kind !== "ready") {
     readied.add(frame!);
-    window.dispatchEvent(message(tag({ kind: "ready", version: 1, instance: INSTANCE }), EXT, frame!.contentWindow));
+    window.dispatchEvent(message(tag({ kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE }), EXT, frame!.contentWindow));
   }
   window.dispatchEvent(message(tag(data), EXT, frame!.contentWindow));
 }
@@ -89,6 +88,7 @@ function showCard(card: {
   rotation?: number;
   localWidth?: number;
   localHeight?: number;
+  held?: true;
 }): void {
   fromFrame(compute(), { kind: "shown", card });
   fromFrame(tooltip(), { kind: "size", width: 320, height: 448, shape: "card", cardId: card.cardId });
@@ -166,7 +166,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     move(100, 600);
     fromFrame(compute(), { kind: "capture", requestId: 7, analysisWidth: { min: 720, max: 1920 } });
     expect(sent.at(-1)).toMatchObject({ kind: "capture-failed", requestId: 7, reason: NOT_POINTING, retry: false });
@@ -176,7 +176,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));
     expect(sent.at(-1)).toMatchObject({ kind: "leave" });
@@ -206,7 +206,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     fromFrame(tooltip(), { kind: "ready" });
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     expect(tooltip()!.style.visibility).toBe("visible");
     expect(document.querySelector("[data-duelsight=link]")).toBeNull();
@@ -313,7 +313,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     video.dispatchEvent(new Event("timeupdate"));
     Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
     move(120, 100);
@@ -340,7 +340,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     video.dispatchEvent(new Event("timeupdate"));
     video.dispatchEvent(new Event("emptied"));
     Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
@@ -361,7 +361,7 @@ describe("Agent", () => {
       agent = await startAgent();
       move(100, 100);
       const sent = spyOn(compute());
-      fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+      fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
       video.dispatchEvent(new Event("timeupdate"));
       Object.assign(media, { paused: true, readyState: 1, currentTime: 0 });
       move(120, 100);
@@ -378,7 +378,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     move(130, 120);
     expect(sent.filter((m) => m.kind === "pointer")).toHaveLength(2);
     move(140, 120);
@@ -391,14 +391,14 @@ describe("Agent", () => {
     const sent = spyOn(compute());
     expect(sent.filter((m) => m.kind === "hello")).toEqual([]);
     compute()!.dispatchEvent(new Event("load"));
-    expect(sent.filter((m) => m.kind === "hello")).toEqual([expect.objectContaining({ duelsight: 1, kind: "hello", version: 1 })]);
+    expect(sent.filter((m) => m.kind === "hello")).toEqual([expect.objectContaining({ duelsight: 1, kind: "hello", version: PROTOCOL_VERSION })]);
   });
 
   it("tells the compute frame of a new source when the main video changes", async () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     // The page replaces its player (in-app navigation): the next move picks the new video.
     video.remove();
     video = makeVideo();
@@ -413,7 +413,7 @@ describe("Agent", () => {
   it("takes nothing from a message a page script made, even with its frames' source and origin", async () => {
     agent = await startAgent();
     move(100, 100);
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     const card = { cardId: "89631139", name: "Dark Magician", box: { x: 0.05, y: 0.1, width: 0.2, height: 0.4 } };
     // Forged: right source and origin, but not dispatched by the browser.
     window.dispatchEvent(message(tag({ kind: "shown", card }), EXT, compute()!.contentWindow, false));
@@ -460,7 +460,7 @@ describe("Agent", () => {
     agent = await startAgent();
     move(100, 100);
     const sent = spyOn(compute());
-    fromFrame(compute(), { kind: "ready", version: 1, instance: INSTANCE });
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
     vi.stubGlobal("location", new URL("http://127.0.0.1:8770/other"));
     window.dispatchEvent(new Event("popstate"));
     fromFrame(compute(), { kind: "capture", requestId: 9, analysisWidth: { min: 720, max: 1920 } });
@@ -839,34 +839,88 @@ describe("Agent", () => {
       video.dispatchEvent(new Event("playing"));
     };
 
-    it("makes the compute frame when the main video starts playing, with no pointer, and no tooltip frame", async () => {
+    it("makes both frames when the main video starts playing, with no pointer (hover-speed plan, 2026-11-12)", async () => {
       media.paused = true;
       agent = await startAgent();
       expect(frames()).toEqual([]);
       play();
       const made = compute();
+      const tip = tooltip();
       expect(made).toBeDefined();
-      expect(tooltip()).toBeUndefined();
-      expect(frames()).toHaveLength(1);
-      // Paused and resumed, sought, the next video in the same player: still the one frame.
+      expect(tip).toBeDefined();
+      expect(tip!.style.visibility).toBe("hidden");
+      expect(outline()?.style.display).not.toBe("block");
+      expect(frames()).toHaveLength(2);
+      // Paused and resumed, sought, the next video in the same player: still the same two frames.
       media.paused = true;
       play();
       video.dispatchEvent(new Event("seeking"));
       play();
       video.src = "http://127.0.0.1:8770/next.webm";
       play();
-      expect(frames()).toEqual([made]);
+      expect(frames()).toEqual([made, tip]);
+      // The first hover makes nothing new.
+      move(100, 100);
+      expect(frames()).toEqual([made, tip]);
     });
 
-    it("makes the compute frame at once when the video is already playing as it starts", async () => {
+    it("makes both frames at once when the video is already playing as it starts", async () => {
       agent = await startAgent();
       const made = compute();
+      const tip = tooltip();
       expect(made).toBeDefined();
-      expect(tooltip()).toBeUndefined();
-      // The first hover then makes only the tooltip frame.
+      expect(tip).toBeDefined();
       move(100, 100);
-      expect(compute()).toBe(made);
+      expect(frames()).toEqual([made, tip]);
+    });
+
+    it("makes both frames when a video that replaced the main one plays, not before", async () => {
+      media.paused = true;
+      agent = await startAgent();
+      // The player swaps its video element (a site's own player, an ad, a new page in the same tab).
+      let nextPaused = true;
+      const next = video.cloneNode() as HTMLVideoElement;
+      Object.defineProperty(next, "videoWidth", { value: 1920 });
+      Object.defineProperty(next, "videoHeight", { value: 1080 });
+      Object.defineProperty(next, "paused", { get: () => nextPaused });
+      next.getBoundingClientRect = video.getBoundingClientRect;
+      video.remove();
+      document.body.appendChild(next);
+      // A `playing` from the page while the new video is still paused (another element): nothing.
+      document.body.dispatchEvent(new Event("playing"));
+      expect(frames()).toEqual([]);
+      nextPaused = false;
+      next.dispatchEvent(new Event("playing"));
+      expect(compute()).toBeDefined();
       expect(tooltip()).toBeDefined();
+    });
+
+    it("loads at play on a Twitch channel, video or clip page and a YouTube watch page; not on Twitch's front page or directory, or a YouTube embed", async () => {
+      const at = async (href: string): Promise<number> => {
+        agent?.stop();
+        for (const f of frames()) f.remove();
+        vi.stubGlobal("location", new URL(href));
+        agent = new Agent({ dev: false });
+        agent.start();
+        agent.setEnabled(true);
+        play();
+        return frames().length;
+      };
+      expect(await at("https://www.twitch.tv/")).toBe(0);
+      expect(await at("https://www.twitch.tv/directory/category/yu-gi-oh-master-duel")).toBe(0);
+      expect(await at("https://www.twitch.tv/search?term=yugioh")).toBe(0);
+      expect(await at("https://www.twitch.tv/somechannel")).toBe(2);
+      expect(await at("https://www.twitch.tv/videos/123456")).toBe(2);
+      expect(await at("https://www.twitch.tv/somechannel/clip/SomeClipSlug")).toBe(2);
+      // YouTube: a watch page loads at play; an embedded player on another website waits for a
+      // hover, even when that website starts it, muted (owner, 2026-11-12).
+      expect(await at("https://www.youtube.com/watch?v=abc")).toBe(2);
+      expect(await at("https://www.youtube.com/embed/abc?autoplay=1&mute=1")).toBe(0);
+      move(100, 100);
+      expect(frames()).toHaveLength(2);
+      // A hover over the front page's preview still loads it, as before the load at play.
+      expect(await at("https://www.twitch.tv/")).toBe(0);
+      move(100, 100);
       expect(frames()).toHaveLength(2);
     });
 
@@ -900,102 +954,89 @@ describe("Agent", () => {
     });
   });
 
-  describe("frees the model after a stretch with nobody hovering (owner, 2026-11-10)", () => {
-    const MIN = 60_000;
+  describe("frees the model after a stretch with nobody hovering (owner, 2026-11-10; the toolkit's idle unload)", () => {
     const BLUE_EYES = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
-
-    it("removes both frames 10 minutes after the load with no hover, and not before", async () => {
-      expect(IDLE_UNLOAD_MS).toBe(10 * MIN);
-      vi.useFakeTimers();
-      agent = await startAgent();
-      expect(compute()).toBeDefined();
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS - 1);
-      expect(compute()).toBeDefined();
-      vi.advanceTimersByTime(1);
-      expect(frames()).toEqual([]);
-    });
-
-    it("removes both frames 10 minutes after the last hover of a video that loaded on a hover", async () => {
-      vi.useFakeTimers();
-      media.paused = true;
-      agent = await startAgent();
-      move(100, 100);
-      expect(frames()).toHaveLength(2);
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
-      expect(frames()).toEqual([]);
-    });
-
-    it("starts the 10 minutes again on each move over the picture", async () => {
-      vi.useFakeTimers();
-      agent = await startAgent();
-      vi.advanceTimersByTime(9 * MIN);
-      move(100, 100);
-      vi.advanceTimersByTime(9 * MIN);
-      expect(frames()).toHaveLength(2);
-      vi.advanceTimersByTime(MIN - 1);
-      expect(frames()).toHaveLength(2);
-      vi.advanceTimersByTime(1);
-      expect(frames()).toEqual([]);
-    });
-
-    it("keeps the model while a card shows, and counts the idle time from when it hides", async () => {
-      // A card shows at most 60 s after the pointer last moved, so a 30 s idle time shows the hold.
-      vi.useFakeTimers();
-      agent = new Agent({ dev: true, idleUnloadMs: 30_000 });
-      agent.start();
-      agent.setEnabled(true);
-      await settle();
-      move(100, 100);
-      vi.advanceTimersByTime(1_000);
-      showCard(BLUE_EYES);
-      expect(tooltip()!.style.visibility).toBe("visible");
-      vi.advanceTimersByTime(40_000);
-      expect(frames()).toHaveLength(2);
-      fromFrame(compute(), { kind: "shown", card: null });
-      vi.advanceTimersByTime(HIDE_DELAY_MS);
-      expect(tooltip()!.style.visibility).toBe("hidden");
-      vi.advanceTimersByTime(30_000 - 1);
-      expect(frames()).toHaveLength(2);
-      vi.advanceTimersByTime(1);
-      expect(frames()).toEqual([]);
-    });
-
-    it("loads again on a trusted move anywhere in the page while the video plays, not on a page script's", async () => {
-      vi.useFakeTimers();
-      agent = await startAgent();
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
-      expect(frames()).toEqual([]);
-      document.dispatchEvent(trusted(new PointerEvent("pointermove", { clientX: 2000, clientY: 2000, bubbles: true }), false));
-      expect(frames()).toEqual([]);
-      move(2000, 2000);
-      expect(compute()).toBeDefined();
-      expect(tooltip()).toBeUndefined();
-      // Over the picture: both frames, as before.
-      move(100, 100);
-      expect(frames()).toHaveLength(2);
-    });
-
-    it("loads again when the video plays again after an unload, and not on a move while it is paused", async () => {
-      vi.useFakeTimers();
-      agent = await startAgent();
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
-      media.paused = true;
-      move(2000, 2000);
-      expect(frames()).toEqual([]);
-      video.dispatchEvent(new Event("pause"));
+    /** The compute frame's worker ended for idleness (frame.ts idleUnloadMs): it says so. */
+    const goIdle = () => fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+    const play = () => {
       media.paused = false;
       video.dispatchEvent(new Event("playing"));
+    };
+
+    it("removes both frames when the compute frame goes idle, a card shown or not", async () => {
+      agent = await startAgent();
+      move(100, 100);
+      showCard(BLUE_EYES);
+      expect(tooltip()!.style.visibility).toBe("visible");
+      goIdle();
+      expect(frames()).toEqual([]);
+      expect(outline()).toBeNull();
+    });
+
+    it("makes both frames again on a trusted move over the picture, not on a page script's or a move elsewhere", async () => {
+      agent = await startAgent();
+      move(100, 100);
+      const first = compute();
+      goIdle();
+      document.dispatchEvent(trusted(new PointerEvent("pointermove", { clientX: 100, clientY: 100, bubbles: true }), false));
+      move(2000, 2000);
+      move(100, 600);
+      expect(frames()).toEqual([]);
+      move(100, 100);
+      expect(compute()).toBeDefined();
+      expect(compute()).not.toBe(first);
+      expect(tooltip()).toBeDefined();
+      expect(frames()).toHaveLength(2);
+      // The new frame is the one the control speaks to, and the card shows as before.
+      showCard(BLUE_EYES);
+      expect(tooltip()!.style.visibility).toBe("visible");
+    });
+
+    it("makes nothing on a `playing` while the frames are removed (a loop, a stall, a pause and play)", async () => {
+      agent = await startAgent();
+      goIdle();
+      video.dispatchEvent(new Event("waiting"));
+      play();
+      video.dispatchEvent(new Event("seeking"));
+      play();
+      media.paused = true;
+      video.dispatchEvent(new Event("pause"));
+      play();
+      expect(frames()).toEqual([]);
+    });
+
+    it("loads at play again once a frame made after the unload has said ready", async () => {
+      agent = await startAgent();
+      goIdle();
+      move(100, 100);
+      fromFrame(compute(), { kind: "status", state: "loading", error: null, backend: null });
+      // The page removes the frame (a site's own clean-up): the next `playing` makes it again.
+      compute()!.remove();
+      play();
       expect(compute()).toBeDefined();
     });
 
-    it("stays unloaded through a `playing` with no pause first (a stall, a loop, an ad)", async () => {
-      vi.useFakeTimers();
+    it("loads at once when switched off and on while the video plays, even after an unload", async () => {
       agent = await startAgent();
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
-      video.dispatchEvent(new Event("waiting"));
-      video.dispatchEvent(new Event("playing"));
-      video.dispatchEvent(new Event("seeking"));
-      video.dispatchEvent(new Event("playing"));
+      goIdle();
+      agent.setEnabled(false);
+      agent.setEnabled(true);
+      expect(compute()).toBeDefined();
+      expect(tooltip()).toBeDefined();
+    });
+
+    it("switched off and on while paused after an unload, loads at the next play", async () => {
+      agent = await startAgent();
+      goIdle();
+      media.paused = true;
+      agent.setEnabled(false);
+      agent.setEnabled(true);
+      expect(frames()).toEqual([]);
+      play();
+      expect(compute()).toBeDefined();
+      // Idle again: a `playing` then makes nothing, as before.
+      goIdle();
+      play();
       expect(frames()).toEqual([]);
     });
 
@@ -1006,17 +1047,125 @@ describe("Agent", () => {
       move(100, 600);
       expect(frames()).toEqual([]);
     });
+  });
 
-    it("forgets an unload when switched off and on: a move off the picture then loads nothing", async () => {
-      vi.useFakeTimers();
+  describe("keeps a card while the viewer reads it (owner, 2026-11-11; the toolkit's reading hold)", () => {
+    const BLUE_EYES = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
+
+    it("hides the outline and keeps the tooltip while the card is held, and outlines it again when seen", async () => {
       agent = await startAgent();
-      vi.advanceTimersByTime(IDLE_UNLOAD_MS);
+      move(100, 100);
+      showCard(BLUE_EYES);
+      expect(outline()!.style.display).not.toBe("none");
+      const shownAt = outline()!.style.left;
+      // A player moved the card away: the toolkit keeps it, marked held.
+      fromFrame(compute(), { kind: "shown", card: { ...BLUE_EYES, held: true } });
+      expect(tooltip()!.style.visibility).toBe("visible");
+      expect(outline()!.style.display).toBe("none");
+      // Seen there again: the outline comes back.
+      fromFrame(compute(), { kind: "shown", card: BLUE_EYES });
+      expect(tooltip()!.style.visibility).toBe("visible");
+      expect(outline()!.style.display).not.toBe("none");
+      expect(outline()!.style.left).toBe(shownAt);
+    });
+
+    it("makes the compute frame again at once when \"Keep the card I'm pointing at\" changes: the card shown goes, the tooltip frame stays", async () => {
+      agent = await startAgent();
+      move(100, 100);
+      showCard(BLUE_EYES);
+      const old = compute()!;
+      const oldWindow = old.contentWindow;
+      const tip = tooltip();
+      expect(tip!.style.visibility).toBe("visible");
+      agent.keepCardChanged();
+      expect(old.isConnected).toBe(false);
+      expect(compute()).toBeDefined();
+      expect(compute()).not.toBe(old);
+      expect(tooltip()).toBe(tip);
+      expect(frames()).toHaveLength(2);
+      expect(tip!.style.visibility).toBe("hidden");
+      expect(outline()!.style.display).toBe("none");
+      // The old frame's word counts for nothing now.
+      window.dispatchEvent(message(tag({ kind: "shown", card: BLUE_EYES }), EXT, oldWindow));
+      expect(tip!.style.visibility).toBe("hidden");
+      // The new frame is the one the control speaks to: the card shows again from it.
+      showCard(BLUE_EYES);
+      expect(tip!.style.visibility).toBe("visible");
+    });
+
+    it("makes nothing when \"Keep the card I'm pointing at\" changes with no compute frame (not loaded, idle, switched off)", async () => {
       media.paused = true;
-      agent.setEnabled(false);
-      agent.setEnabled(true);
-      media.paused = false;
-      move(2000, 2000);
+      agent = await startAgent();
+      agent.keepCardChanged();
       expect(frames()).toEqual([]);
+      media.paused = false;
+      video.dispatchEvent(new Event("playing"));
+      expect(frames()).toHaveLength(2);
+      fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+      expect(frames()).toEqual([]);
+      agent.keepCardChanged();
+      expect(frames()).toEqual([]);
+      agent.setEnabled(false);
+      agent.keepCardChanged();
+      expect(frames()).toEqual([]);
+    });
+
+    describe("in a tab out of view, when it next comes into view (owner, 2026-11-12)", () => {
+      const view = (state: "hidden" | "visible") => {
+        Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      };
+      afterEach(() => Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true }));
+
+      it("keeps the frame while the tab is out of view, and makes it again once when it comes into view", async () => {
+        agent = await startAgent();
+        const old = compute();
+        const tip = tooltip();
+        view("hidden");
+        agent.keepCardChanged();
+        expect(compute()).toBe(old);
+        view("visible");
+        const made = compute();
+        expect(made).toBeDefined();
+        expect(made).not.toBe(old);
+        expect(tooltip()).toBe(tip);
+        // Once only: back and forth again remakes nothing.
+        view("hidden");
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("makes nothing more in view when a new frame was made meanwhile (it read the choice)", async () => {
+        agent = await startAgent();
+        view("hidden");
+        agent.keepCardChanged();
+        fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
+        expect(frames()).toEqual([]);
+        // Made again out of view (a background tab whose video plays after switching on again).
+        agent.setEnabled(false);
+        agent.setEnabled(true);
+        const made = compute();
+        expect(made).toBeDefined();
+        view("visible");
+        expect(compute()).toBe(made);
+      });
+
+      it("makes nothing in view after the frames went or hovers were switched off", async () => {
+        agent = await startAgent();
+        view("hidden");
+        agent.keepCardChanged();
+        agent.setEnabled(false);
+        view("visible");
+        expect(frames()).toEqual([]);
+      });
+    });
+
+    it("draws no outline for a card first shown while held (a new tooltip frame)", async () => {
+      agent = await startAgent();
+      move(100, 100);
+      showCard({ ...BLUE_EYES, held: true });
+      expect(tooltip()!.style.visibility).toBe("visible");
+      expect(outline()!.style.display).toBe("none");
     });
   });
 });
