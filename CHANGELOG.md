@@ -6,7 +6,7 @@ What changes for viewers in each version of DuelSight, and why. Store dates are 
 follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-spec.json`, and
 `docs/hover-spec.md` in the toolkit's repository).
 
-## [0.8.1] - unreleased
+## [0.8.1] - 2026-11-13
 
 The recognition runtime moves to cardvision 0.14.0rc2, and two places where DuelSight's own code
 differed from the hover spec now follow it. Same bundled cards (`862aec0f937da326`).
