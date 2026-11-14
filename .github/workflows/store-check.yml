@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The store release's build and checks on every pull request, with the tag the version would get
+# (the toolkit's docs/store-uploads.md, "Checking a pull request without a tag"). The same steps as
+# the build job of store-release.yml: the tests, the store packages (npm run store:build, with its
+# source round trip and its check of the card release against cdn/RUNTIMES.json), Mozilla's
+# linter against store/lint-baseline.json, and `store-upload.mjs check` on the release file of
+# package.json's version. That check also fetches each address in the release file's `before`
+# list, so it stays red until what that release needs is live (the privacy page, when PRIVACY.md
+# changed). This workflow has no store access and must never name a store credential.
+name: Store check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TAG_PREFIX: v
+  STORE_TOOL: vendor/cardvision-browser/node/store-upload.mjs
+
+jobs:
+  store-check:
+    name: Store packages and check (no store access)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+      - name: The would-be tag
+        run: echo "TAG=${TAG_PREFIX}$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Build the store packages
+        run: npm run vendor-check && npm run store:build
+
+      - name: Lint the Firefox package
+        run: |
+          mkdir -p out/firefox && unzip -q -o out/firefox.zip -d out/firefox
+          npx --yes web-ext@10.8.0 lint --source-dir out/firefox --output json > out/lint.json || true
+
+      - name: The previous release's permissions
+        run: |
+          # The newest earlier release tag (pre-release tags such as v1.0.0-rc1 are left out).
+          prev=$(git tag --list "${TAG_PREFIX}*" --sort=-v:refname --merged HEAD | while read -r t; do
+            case "${t#"$TAG_PREFIX"}" in (*-*) continue ;; esac
+            if [ "$t" != "$TAG" ]; then echo "$t"; break; fi
+          done || true)
+          if [ -n "$prev" ] && git cat-file -e "$prev:store/permissions.json" 2>/dev/null; then
+            git show "$prev:store/permissions.json" > out/previous-permissions.json
+            echo "PREVIOUS=--previous-permissions out/previous-permissions.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check the release
+        run: |
+          version="${TAG#"$TAG_PREFIX"}"
+          node "$STORE_TOOL" check --config store/store.config.json --release "store/releases/$version.json" \
+            --tag "$TAG" --tag-prefix "$TAG_PREFIX" --permissions store/permissions.json $PREVIOUS \
+            --chrome-zip out/chrome.zip --firefox-zip out/firefox.zip --firefox-source out/firefox-source.zip \
+            --workflow .github/workflows/store-release.yml --workflow .github/workflows/store-check.yml \
+            --lint out/lint.json --lint-baseline store/lint-baseline.json --summary "$GITHUB_STEP_SUMMARY"

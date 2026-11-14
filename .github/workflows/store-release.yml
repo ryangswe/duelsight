@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Uploading an extension release to the Chrome Web Store and addons.mozilla.org: copy this file to
+# .github/workflows/store-release.yml in the extension's repository, and the store/ folder beside it
+# to the repository's top level. See the toolkit's docs/store-uploads.md.
+#
+# Two jobs. `build` has no store access: it builds the packages from the tag, runs the product's
+# own checks and the toolkit's `store-upload.mjs check`, and lists everything on the run page.
+# `upload` runs in the `store` environment, whose required reviewer approves it on that page; only
+# then does it get store access. It checks both stores before uploading anything.
+#
+# Pushing the tag runs both jobs. "Run workflow" on the tag (Actions page, "Use workflow from":
+# the tag) runs the build alone, or both with `upload` ticked; with `precheck_only` ticked too, the
+# upload job signs in and reads both stores but uploads nothing. A tag push never sets it, and a
+# run from a branch is refused. If
+# one store failed after the other succeeded, re-run the failed job: the store that already has
+# the version is skipped.
+#
+# Replace the two steps marked PRODUCT with the product's own commands. Pin every `uses:` to a
+# commit when copying. Release tags are TAG_PREFIX followed by the version (v1.2.0); a product
+# whose tags look different (extension-v1.2.0) sets TAG_PREFIX and the `tags:` pattern to match.
+# This file must name no CDN credential or pointer tool: `check` refuses it.
+
+name: Store release
+
+on:
+  push:
+    tags: ["v*"] # TAG_PREFIX followed by *
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Also run the upload job (off: build and check only)"
+        type: boolean
+        default: false
+      precheck_only:
+        description: "With upload: sign in and read both stores, upload nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.ref_name }}
+  TAG_PREFIX: v
+  STORE_TOOL: vendor/cardvision-browser/node/store-upload.mjs
+
+jobs:
+  build:
+    name: Build and check (no store access)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only from a release tag
+        if: github.ref_type != 'tag'
+        run: |
+          echo "Run this workflow from a release tag, not from ${GITHUB_REF}." >&2
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+      # PRODUCT: build the store packages from this commit into out/:
+      #   out/chrome.zip, out/firefox.zip, and out/firefox-source.zip when the add-on's code is
+      #   minified or generated (Mozilla's reviewers then need the source). Run the product's own
+      #   release gates here too (leak scan, source-archive round trip, release checks).
+      #   out/chrome.zip may keep its files in one top-level folder; out/firefox.zip needs
+      #   manifest.json at its root.
+      - name: Build the store packages
+        run: npm run vendor-check && npm run store:build
+
+      # Errors fail the check below, and so does any warning not in store/lint-baseline.json. A new
+      # linter version can add warnings: update the version and the baseline together.
+      - name: Lint the Firefox package
+        run: |
+          mkdir -p out/firefox && unzip -q -o out/firefox.zip -d out/firefox
+          npx --yes web-ext@10.8.0 lint --source-dir out/firefox --output json > out/lint.json || true
+
+      - name: The previous release's permissions
+        run: |
+          # The newest earlier release tag (pre-release tags such as v1.0.0-rc1 are left out).
+          prev=$(git tag --list "${TAG_PREFIX}*" --sort=-v:refname --merged HEAD | while read -r t; do
+            case "${t#"$TAG_PREFIX"}" in (*-*) continue ;; esac
+            if [ "$t" != "$TAG" ]; then echo "$t"; break; fi
+          done || true)
+          if [ -n "$prev" ] && git cat-file -e "$prev:store/permissions.json" 2>/dev/null; then
+            git show "$prev:store/permissions.json" > out/previous-permissions.json
+            echo "PREVIOUS=--previous-permissions out/previous-permissions.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check the release
+        run: |
+          version="${TAG#"$TAG_PREFIX"}"
+          source=""; [ -f out/firefox-source.zip ] && source="--firefox-source out/firefox-source.zip"
+          node "$STORE_TOOL" check --config store/store.config.json --release "store/releases/$version.json" \
+            --tag "$TAG" --tag-prefix "$TAG_PREFIX" --permissions store/permissions.json $PREVIOUS \
+            --chrome-zip out/chrome.zip --firefox-zip out/firefox.zip $source \
+            --workflow .github/workflows/store-release.yml \
+            --lint out/lint.json --lint-baseline store/lint-baseline.json \
+            --hashes-out out/hashes.json --summary "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-packages
+          path: |
+            out/*.zip
+            out/hashes.json
+          retention-days: 30
+          if-no-files-found: error
+
+  upload:
+    name: Upload (after approval)
+    needs: build
+    # The approval is the `store` environment's required reviewer, which GitHub offers on public
+    # repositories, and on private ones only under GitHub Enterprise. On a private repository
+    # without it the environment has no reviewer and a tag would upload unapproved, so the job
+    # does not run there: upload the build job's packages yourself (docs/store-uploads.md, "A
+    # private repository"). Remove `&& !github.event.repository.private` only on a private
+    # repository under GitHub Enterprise whose `store` environment has its required reviewer.
+    if: (github.event_name == 'push' || inputs.upload) && !github.event.repository.private
+    runs-on: ubuntu-latest
+    environment: store
+    # One upload at a time: a second Chrome upload would cancel the first one's review.
+    concurrency:
+      group: store-upload
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: store-packages
+          path: out
+
+      # Option A (keyless): GitHub's identity token is exchanged for a Google access token through
+      # Workload Identity Federation. Option B: replace the two lines after `with:` by
+      # `credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}`.
+      - id: google
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.CWS_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.CWS_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          # Only the access token is used: no credentials file, no exported variables.
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Check both stores, then upload
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          # "true" only for a dispatched run with `precheck_only` ticked; "false" otherwise.
+          PRECHECK_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.precheck_only }}
+        run: |
+          version="${TAG#"$TAG_PREFIX"}"
+          source=""; [ -f out/firefox-source.zip ] && source="--firefox-source out/firefox-source.zip"
+          precheck=""; if [ "$PRECHECK_ONLY" = "true" ]; then precheck="--precheck-only"; fi
+          node "$STORE_TOOL" upload --config store/store.config.json --release "store/releases/$version.json" \
+            --targets chrome,firefox --hashes out/hashes.json \
+            --chrome-zip out/chrome.zip --firefox-zip out/firefox.zip $source \
+            $precheck --summary "$GITHUB_STEP_SUMMARY"

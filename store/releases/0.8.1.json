@@ -1,0 +1,16 @@
+{
+  "version": "0.8.1",
+  "chrome": { "submit": "auto", "publish": "default" },
+  "firefox": {
+    "releaseNotes": { "en-US": "0.8.1/amo-release-notes.en-US.md" },
+    "approvalNotes": "0.8.1/amo-approval-notes.md"
+  },
+  "permissionsChanged": false,
+  "before": [
+    {
+      "url": "https://cdn.duelsight.com/privacy.html",
+      "sha256": "3d88c9341916ece41907d703d87cb53e216b4b8c5089cf15ed56325272dba216",
+      "why": "PRIVACY.md changed in 0.8.1 (the one picture after a slow load): the privacy page the stores link to must be this version's (node scripts/privacy-page.mjs)"
+    }
+  ]
+}

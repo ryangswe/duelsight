@@ -9,10 +9,11 @@
 # The build job makes the packages a release uploads (npm run build, then npm run package: the
 # release zip, the Chrome Web Store zip and the Firefox zip) from the card release DuelSight
 # bundles, and runs Mozilla's linter on the Firefox package (0 errors needed; its warnings come
-# from ONNX Runtime Web). The card release is never committed: the job takes it from the release
-# page of the version that first bundled it, pinned by the zip's SHA-256. A change that bundles a
-# new card release (release-legal/NOTICE names it) moves these pins to where that release is
-# published.
+# from ONNX Runtime Web). The card release is never committed: the jobs take it from the release
+# page of the version that first bundled it, pinned by the zip's SHA-256 in
+# scripts/release-source.json (scripts/fetch-release.mjs), as npm run store:build does. A change
+# that bundles a new card release (release-legal/NOTICE names it) moves those pins to where that
+# release is published.
 #
 # The hover browser test (test/browser/hover-browser.mjs) loads two dev builds, from the same card
 # release, in headless Chrome for Testing on a local page. Its clip is rendered from official card
@@ -60,11 +61,6 @@ jobs:
     name: Build and web-ext lint
     runs-on: ubuntu-latest
     env:
-      # The card release in DuelSight 0.8.0's release zip (release-legal/NOTICE names it).
-      RELEASE_ID: 862aec0f937da326
-      RELEASE_ZIP_URL: https://github.com/ryangswe/duelsight/releases/download/v0.8.0/duelsight-0.8.0.zip
-      RELEASE_ZIP_SHA256: dd90b32888b9a6a7441937c4281cc057cf736049185088d269c8f2caa296df1c
-      RELEASE_ZIP_FOLDER: duelsight-0.8.0
       WEB_EXT_VERSION: 10.8.0
     steps:
       - uses: actions/checkout@v7
@@ -73,15 +69,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: The card release, from its release page
-        run: |
-          zip="$RUNNER_TEMP/release-source.zip"
-          curl -fsSL --retry 3 -o "$zip" "$RELEASE_ZIP_URL"
-          echo "$RELEASE_ZIP_SHA256  $zip" | sha256sum -c -
-          unzip -q "$zip" "$RELEASE_ZIP_FOLDER/release/*" -d "$RUNNER_TEMP/release-source"
-          dir="$RUNNER_TEMP/release-source/$RELEASE_ZIP_FOLDER/release"
-          node -e 'const r = require(process.argv[1]); if (r.id !== process.argv[2]) { console.error(`release ${r.id}, expected ${process.argv[2]}`); process.exit(1); }' "$dir/release.json" "$RELEASE_ID"
-          echo "RELEASE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: The card release, from its release page (scripts/release-source.json)
+        run: node scripts/fetch-release.mjs --into "$RUNNER_TEMP/release-source" --github-env
       - name: Release zip (Load unpacked)
         run: npm run build -- --release "$RELEASE_DIR" && npm run package
       - name: Chrome Web Store zip
@@ -98,12 +87,6 @@ jobs:
     name: Hover browser test
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      # The same card release and pins as the build job: move them together.
-      RELEASE_ID: 862aec0f937da326
-      RELEASE_ZIP_URL: https://github.com/ryangswe/duelsight/releases/download/v0.8.0/duelsight-0.8.0.zip
-      RELEASE_ZIP_SHA256: dd90b32888b9a6a7441937c4281cc057cf736049185088d269c8f2caa296df1c
-      RELEASE_ZIP_FOLDER: duelsight-0.8.0
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -111,15 +94,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: The card release, from its release page
-        run: |
-          zip="$RUNNER_TEMP/release-source.zip"
-          curl -fsSL --retry 3 -o "$zip" "$RELEASE_ZIP_URL"
-          echo "$RELEASE_ZIP_SHA256  $zip" | sha256sum -c -
-          unzip -q "$zip" "$RELEASE_ZIP_FOLDER/release/*" -d "$RUNNER_TEMP/release-source"
-          dir="$RUNNER_TEMP/release-source/$RELEASE_ZIP_FOLDER/release"
-          node -e 'const r = require(process.argv[1]); if (r.id !== process.argv[2]) { console.error(`release ${r.id}, expected ${process.argv[2]}`); process.exit(1); }' "$dir/release.json" "$RELEASE_ID"
-          echo "RELEASE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: The card release, from its release page (scripts/release-source.json)
+        run: node scripts/fetch-release.mjs --into "$RUNNER_TEMP/release-source" --github-env
       - name: Two dev builds (the second unloads after 6 idle seconds)
         run: |
           npm run build -- --dev --release "$RELEASE_DIR" --out dist

@@ -1,0 +1,12 @@
+{
+  "chrome": { "publisherId": "2539681c-12da-4a7a-944a-4bd2b3d052c1", "itemId": "okngcckiafmekbmdgoakggfbicgoagnc" },
+  "firefox": { "addon": "duelsight@duelsight.com" },
+  "deny": [
+    "DSCDN",
+    "cdn/.env",
+    "cdn.config.json",
+    "publish-release",
+    "set-pointer",
+    "verify-release-live"
+  ]
+}
