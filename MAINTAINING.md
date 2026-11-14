@@ -88,6 +88,30 @@ paste-ready, what Firefox Add-ons asks for differently, and how to make what the
 
 Submitting, and every declaration in either store's dashboard, is the owner's.
 
+### The store workflow
+
+From the release after 0.8.1, a release tag (`v<version>`) runs
+[.github/workflows/store-release.yml](.github/workflows/store-release.yml): the cardvision
+toolkit's template (`browser/templates/store-release.yml` at riftsight-vision ba64709, steps in its
+`docs/store-uploads.md`), changed only where the template says to: every `uses:` pinned to a
+commit, the build step (`npm run vendor-check && npm run store:build`) and the linter's version
+(web-ext 10.8.0, moved together with `store/lint-baseline.json`). Its build job builds and checks
+the packages; its upload job waits for the owner's approval in the `store` environment and runs
+no npm.
+
+- `npm run store:build` ([scripts/store-build.mjs](scripts/store-build.mjs)) writes
+  `out/chrome.zip`, `out/firefox.zip` and `out/firefox-source.zip`. It checks the card release
+  against this version's row in `cdn/RUNTIMES.json` first, and runs the source round trip after.
+  The card release comes from the release page that
+  [scripts/release-source.json](scripts/release-source.json) names, as in tests.yml.
+- A release adds `store/releases/<version>.json` and its AMO notes (`store/releases/<version>/`)
+  in the pull request that bumps the version. When PRIVACY.md changed, the privacy page is a
+  `before` entry with its sha256, so nothing uploads until that page is live.
+- [.github/workflows/store-check.yml](.github/workflows/store-check.yml) runs the same build and
+  checks on every pull request with the tag package.json's version would get. It is red while a
+  `before` address is not live yet (or the version has no release file), so it is not a required
+  check.
+
 ## A core-model refresh
 
 When the cardvision toolkit publishes a better detector or recognizer, or a new runtime:

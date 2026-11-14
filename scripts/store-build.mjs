@@ -118,6 +118,11 @@ async function main() {
   const work = mkdtempSync(join(tmpdir(), "store-build-"));
   try {
     step("The card release");
+    for (const key of ["release", "runtime-repo"]) {
+      if (values[key] && !relative(out, resolve(values[key])).startsWith("..")) {
+        throw new Error(`--${key} ${values[key]} is inside out/, which this build empties first`);
+      }
+    }
     const releaseDir = values.release ? resolve(values.release) : await fetchRelease(join(work, "release-source"), source);
     const releaseId = checkRuntimesRow({ version, releaseDir, vendor });
     if (releaseId !== source.id) throw new Error(`the release is ${releaseId}; scripts/release-source.json pins ${source.id}`);

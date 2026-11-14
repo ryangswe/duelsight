@@ -1,11 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# DuelSight's copy of the cardvision toolkit's browser/templates/store-release.yml (toolkit main
-# ba64709). Changed from the template only where it says to: every `uses:` pinned to a commit, the
-# PRODUCT build step (npm run vendor-check, then npm run store:build: scripts/store-build.mjs),
-# and the linter's version, 10.8.0, with store/lint-baseline.json. The PR check with the same build
-# and checks is store-check.yml.
-#
 # Uploading an extension release to the Chrome Web Store and addons.mozilla.org: copy this file to
 # .github/workflows/store-release.yml in the extension's repository, and the store/ folder beside it
 # to the repository's top level. See the toolkit's docs/store-uploads.md.
