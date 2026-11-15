@@ -16,6 +16,9 @@ their switch cannot be read. Same bundled cards (`862aec0f937da326`).
 - **Card hovers start on when the extension's storage cannot be read as a page opens**, as the
   popup and the hover spec have it (S-H1: a missing or unreadable switch reads as on). Before, a
   failed read left hovers off on that page until the switch was turned off and on again.
+- **A change in the popup made just as a page opens is kept.** If the switch or the card size was
+  changed while the page was still reading it, the page could put back the value from before the
+  change, or (with a read that failed) switch hovers back on.
 - **A card under a resting pointer is named when card recognition starts late**, as in a new tab
   whose model loads slowly. If no card recognition was running when the pointer came to rest, the
   one that starts during that rest is told so and reads its one picture when ready, within
