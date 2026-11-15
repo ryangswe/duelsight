@@ -54,6 +54,7 @@ Details: [PRIVACY.md](PRIVACY.md) and [docs/permissions.md](docs/permissions.md)
 | Install from a release zip (Chrome) | [docs/install-from-zip.md](docs/install-from-zip.md) |
 | See what it does and does not recognize | [docs/accuracy.md](docs/accuracy.md) |
 | Understand how it and its settings file work | [docs/how-it-works.md](docs/how-it-works.md) |
+| Follow a hover through the code | [docs/hover-map.md](docs/hover-map.md) |
 | Build it, update the runtime, test on a local video | [docs/development.md](docs/development.md) |
 | Keep it up to date, or hand it over | [MAINTAINING.md](MAINTAINING.md) |
 | Submit it to the Chrome Web Store or Firefox Add-ons (the fields, the privacy page, the store images) | [docs/store-listing.md](docs/store-listing.md) |

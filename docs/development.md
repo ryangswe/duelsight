@@ -145,3 +145,7 @@ here. `test/browser/LIVE-CHECKS.md` lists the release's live checks and which of
 - The settings file's `update.url` must lie under the config's `updateUrlPrefix`.
 - Card ids are YGOPRODeck passcodes (digits, up to 8): the `printedNumber` rule in the config.
 - The routine for new cards, a model refresh and a handoff is in [MAINTAINING.md](../MAINTAINING.md).
+- **A change to a file the hover map covers updates [hover-map.md](hover-map.md) in the same pull
+  request.** Its coverage list names the files. `test/hover-map.test.ts` checks that the names it
+  anchors still exist and that the clause ids it cites are in the vendored hover spec, not that the
+  diagrams still describe the behavior: the reviewer reads them.
