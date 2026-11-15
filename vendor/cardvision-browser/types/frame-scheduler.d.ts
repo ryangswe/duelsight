@@ -218,6 +218,10 @@ export declare class FrameScheduler {
      *  waiting keeps its back-off, and a move does not reset it; only a move onto a different card
      *  starts a look past it (`hoverTriggerDue`). */
     pointerMoved(now: number): void;
+    /** A mouse already resting over the picture, last active `restedMs` ago (a frame that connected
+     *  late is told of it). The pointer counts as inside; this is no activity now and makes no look
+     *  due. */
+    pointerRestedSince(now: number, restedMs: number): void;
     /** The pointer left the picture. The grace period starts now, and with the pointer outside
      *  there is no "reading" state after it. */
     pointerLeft(now: number): void;

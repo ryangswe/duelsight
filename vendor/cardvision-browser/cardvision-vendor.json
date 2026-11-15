@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "toolkit": {
-    "version": "0.14.0rc2",
-    "commit": "5ef332a7da58508b1ff9747fe1cf0ba4f70af30b"
+    "version": "0.14.1",
+    "commit": "b858925b9a764ace8866a8c1de4bfa4020795512"
   },
   "options": {
     "opencv": true,
@@ -55,8 +55,8 @@
       "sha256": "efd03a2b1b82f1bec947e1b87e4427480260f9ca580557b8660608a36a6cae97"
     },
     "cardvision.js": {
-      "bytes": 991901,
-      "sha256": "75cb8a7161da35e0fc1077fede8c1ae04790aeee7fe98efd89774e1c4376e90b"
+      "bytes": 992486,
+      "sha256": "04c03a58d21a5c7f896952f1efb56b3af54c7f219e5f6df9339c042347a2465b"
     },
     "cardvision.js.LEGAL.txt": {
       "bytes": 3345,
@@ -67,12 +67,12 @@
       "sha256": "d03428dab77a136bd86512276724526798b5d402c92646899255a1e91bf97cf1"
     },
     "compute-session.js": {
-      "bytes": 46008,
-      "sha256": "a5b98994b5976941bf575a304420bdce3b69838e41343608a3334f7b88a86db3"
+      "bytes": 46779,
+      "sha256": "79801971d5ce249f511910504f6c5ea289618919254c8d7be65fb4f18674e44b"
     },
     "hover-spec.json": {
-      "bytes": 42974,
-      "sha256": "bf1219d38e799461018df56931251c0d25b1ebe6b17ad819be54dddd8e3c600e"
+      "bytes": 44986,
+      "sha256": "71454227d33689b718c1be27d3d04d3efa159a9d8a13633c336b7db4c7855688"
     },
     "node/package-zip.mjs": {
       "bytes": 2861,
@@ -103,8 +103,8 @@
       "sha256": "e2849875b00317d9aa030b83b4ea3a8b0960263b2bdc03cba5c27079b152836a"
     },
     "page-capture.js": {
-      "bytes": 13680,
-      "sha256": "a862b3f48a5a39220030994a72326b09955ba33838f93b9e00b46e26237eb455"
+      "bytes": 13961,
+      "sha256": "9fabc207480da365a4669f6cf4c36002b6a62a627c4641d2fef6539f1cb65e6d"
     },
     "remote-release.d.ts": {
       "bytes": 119,
@@ -131,8 +131,8 @@
       "sha256": "e85c65bd8984b5cf56685eac3a9e729f5b4d29b7de83a4016ebbf0bb557c4392"
     },
     "types/capture-gate.d.ts": {
-      "bytes": 1735,
-      "sha256": "7cba2227ab2c3541f52676364f7425ee98aeeadf5f27584cbed8bde76b761661"
+      "bytes": 1746,
+      "sha256": "a1cc4ae2194a82a0ec09a891878d3cab0047cbd604587f1ed667f9e6d8280716"
     },
     "types/capture.d.ts": {
       "bytes": 7352,
@@ -143,8 +143,8 @@
       "sha256": "01eca3b0efe00bafab2c7b996a2852fb59f6095ec493b3091b80deca417b03f6"
     },
     "types/compute-messages.d.ts": {
-      "bytes": 6084,
-      "sha256": "57813cf8388e1b96d4950a9eb79a2bba56685e1255fe075d99f68634a165457a"
+      "bytes": 6408,
+      "sha256": "69aa129b04c34d24c57b36469fc30990b1c3db6dafae8d3d10ad2626625f0ed8"
     },
     "types/compute-session.d.ts": {
       "bytes": 1087,
@@ -167,8 +167,8 @@
       "sha256": "71213c6c658e10d6c0c71c0f382c724b2402b8a4906c90d37fd8a1f7a5009412"
     },
     "types/frame-scheduler.d.ts": {
-      "bytes": 19532,
-      "sha256": "967aec986e17efa5439ddbfad26c2494fb0d6e236966813549146a26dd73a42d"
+      "bytes": 19811,
+      "sha256": "983126b5c7c9609e394e887f161cdf5a5f48d8e198a8e3d261a07a029de18da4"
     },
     "types/geometric/config.d.ts": {
       "bytes": 3304,
@@ -331,8 +331,8 @@
       "sha256": "e4e92893ebddbb87de0d15db950dabde67ac8a324b75f448227050285cc6db4f"
     },
     "types/session-core.d.ts": {
-      "bytes": 26800,
-      "sha256": "967a2137bb1c4c9a8425f737e3c38c49c95d8f93c378c49de154758f6a93eb01"
+      "bytes": 27500,
+      "sha256": "9f3ea1d16301b61bcad7b682fa8891ccfd1b0a8e82ddcf717f5de2346a777409"
     },
     "types/session.d.ts": {
       "bytes": 7617,
