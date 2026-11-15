@@ -98,7 +98,7 @@ flowchart TD
 
 | Element | Anchors | Spec |
 | --- | --- | --- |
-| Content script entry: the switch and the card size read at start (hovers stay off until the switch is read; a switch that cannot be read is on) | `src/content/index.ts`, `src/content/storage-sync.ts#applyStoredChoices` | S-H1 |
+| Content script entry: the switch and the card size read at start, each applied when read (hovers stay off until the switch is read; a switch that cannot be read is on; a popup change made while a read is pending wins over it) | `src/content/index.ts`, `src/content/storage-sync.ts#startStorageSync`, `src/content/storage-sync.ts#applyStoredChoices` | S-H1 |
 | Content script: DuelSight's agent | `src/content/agent.ts#Agent`, `src/content/agent.ts#Agent.start`, `src/content/agent.ts#Agent.stop`, `src/content/agent.ts#AgentOptions` | S-A1, S-A2 |
 | The agent makes the frames | `src/content/agent.ts#Agent.ensureCompute`, `src/content/agent.ts#Agent.createTooltip` | S-A1, S-A2 |
 | The capture control, and what it asks the agent | `src/content/agent.ts#Agent.constructor`, `src/content/agent.ts#Agent.eligibleAt`, `src/content/agent.ts#PROTOCOL` | S-A4, S-A6, S-X2 |
@@ -113,7 +113,7 @@ flowchart TD
 | Outline in the page | `src/content/outline.ts#CardOutline` | S-F1 |
 | Popup: the main switch | `src/popup/view.ts#initPopup`, `src/shared/enabled.ts#ENABLED_KEY`, `src/shared/enabled.ts#readEnabled` | S-H1 |
 | Popup: keep-card and card size | `src/popup/switch-control.ts#initStoredSwitch`, `src/popup/card-size-control.ts#initCardSize`, `src/shared/keep-card.ts#KEEP_CARD_KEY`, `src/shared/card-size.ts#CARD_SIZE_KEY` | S-H2 |
-| Storage to the content script | `src/content/storage-sync.ts#applyStorageChange`, `src/shared/keep-card.ts#keepCardFlipped`, `src/shared/card-size.ts#clampCardSize`, `src/shared/card-size.ts#readCardSize` | S-H1, S-H3 |
+| Storage to the content script | `src/content/storage-sync.ts#startStorageSync`, `src/content/storage-sync.ts#applyStorageChange`, `src/shared/keep-card.ts#keepCardFlipped`, `src/shared/card-size.ts#clampCardSize`, `src/shared/card-size.ts#readCardSize` | S-H1, S-H3 |
 | Read when the compute frame starts | `src/shared/keep-card.ts#keepCardForFrame`, `src/shared/keep-card.ts#readKeepCardOn`, `src/compute/compute.ts` | S-H2 |
 | Settings refresh: asked by the tooltip frame and the popup, fetched by the background when due | `src/tooltip/tooltip.ts`, `src/tooltip/controller.ts#TooltipController.show`, `src/popup/popup.ts`, `src/background/index.ts` | |
 

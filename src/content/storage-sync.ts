@@ -15,16 +15,40 @@ type StorageChange = { oldValue?: unknown; newValue?: unknown };
 /** The stored main switch and card size, when the page opens, each applied as soon as it is read
  *  (neither waits for the other). Hovers stay off until the switch is read; a switch that cannot be
  *  read is on (hover spec S-H1), as in the popup and the compute frame, and a card size that cannot
- *  be read is the default. */
-export function applyStoredChoices(agent: Pick<Agent, "setEnabled" | "setCardSize">, storage: Pick<KeyValueStorage, "get">): Promise<void> {
+ *  be read is the default. A choice the popup changed while its read was pending keeps the change:
+ *  the read's answer (or its default) is older, and is not applied (`changedSince`). */
+export function applyStoredChoices(
+  agent: Pick<Agent, "setEnabled" | "setCardSize">,
+  storage: Pick<KeyValueStorage, "get">,
+  changedSince: (key: string) => boolean = () => false,
+): Promise<void> {
   return Promise.all([
     readEnabled(storage)
       .catch(() => true)
-      .then((on) => agent.setEnabled(on)),
+      .then((on) => {
+        if (!changedSince(ENABLED_KEY)) agent.setEnabled(on);
+      }),
     readCardSize(storage)
       .catch(() => DEFAULT_CARD_SIZE)
-      .then((percent) => agent.setCardSize(percent)),
+      .then((percent) => {
+        if (!changedSince(CARD_SIZE_KEY)) agent.setCardSize(percent);
+      }),
   ]).then(() => undefined);
+}
+
+/** Starts the content script's half of the popup's choices: the start-up read, and the listener for
+ *  later changes (to add to chrome.storage.onChanged), which also tells the read which choices
+ *  changed while it was pending. */
+export function startStorageSync(
+  agent: Pick<Agent, "setEnabled" | "setCardSize" | "keepCardChanged">,
+  storage: Pick<KeyValueStorage, "get">,
+): (changes: Record<string, StorageChange | undefined>, area: string) => void {
+  const changed = new Set<string>();
+  void applyStoredChoices(agent, storage, (key) => changed.has(key));
+  return (changes, area) => {
+    if (area === "local") for (const key of Object.keys(changes)) changed.add(key);
+    applyStorageChange(agent, changes, area);
+  };
 }
 
 export function applyStorageChange(agent: Pick<Agent, "setEnabled" | "setCardSize" | "keepCardChanged">, changes: Record<string, StorageChange | undefined>, area: string): void {
