@@ -9,8 +9,8 @@
   "before": [
     {
       "url": "https://cdn.duelsight.com/privacy.html",
-      "sha256": "d6f55a20843dce4e10068682eaba466dc14d43c3529e512163d08a6af769c263",
-      "why": "PRIVACY.md changed in 0.8.2 (the one picture after a slow load can also come when loading finishes in the closing moments of the 10 seconds): the privacy page the stores link to must be this version's (node scripts/privacy-page.mjs)"
+      "sha256": "6fca6f3eb9f9034db1e1c381bed9132d9c3bf5451e30d650368a1dfbc59e48e6",
+      "why": "PRIVACY.md changed in 0.8.2 (the one picture after a slow load may come as soon as card recognition is ready, even after the 10 seconds): the privacy page the stores link to must be this version's (node scripts/privacy-page.mjs)"
     }
   ]
 }

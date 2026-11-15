@@ -24,9 +24,10 @@ their switch cannot be read. Same bundled cards (`862aec0f937da326`).
 
 ### Changed
 
-- **The one picture after a slow load can also come when loading finishes in the closing moments
-  of the 10 seconds** in which a resting pointer is read, if its capture is asked for just after
-  them. It is still one picture, within 60 seconds of the pointer's last move. PRIVACY.md says so.
+- **The one picture after a slow load can also come when loading finishes inside the 10 seconds**
+  in which a resting pointer is read: card recognition that becomes ready then may read it a little
+  after those 10 seconds (a retried capture). It is still one picture, within 60 seconds of the
+  pointer's last move. PRIVACY.md says so.
 
 ## [0.8.1] - 2026-11-13
 
