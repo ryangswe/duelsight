@@ -6,6 +6,28 @@ What changes for viewers in each version of DuelSight, and why. Store dates are 
 follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-spec.json`, and
 `docs/hover-spec.md` in the toolkit's repository).
 
+## [0.8.2] - unreleased
+
+The recognition runtime moves to cardvision 0.14.1, a final release, and card hovers start on when
+their switch cannot be read. Same bundled cards (`862aec0f937da326`).
+
+### Fixed
+
+- **Card hovers start on when the extension's storage cannot be read as a page opens**, as the
+  popup and the hover spec have it (S-H1: a missing or unreadable switch reads as on). Before, a
+  failed read left hovers off on that page until the switch was turned off and on again.
+- **A card under a resting pointer is named when card recognition starts late**, as in a new tab
+  whose model loads slowly. If no card recognition was running when the pointer came to rest, the
+  one that starts during that rest is told so and reads its one picture when ready, within
+  60 seconds of the pointer's last move (S-B13). One that is made again during the same rest reads
+  none.
+
+### Changed
+
+- **The one picture after a slow load can also come when loading finishes in the closing moments
+  of the 10 seconds** in which a resting pointer is read, if its capture is asked for just after
+  them. It is still one picture, within 60 seconds of the pointer's last move. PRIVACY.md says so.
+
 ## [0.8.1] - 2026-11-13
 
 The recognition runtime moves to cardvision 0.14.0rc2, and two places where DuelSight's own code
