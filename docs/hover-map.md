@@ -11,7 +11,7 @@ The runtime inside the compute frame, and the half of the session the content sc
 (the toolkit's capture control), are the cardvision toolkit's. They have their own
 [hover map](https://github.com/ryangswe/riftsight-vision/blob/main/docs/hover-map.md), which this
 page links to and does not draw again. The rules are clauses of the toolkit's
-[hover spec](https://github.com/ryangswe/riftsight-vision/blob/5ef332a7da58508b1ff9747fe1cf0ba4f70af30b/docs/hover-spec.md),
+[hover spec](https://github.com/ryangswe/riftsight-vision/blob/b858925b9a764ace8866a8c1de4bfa4020795512/docs/hover-spec.md),
 at the commit DuelSight vendors. This page shows the structure and the flows: which part decides
 what, and in what order the parts talk. It does not repeat the rules; each element names the
 clauses it carries out.
@@ -98,7 +98,7 @@ flowchart TD
 
 | Element | Anchors | Spec |
 | --- | --- | --- |
-| Content script entry: the switch and the card size read at start (hovers stay off until the switch is read, and a read that fails leaves them off, where S-H1 has an unreadable switch read as on) | `src/content/index.ts` | S-H1 (not yet for a failed read) |
+| Content script entry: the switch and the card size read at start (hovers stay off until the switch is read; a switch that cannot be read is on) | `src/content/index.ts`, `src/content/storage-sync.ts#applyStoredChoices` | S-H1 |
 | Content script: DuelSight's agent | `src/content/agent.ts#Agent`, `src/content/agent.ts#Agent.start`, `src/content/agent.ts#Agent.stop`, `src/content/agent.ts#AgentOptions` | S-A1, S-A2 |
 | The agent makes the frames | `src/content/agent.ts#Agent.ensureCompute`, `src/content/agent.ts#Agent.createTooltip` | S-A1, S-A2 |
 | The capture control, and what it asks the agent | `src/content/agent.ts#Agent.constructor`, `src/content/agent.ts#Agent.eligibleAt`, `src/content/agent.ts#PROTOCOL` | S-A4, S-A6, S-X2 |
@@ -122,7 +122,8 @@ Inside the compute frame, from the session core to the worker, is the toolkit's
 
 ### 1b. The life of the frames
 
-Hovers start off, and come on when the content script has read the stored switch (index.ts). The
+Hovers start off, and come on when the content script has read the stored switch, or failed to
+(`applyStoredChoices`). The
 content script makes both frames together: when the main video plays on a page that loads at play
 (at its `playing` event, when hovers are switched on, or when a waiting tab comes into view), or at
 a trusted move or tap over the picture. A tab switched on out of view after an idle unload waits
@@ -223,9 +224,8 @@ differs from it in four ways, the ones S-G3 itself names:
 - empty path parts are dropped, so repeated slashes (`//name`, `/videos//123`) load at play;
 - a clip's slug is not checked, so a clip address with any slug loads at play.
 
-S-A8, at the vendored commit, states what DuelSight does: a video that plays in a tab out of view
-makes the frames (2b). A later version of the spec has that tab wait for the front; that change
-comes with the shared host too.
+S-A8 has a video that starts playing in a tab out of view wait until the tab comes to the front.
+DuelSight makes the frames at once there today (2b); that change comes with the shared host too.
 
 ### 2b. Do the frames load when the video plays?
 
@@ -272,9 +272,9 @@ flowchart TD
 | --- | --- | --- |
 | The `playing` event | `src/content/agent.ts#Agent.start`, `src/content/agent.ts#Agent.onPlaying` | S-A1 |
 | Waiting for the front, and removed for idleness | `src/content/agent.ts#Agent.onPlaying` | S-A6, S-A7 |
-| Switched on: at once, or wait for the front | `src/content/index.ts`, `src/content/agent.ts#Agent.setEnabled`, `src/content/agent.ts#Agent.reloadAfterSwitch` | S-A7 |
+| Switched on: at once, or wait for the front | `src/content/index.ts`, `src/content/storage-sync.ts#applyStoredChoices`, `src/content/agent.ts#Agent.setEnabled`, `src/content/agent.ts#Agent.reloadAfterSwitch` | S-A7 |
 | A waiting tab comes into view | `src/content/agent.ts#Agent.onVisibility`, `src/content/agent.ts#Agent.reloadAfterSwitch` | S-A7 |
-| Load-at-play page, main video playing; in a tab out of view too | `src/content/agent.ts#Agent.loadIfPlaying`, `src/content/site.ts#loadsAtPlay` | S-A1, S-A8 |
+| Load-at-play page, main video playing; in a tab out of view too, where S-A8 has it wait (not yet, 2a) | `src/content/agent.ts#Agent.loadIfPlaying`, `src/content/site.ts#loadsAtPlay` | S-A1, S-A8 (not yet) |
 | Make both frames | `src/content/agent.ts#Agent.ensureFrames` | S-B8 |
 
 ### 2c. Does a pointer make the frames?
@@ -442,7 +442,7 @@ flowchart TD
 | Send the card, numbered | `src/content/agent.ts#Agent.showTooltip`, `src/content/agent.ts#Agent.toTooltip` | |
 | Visible once sized for this card | `src/content/agent.ts#Agent.onMessage`, `src/content/agent.ts#Agent.showTooltip` | |
 | Hide and clear | `src/content/agent.ts#Agent.hideTooltip` | S-F1 |
-| Outline, turned or upright; a turned outline is not clipped at the picture's edge | `src/content/outline.ts#outlinePlacement`, `src/content/outline.ts#outlineRect`, `src/content/outline.ts#OutlinePlacement`, `src/content/outline.ts#OutlinedCard`, `src/content/outline.ts#MIN_OUTLINE_SIDE`, `src/content/outline.ts#CardOutline.show`, `src/content/outline.ts#CardOutline.hide` | S-F1, S-F2, S-F3 (the "always turned" option) |
+| Outline, turned or upright; a turned outline is not clipped at the picture's edge | `src/content/outline.ts#outlinePlacement`, `src/content/outline.ts#outlineRect`, `src/content/outline.ts#OutlinePlacement`, `src/content/outline.ts#OutlinedCard`, `src/content/outline.ts#MIN_OUTLINE_SIDE`, `src/content/outline.ts#CardOutline.show`, `src/content/outline.ts#CardOutline.hide` | S-F1, S-F2, S-F3 |
 | No outline on a held card | `src/content/agent.ts#Agent.showTooltip` | S-F4, S-W7 |
 | How the outline looks | `src/content/outline.ts#outlineEdgeStyle`, `src/content/outline.ts#OutlineEnvironment` | |
 
