@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { KEEP_CARD_KEY, keepCardFlipped, keepCardForFrame, readKeepCardOn } from "../src/shared/keep-card.js";
-import { applyStorageChange } from "../src/content/storage-sync.js";
+import { applyStorageChange, applyStoredChoices } from "../src/content/storage-sync.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 describe("Keep the card I'm pointing at (owner, 2026-11-12)", () => {
@@ -53,5 +53,20 @@ describe("the popup's choices reaching the content script", () => {
     applyStorageChange(agent, { cardSize: { newValue: 120 } }, "local");
     applyStorageChange(agent, { enabled: { newValue: false }, cardSize: { newValue: 70 } }, "sync");
     expect(calls).toEqual(["enabled:false", "enabled:true", "size:120"]);
+  });
+
+  it("switches hovers on when the page opens, unless stored off, and on when the switch cannot be read (S-H1)", async () => {
+    const run = async (storage: { get(keys: string | string[] | null): Promise<Record<string, unknown>> }) => {
+      const { calls, agent } = spy();
+      await applyStoredChoices(agent, storage);
+      return calls;
+    };
+    expect(await run(memoryStorage())).toEqual(["enabled:true", "size:100"]);
+    expect(await run(memoryStorage({ enabled: false, cardSize: 120 }))).toEqual(["enabled:false", "size:120"]);
+    expect(await run({ get: () => Promise.reject(new Error("no storage")) })).toEqual(["enabled:true", "size:100"]);
+    // A switch that reads but a size that fails: the switch as stored, the default size.
+    let reads = 0;
+    const flaky = { get: async () => (++reads === 1 ? { enabled: false } : Promise.reject(new Error("gone"))) };
+    expect(await run(flaky)).toEqual(["enabled:false", "size:100"]);
   });
 });

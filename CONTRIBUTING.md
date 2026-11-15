@@ -27,6 +27,10 @@ npm run lint
 `npm test` runs the type check, then the tests; nothing outside the repository is needed.
 `npm run lint` finds unhandled promises and switches that miss a case (the rules are in
 `.oxlintrc.json`).
+
+If you change a file in the coverage list of [docs/hover-map.md](docs/hover-map.md) (DuelSight's
+own hover code), update that page in the same pull request. `test/hover-map.test.ts` checks that
+the names it anchors still exist; it does not check that the diagrams are still true.
 [docs/development.md](docs/development.md) says how to build the extension; a build needs a model
 release folder, which is not in this repository.
 

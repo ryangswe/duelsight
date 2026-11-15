@@ -1,0 +1,16 @@
+{
+  "version": "0.8.2",
+  "chrome": { "submit": "auto", "publish": "default" },
+  "firefox": {
+    "releaseNotes": { "en-US": "0.8.2/amo-release-notes.en-US.md" },
+    "approvalNotes": "0.8.2/amo-approval-notes.md"
+  },
+  "permissionsChanged": false,
+  "before": [
+    {
+      "url": "https://cdn.duelsight.com/privacy.html",
+      "sha256": "355d0b7be83d454df26bb6b492d6d9c376c6eb8f632dec1e5462b82ee409964c",
+      "why": "PRIVACY.md changed in 0.8.2 (the one picture after a slow load may come as soon as card recognition is ready, even after the 10 seconds): the privacy page the stores link to must be this version's (node scripts/privacy-page.mjs)"
+    }
+  ]
+}

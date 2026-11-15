@@ -189,6 +189,9 @@ export declare class SessionCore {
     /** A slow start's one picture is out (`lookOnLoad`): the prompt retry of its failed capture is
      *  part of it. Cleared once a picture arrives for it, or anything else happens. */
     private slowStart;
+    /** The slow start's look was asked since the last load ended: a pointer told as resting later
+     *  does not ask a second one. */
+    private slowStartTaken;
     /** A load ended under an eligible pointer while a retry waited out its back-off: the load's look
      *  is asked once the retry is due (`loadEndDue`), not at the paced cadence. */
     private loadEndPending;
@@ -198,6 +201,12 @@ export declare class SessionCore {
      *  with the video at `mediaTime` seconds, playing at `rate` when the host knows it. Report real
      *  movement only. */
     pointer(x: number, y: number, mediaTime: number, touch?: boolean, rate?: number): void;
+    /** A mouse that has rested over the picture for `restedMs` (its last move was that long ago):
+     *  what a frame that connected late is told. It sets where the pointer is and when it last
+     *  moved, so a slow start (`lookOnLoad`) may follow within `MAX_REST_MS`. It is no pointer
+     *  activity now: nothing is looked at for it, and `entryEligible` holds only while the move it
+     *  names is within the grace period. */
+    pointerRested(x: number, y: number, mediaTime: number, restedMs: number, rate?: number): void;
     /** The newest analyzed answer for this source (it stays through a look that comes back
      *  unanswered, unlike `result`), and where the pointer was and the card under it when the last
      *  look started: what a move is compared with (`ontoNewCard`). While a retry waits, no analyzed

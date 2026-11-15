@@ -42,7 +42,10 @@ export type ComputeIn =
 }
 /** The pointer over the picture, in fractions of the picture; `mediaTime` is the video's time,
  *  `rate` its playback rate (optional; a finite number, clamped to `MIN_PLAYBACK_RATE` to
- *  `MAX_PLAYBACK_RATE` on arrival). */
+ *  `MAX_PLAYBACK_RATE` on arrival). `restedMs` (optional, a finite number of 0 or more): the
+ *  mouse has rested at this point for that long, not just arrived. It is how a frame that
+ *  connects late learns of a resting pointer: the point counts for a slow start, and it is no
+ *  new pointer activity. Absent: the pointer just moved. */
  | {
     kind: "pointer";
     x: number;
@@ -50,6 +53,7 @@ export type ComputeIn =
     mediaTime: number;
     touch: boolean;
     rate?: number;
+    restedMs?: number;
 }
 /** The pointer left the picture. */
  | {
