@@ -442,7 +442,7 @@ flowchart TD
 | Send the card, numbered | `src/content/agent.ts#Agent.showTooltip`, `src/content/agent.ts#Agent.toTooltip` | |
 | Visible once sized for this card | `src/content/agent.ts#Agent.onMessage`, `src/content/agent.ts#Agent.showTooltip` | |
 | Hide and clear | `src/content/agent.ts#Agent.hideTooltip` | S-F1 |
-| Outline, turned or upright; a turned outline is not clipped at the picture's edge | `src/content/outline.ts#outlinePlacement`, `src/content/outline.ts#outlineRect`, `src/content/outline.ts#OutlinePlacement`, `src/content/outline.ts#OutlinedCard`, `src/content/outline.ts#MIN_OUTLINE_SIDE`, `src/content/outline.ts#CardOutline.show`, `src/content/outline.ts#CardOutline.hide` | S-F1, S-F2, S-F3 |
+| Outline, turned or upright; a turned outline is not clipped at the picture's edge | `src/content/outline.ts#outlinePlacement`, `src/content/outline.ts#outlineRect`, `src/content/outline.ts#OutlinePlacement`, `src/content/outline.ts#OutlinedCard`, `src/content/outline.ts#MIN_OUTLINE_SIDE`, `src/content/outline.ts#CardOutline.show`, `src/content/outline.ts#CardOutline.hide` | S-F1, S-F2, S-F3 (always turned; not yet: never past the picture, and no upright box for a turned side too small to draw) |
 | No outline on a held card | `src/content/agent.ts#Agent.showTooltip` | S-F4, S-W7 |
 | How the outline looks | `src/content/outline.ts#outlineEdgeStyle`, `src/content/outline.ts#OutlineEnvironment` | |
 

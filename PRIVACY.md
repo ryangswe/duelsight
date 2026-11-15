@@ -27,7 +27,7 @@ what it sends, and what it keeps.
   never more than 60 seconds after the pointer last moved. If card recognition finishes loading
   while the pointer still rests over the video, it may read one picture as soon as it is ready,
   even after those 10 seconds, still within 60 seconds of the pointer's last move; if that picture
-  shows no card, nothing more is read until the pointer moves. On a touch screen, for 10 seconds
+  shows no card, nothing more is read after those 10 seconds until the pointer moves. On a touch screen, for 10 seconds
   after you tap the video. Before each picture it checks that the pointer is still over the
   video. It stops when the pointer leaves the video, the tab goes to the background or the video
   changes.
