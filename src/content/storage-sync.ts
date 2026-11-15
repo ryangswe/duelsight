@@ -12,12 +12,19 @@ import type { Agent } from "./agent.js";
 
 type StorageChange = { oldValue?: unknown; newValue?: unknown };
 
-/** The stored main switch and card size, when the page opens. Hovers stay off until the switch is
- *  read; a switch that cannot be read is on (hover spec S-H1), as in the popup and the compute
- *  frame, and a card size that cannot be read is the default. */
-export async function applyStoredChoices(agent: Pick<Agent, "setEnabled" | "setCardSize">, storage: Pick<KeyValueStorage, "get">): Promise<void> {
-  agent.setEnabled(await readEnabled(storage).catch(() => true));
-  agent.setCardSize(await readCardSize(storage).catch(() => DEFAULT_CARD_SIZE));
+/** The stored main switch and card size, when the page opens, each applied as soon as it is read
+ *  (neither waits for the other). Hovers stay off until the switch is read; a switch that cannot be
+ *  read is on (hover spec S-H1), as in the popup and the compute frame, and a card size that cannot
+ *  be read is the default. */
+export function applyStoredChoices(agent: Pick<Agent, "setEnabled" | "setCardSize">, storage: Pick<KeyValueStorage, "get">): Promise<void> {
+  return Promise.all([
+    readEnabled(storage)
+      .catch(() => true)
+      .then((on) => agent.setEnabled(on)),
+    readCardSize(storage)
+      .catch(() => DEFAULT_CARD_SIZE)
+      .then((percent) => agent.setCardSize(percent)),
+  ]).then(() => undefined);
 }
 
 export function applyStorageChange(agent: Pick<Agent, "setEnabled" | "setCardSize" | "keepCardChanged">, changes: Record<string, StorageChange | undefined>, area: string): void {
