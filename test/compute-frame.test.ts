@@ -10,7 +10,7 @@ import { startHostCompute, STANDARD_PRESET } from "../vendor/cardvision-browser/
 import { createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
 import { productConfig } from "../src/shared/product.js";
 import type { ReleasePointer, RemoteReleaseChoice } from "../vendor/cardvision-browser/remote-release.js";
-import { computeHarness, FakeWorker } from "./helpers/compute-frame.js";
+import { computeHarness, FakeWorker, releaseOf } from "./helpers/compute-frame.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
@@ -83,9 +83,37 @@ describe("compute frame: the pages it serves", () => {
     expect((await hostStart({ origin: "http://127.0.0.1:8770", dev: true })).host).not.toBeNull();
   });
 
-  it("takes a shorter idle unload in a dev build only", async () => {
-    expect((await hostStart({ origin: "http://127.0.0.1:8770", dev: true, idleUnloadMs: 6_000 })).host).not.toBeNull();
+  it("takes a shorter idle unload in a dev build only, and goes idle after it", async () => {
     await expect(hostStart({ idleUnloadMs: 6_000 })).rejects.toThrow(/development builds only/);
+    const clock = { t: 1_000 };
+    const workers: FakeWorker[] = [];
+    const win: Record<string, unknown> = { location: { ancestorOrigins: ["http://127.0.0.1:8770"] }, addEventListener: () => undefined, removeEventListener: () => undefined };
+    win.parent = { postMessage: () => undefined };
+    const host = (await startHostCompute({
+      config: productConfig(true),
+      win: win as never,
+      storage: memoryStorage(),
+      createWorker: () => {
+        const w = new FakeWorker();
+        workers.push(w);
+        return w;
+      },
+      loadRequest: () => ({ kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "chrome-extension://x/runtime/" }),
+      now: () => clock.t,
+      devIdleUnloadMs: 6_000,
+    }))!;
+    try {
+      workers.at(-1)!.reply({ kind: "release-status", ok: true, error: null, release: releaseOf("r"), cards: [] });
+      host.frame.tick();
+      clock.t += 5_000;
+      host.frame.tick();
+      expect(host.frame.state).not.toBe("idle");
+      clock.t += 2_000;
+      host.frame.tick();
+      expect(host.frame.state).toBe("idle");
+    } finally {
+      host.stop();
+    }
   });
 
   it("acts only on messages from its parent window and origin", () => {

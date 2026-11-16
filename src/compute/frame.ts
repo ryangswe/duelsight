@@ -19,7 +19,7 @@ type OnShown = NonNullable<NonNullable<HostComputeEnv["observe"]>["onShown"]>;
 type ReleaseInEffect = Parameters<OnShown>[1];
 
 export interface FactsChannel {
-  /** startComputeFrame's `onShown`: a card of the confirmed remote release sends its facts. */
+  /** The host's `observe.onShown` (startComputeFrame's, called before each card is posted): a card of the confirmed remote release sends its facts. */
   onShown: OnShown;
   /** A tooltip's request: the facts of a card this frame showed, of the release in effect. */
   factsFor(releaseId: string, cardId: string): CardFactsMessage | null;

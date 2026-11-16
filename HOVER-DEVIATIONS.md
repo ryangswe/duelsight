@@ -28,11 +28,16 @@ else before. They are listed so a reader of an older DuelSight knows what change
 - **S-A10.** When the page removes the tooltip frame while a card shows, the next trusted move makes
   it again and shows the card in it at once. Before, the card was cleared and came back only with
   the next card named.
-- **S-G3.** On Twitch, `/videos/` is matched in lowercase only, and the seven side pages
+- **S-G3.** On Twitch, `/videos/` is matched in lowercase only, the seven side pages
   (`following`, `creatorcamp`, `collections`, `payments`, `privacy`, `products`, `team`) wait for a
-  hover. Before, DuelSight took `/Videos/` in any case and five of the side pages for channels.
+  hover, and a path is read as written: an empty segment (`//name`, `/name//`) or a clip slug with
+  other characters than letters, digits, `_` and `-` waits for a hover. Before, DuelSight took
+  `/Videos/` in any case and five of the side pages for channels, dropped empty segments and took
+  any clip slug.
 - **S-G4.** The main video is picked again on every trusted `playing`, not only on a load-at-play
-  page.
+  page. A search that found no video is kept for up to a second, as one that found a video is:
+  a video that gets its size just after a move is picked up to a second later. Before, DuelSight
+  searched again on every move while it had no video.
 - **S-G5.** A trusted pointer on a page where hovers do not run stops following the video, and the
   first move back on an active page picks it again at once. Before, DuelSight ignored such a move
   and kept the video, checking the page only when a picture was taken.

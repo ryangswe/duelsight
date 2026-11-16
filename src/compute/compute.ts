@@ -2,12 +2,12 @@
 // The compute frame: an extension page inside the video page, hidden. It hosts the runtime's
 // worker (on the extension's origin, under the extension's policy, which allows WebAssembly) and
 // the toolkit's session, which decides when a picture is analyzed and what is shown at the
-// pointer. DuelSight's options and its card facts channel are in frame.ts.
+// pointer. DuelSight's card facts channel is in frame.ts.
 //
 // This frame is made when the page's main video starts playing (or on the first pointer move over
-// its picture, for a video that never plays), so the release loads then and never at install. Which release: the bundled one, or the one the settings file names (the
-// vendored remote-release module, cdn/SETTINGS.md "release"), read once per page. After
-// ten minutes with no pointer over the picture and no card shown, its worker ends and the content
+// its picture, for a video that never plays), so the release loads then and never at install.
+// Which release: the bundled one, or the one the settings file names (the vendored remote-release
+// module, cdn/SETTINGS.md "release"), read once per page. After ten minutes with no pointer over the picture and no card shown, its worker ends and the content
 // script removes it; a move over the picture makes it again. The toolkit's shared hover host
 // (host-compute.js) checks the page's origin and starts the session with the standard options;
 // DuelSight gives it the release to load, its release choice and its card facts channel (frame.ts).

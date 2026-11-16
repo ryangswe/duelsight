@@ -673,7 +673,7 @@ describe("Agent", () => {
     window.dispatchEvent(new Event("resize"));
     expect(frames).toHaveLength(0);
     // Runs at once, and gives no handle: as if the frame had come and gone before the caller kept it.
-  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), null));
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), null));
     move(100, 100);
     showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     vi.stubGlobal("requestAnimationFrame", queue);
@@ -1036,7 +1036,7 @@ describe("Agent", () => {
 
   describe("frees the model after a stretch with nobody hovering (owner, 2026-11-10; the toolkit's idle unload)", () => {
     const BLUE_EYES = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
-    /** The compute frame's worker ended for idleness (frame.ts idleUnloadMs): it says so. */
+    /** The compute frame's worker ended for idleness (the host's standard idle unload): it says so. */
     const goIdle = () => fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
     const play = () => {
       media.paused = false;

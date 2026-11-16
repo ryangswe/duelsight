@@ -47,8 +47,6 @@ export const IMAGE_TIMEOUT_MS = 5_000;
 /** A source that failed this many times in a row is skipped until fresh settings are read. */
 export const SOURCE_FAILURE_LIMIT = 3;
 
-
-
 /** Where the release (models, bank, catalog) sits inside the built extension. */
 export const RELEASE_PATH = "release/release.json";
 /** The vendored runtime's worker inside the built extension; ONNX Runtime's files sit beside it. */

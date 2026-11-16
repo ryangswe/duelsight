@@ -36,7 +36,7 @@ const flush = async (): Promise<void> => {
 };
 
 /** Loads index.ts with a storage whose reads wait until the test answers them, in any order. */
-async function load(): Promise<{ answer(key: string, data: Record<string, unknown>): Promise<void>; fail(key: string): Promise<void>; popup(changes: Changes): void }> {
+async function load(): Promise<{ answer(key: string, data: Record<string, unknown>): Promise<void>; fail(key: string): Promise<void>; popup(changes: Changes): void; sync(changes: Changes): void }> {
   calls.length = 0;
   started.length = 0;
   vi.resetModules();
@@ -73,6 +73,9 @@ async function load(): Promise<{ answer(key: string, data: Record<string, unknow
     },
     popup(changes) {
       listener?.(changes, "local");
+    },
+    sync(changes) {
+      listener?.(changes, "sync");
     },
   };
 }
@@ -124,6 +127,7 @@ describe("the content script's start-up", () => {
     await s.answer("cardSize", { cardSize: 100 });
     s.popup({ cardSize: { oldValue: 100, newValue: 70 } });
     s.popup({ enabled: { oldValue: true, newValue: false } });
+    s.sync({ cardSize: { oldValue: 70, newValue: 130 } });
     expect(calls).toEqual(["size:100", "size:70", "relayout"]);
   });
 });

@@ -20,7 +20,8 @@ Card hovers run on the cardvision toolkit's shared hover host (experimental, sta
   back with the same card (S-A10). Before, it came back with the next card named.
 - **On Twitch, `/collections`, `/payments`, `/privacy`, `/products` and `/team`** wait for a hover
   before loading, as `/following` and `/creatorcamp` do (S-G3), and `/videos/` is matched in
-  lowercase only. Before, the five were taken for channels.
+  lowercase only, as are addresses with an empty part (`//name`) or an unusual clip name. Before,
+  the five were taken for channels.
 - **Moving the pointer on a page where hovers do not run** (a miniplayer over a search page) stops
   following the video, and the first move back on a video page picks it again at once (S-G5).
 

@@ -102,7 +102,8 @@ export function createTooltipView(): TooltipView {
         const queued = pending;
         pending = null;
         if (queued) post(queued);
-        return false;
+        // Readiness changed: the host shows again (the frame is still unmeasured, so it stays hidden).
+        return true;
       }
       // A size for another card than the one shown now is stale.
       if (message.cardId !== undefined && message.cardId !== displayedCardId) return false;
