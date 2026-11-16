@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // A popup switch for a stored choice that is on unless switched off: "Card details"
-// (details-control.ts) and "Keep the card I'm pointing at" (shared/keep-card.ts). Like the main
+// (details-control.ts) and "Keep the card I'm pointing at" (view.ts). Like the main
 // switch, it cannot be pressed until the stored state is read, and it takes that state without
 // sliding. While card hovers are off (setActive(false)) it shows off and cannot be pressed; the
 // stored choice is kept and shows again when they are back on. `onStored` hears the stored choice

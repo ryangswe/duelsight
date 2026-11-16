@@ -7,7 +7,8 @@ game needs it) or `temporary` (it goes away with a named change). A difference n
 defect.
 
 DuelSight runs its hovers on the toolkit's shared hover host (`host-content.js`, `host-compute.js`)
-with the standard options. What stays DuelSight's own is the tooltip frame (its size, place and
+with the standard options, and keeps its settings and switches with the host's settings core
+(`host-settings.js`). What stays DuelSight's own is the tooltip frame (its size, place and
 contents) and the card facts channel, which the spec leaves to each product.
 
 ## Deviations

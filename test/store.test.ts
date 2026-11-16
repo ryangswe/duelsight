@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
+// DuelSight's settings (SETTINGS_SCHEMA) under the shared hover host's settings core: the rules of
+// SETTINGS.md "Failure rules", with DuelSight's schema, default and address.
 import { describe, expect, it } from "vitest";
 
-import { SETTINGS_REFRESH_MS, SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
+import { SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
 import DEFAULT_CONFIG from "../cdn/config.json";
-import { defaultSettings, type KeyValueStorage, LAST_ATTEMPT_KEY, LAST_GOOD_KEY, readEffectiveSettings, refreshSettings } from "../src/settings/store.js";
+import { createSettingsCore, LAST_ATTEMPT_KEY, LAST_GOOD_KEY, SETTINGS_REFRESH_MS } from "../vendor/cardvision-browser/host-settings.js";
+import { type KeyValueStorage, SETTINGS_SCHEMA } from "../src/settings/store.js";
+
+/** The core as each part of the extension makes it, with the address overridable (null: none). */
+const core = (s: KeyValueStorage, url: string | null = SETTINGS_URL) => createSettingsCore({ ...SETTINGS_SCHEMA, url }, s);
+const readEffectiveSettings = (s: KeyValueStorage) => core(s).read();
+const refreshSettings = (s: KeyValueStorage, { url, ...options }: { url?: string | null; fetch: typeof fetch; now: () => number; force?: boolean; timeoutMs?: number }) =>
+  core(s, url === undefined ? SETTINGS_URL : url).refresh(options);
+const defaultSettings = () => core(new MemoryStorage()).defaults();
 
 class MemoryStorage implements KeyValueStorage {
   data: Record<string, unknown> = {};

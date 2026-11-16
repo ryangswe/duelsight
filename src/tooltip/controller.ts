@@ -26,11 +26,18 @@
 
 import { resolveCardImage, type Resolution, SourceHealth } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
-import { sameSettings } from "../settings/same.js";
-import { allowedParentOrigin, parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
+import { allowedParentOrigin, createSettingsCore } from "../../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
+import { parseTooltipIn, tag, type TooltipOut, type TooltipSize } from "../shared/messages.js";
+import { productConfig } from "../shared/product.js";
 import type { CardFacts, CardTable } from "./card-data.js";
 import { type DetailsTable, detailLines, detailsFor, localName } from "../details/details.js";
 import { arrange } from "../shared/panel-layout.js";
+
+/** Whether two settings say the same thing, whatever their key order: the host's settings core
+ *  compares them (an hourly re-store with a new fetchedAt is no change). Comparing reads no
+ *  storage, so this core is given none. */
+const sameSettings = createSettingsCore(SETTINGS_SCHEMA, { get: async () => ({}), set: async () => undefined }).same;
 
 /** Pictures kept for cards shown in this page, oldest dropped first. */
 export const CACHE_LIMIT = 60;
@@ -451,7 +458,7 @@ export function connectTooltipFrame(
   controller: Pick<TooltipController, "show" | "clear">,
 ): ((message: TooltipOut) => void) | null {
   const parentOrigin = env.parentOrigin;
-  if (!env.framed || parentOrigin === null || !allowedParentOrigin(parentOrigin, env.dev)) return null;
+  if (!env.framed || parentOrigin === null || !allowedParentOrigin(parentOrigin, productConfig(env.dev))) return null;
   env.win.addEventListener("message", (event) => {
     if (event.source !== env.win.parent || event.origin !== parentOrigin) return;
     const message = parseTooltipIn(event.data);

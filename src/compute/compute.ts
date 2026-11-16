@@ -14,12 +14,12 @@
 
 import { CONFIG } from "../config.js";
 import { RELEASE_PATH, SETTINGS_URL, WORKER_PATH } from "../constants.js";
-import { readEffectiveSettings } from "../settings/store.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
 import { FACTS_CHANNEL, parseFactsRequest } from "../shared/messages.js";
 import { productConfig } from "../shared/product.js";
 import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
-import { startHostCompute, type WorkerLike } from "../../vendor/cardvision-browser/host-compute.js";
+import { createSettingsCore, startHostCompute, type WorkerLike } from "../../vendor/cardvision-browser/host-compute.js";
 import { createFactsChannel } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
 
@@ -65,7 +65,7 @@ void (async () => {
               chooseRelease(
                 {
                   storage: chrome.storage.local,
-                  readReleaseField: async () => (await readEffectiveSettings(chrome.storage.local)).settings.release ?? null,
+                  readReleaseField: async () => (await createSettingsCore(SETTINGS_SCHEMA, chrome.storage.local).read()).settings.release ?? null,
                   running: chrome.runtime.getManifest().version,
                   now: () => performance.now(),
                   bundled: loadRequest,

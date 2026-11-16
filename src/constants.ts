@@ -21,8 +21,6 @@ export const MAINTAINER_CONTACT_URL = CONFIG.maintainerContactUrl;
 /** The settings file (SETTINGS.md, schema version 1), or null: the bundled copy only, no fetch. */
 export const SETTINGS_URL = CONFIG.settingsUrl;
 
-/** How often the settings file is fetched again while the extension runs. */
-export const SETTINGS_REFRESH_MS = 60 * 60 * 1000;
 
 /**
  * The only hosts the extension may request card images from. They are the image hosts in the

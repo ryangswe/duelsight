@@ -130,12 +130,12 @@ flowchart TD
 | Content script to tooltip frame: the card, numbered, or clear; one message waits for ready | `src/content/view.ts#post`, `src/content/view.ts#show`, `src/content/view.ts#hide`, `src/shared/messages.ts#TooltipIn`, `src/shared/messages.ts#tag` | |
 | Tooltip frame to content script | `src/shared/messages.ts#TooltipOut`, `src/shared/messages.ts#TooltipSize` | |
 | Compute frame: the host checks the page that frames it (framed, its first ancestor origin, no fallback) and starts the session with the standard options (`startHostCompute`, host `compute.ts`); DuelSight gives the release to load, its release choice and the facts channel | `src/compute/compute.ts`, `src/compute/load-request.ts#buildLoadRequest`, `src/shared/product.ts#productConfig` | S-X2, S-X3, S-B9 |
-| Which pages a frame serves: the compute frame, the host's list (`allowedParentOrigin`, host `site-policy.ts`); the tooltip frame, DuelSight's | `src/shared/messages.ts#allowedParentOrigin` | S-B9 |
+| Which pages a frame serves: both frames by the host's list (`allowedParentOrigin`, host `site-policy.ts`), the tooltip frame through host-settings.js with DuelSight's config | `src/tooltip/controller.ts#connectTooltipFrame`, `src/shared/product.ts#productConfig` | S-B9 |
 | Tooltip frame: takes messages from the page that holds it, by source and origin | `src/tooltip/tooltip.ts`, `src/tooltip/controller.ts#TooltipController`, `src/tooltip/controller.ts#connectTooltipFrame` | S-B9 |
 | Facts channel | `src/shared/messages.ts#FACTS_CHANNEL`, `src/shared/messages.ts#CardFactsMessage`, `src/shared/messages.ts#FactsRequest`, `src/shared/messages.ts#parseCardFacts`, `src/shared/messages.ts#parseFactsRequest`, `src/compute/frame.ts#createFactsChannel`, `src/compute/frame.ts#FactsChannel` | |
 | Outline in the page: the host's (`CardOutline`, host `outline.ts`), in DuelSight's colors and marked with its tag | `src/shared/product.ts#productConfig` | S-F1 |
-| Popup: the main switch | `src/popup/view.ts#initPopup`, `src/shared/enabled.ts#ENABLED_KEY`, `src/shared/enabled.ts#readEnabled` | S-H1 |
-| Popup: keep-card and card size | `src/popup/switch-control.ts#initStoredSwitch`, `src/popup/card-size-control.ts#initCardSize`, `src/shared/keep-card.ts#KEEP_CARD_KEY`, `src/shared/keep-card.ts#readKeepCardOn`, `src/shared/card-size.ts#CARD_SIZE_KEY` | S-H2 |
+| Popup: the main switch, read and written under the host's key (`createSwitches`, `ENABLED_KEY`, host-settings.js) | `src/popup/view.ts#initPopup` | S-H1 |
+| Popup: keep-card and card size | `src/popup/switch-control.ts#initStoredSwitch`, `src/popup/card-size-control.ts#initCardSize`, `src/shared/card-size.ts#CARD_SIZE_KEY`; keep-card read and written under the host's key (`createSwitches`, `KEEP_CARD_KEY`, host-settings.js) | S-H2 |
 | Storage to the content script: the switch and keep-card read by the host under the same keys the popup writes (`createSwitches`, host `switches.ts`); the card size read by DuelSight, listening before the read so a change made while it is pending wins | `src/content/card-size-sync.ts#startCardSizeSync`, `src/shared/card-size.ts#readCardSize`, `src/shared/card-size.ts#clampCardSize`, `src/shared/card-size.ts#DEFAULT_CARD_SIZE` | S-H1, S-H3 |
 | Read when the compute frame starts: keep-card, by the host; the settings' release, by DuelSight's release choice | `src/compute/compute.ts` | S-H2 |
 | Settings refresh: asked by the tooltip frame and the popup, fetched by the background when due | `src/tooltip/tooltip.ts`, `src/tooltip/controller.ts#TooltipController.show`, `src/popup/popup.ts`, `src/background/index.ts` | |
@@ -406,7 +406,7 @@ flowchart TD
 
 | Element | Anchors | Spec |
 | --- | --- | --- |
-| Read at start, on unless stored off (`startHostCompute`, host `compute.ts`; `createSwitches`, host `switches.ts`), under the key the popup writes | `src/compute/compute.ts`, `src/shared/keep-card.ts#KEEP_CARD_KEY` | S-H2 |
+| Read at start, on unless stored off (`startHostCompute`, host `compute.ts`; `createSwitches`, host `switches.ts`), under the key the popup writes (the host's `KEEP_CARD_KEY`) | `src/compute/compute.ts`, `src/popup/view.ts#initPopup` | S-H2 |
 | Reading hold or shown hold | | S-W4, S-W6 |
 
 The other options the host starts every compute frame with are the standard ones (`STANDARD_PRESET`,
@@ -442,7 +442,7 @@ flowchart TD
 
 | Element | Anchors | Spec |
 | --- | --- | --- |
-| The flip, seen by the host's watch of the key the popup writes (`watch`, host `switches.ts`) | `src/shared/keep-card.ts#KEEP_CARD_KEY` | S-H3 |
+| The flip, seen by the host's watch of the key the popup writes (`watch`, host `switches.ts`; the host's `KEEP_CARD_KEY`) | `src/popup/view.ts#initPopup` | S-H3 |
 | Now, or when the tab comes to the front (`onKeepCard`, `onFront`, host `lifecycle.ts`; `remakeCompute`, host `content.ts`) | | S-H3 |
 | A new compute frame, switching off, or an idle removal clears the wait (`made`, `onSwitch`, host `lifecycle.ts`) | | S-H3 |
 | The card on show goes; the adapter is told to hide | `src/content/view.ts#hide` | S-H3 |
@@ -767,8 +767,6 @@ language controls), the background's refresh rule, and the build.
 - `src/popup/switch-control.ts`
 - `src/popup/view.ts`
 - `src/shared/card-size.ts`
-- `src/shared/enabled.ts`
-- `src/shared/keep-card.ts`
 - `src/shared/messages.ts`
 - `src/shared/panel-layout.ts`
 - `src/shared/product.ts`

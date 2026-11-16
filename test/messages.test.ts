@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { allowedParentOrigin, parseFactsRequest, parseTooltipIn, parseTooltipOut, tag, TAG } from "../src/shared/messages.js";
+import { allowedParentOrigin as hostAllowed } from "../vendor/cardvision-browser/host-settings.js";
+import { parseFactsRequest, parseTooltipIn, parseTooltipOut, tag, TAG } from "../src/shared/messages.js";
 import { computeProtocol } from "../vendor/cardvision-browser/page-capture.js";
 
 /** Both sites on, whatever the build's config turns on (the config's own sites: build-data.test.ts). */
+/** The tooltip frame's parent check: the shared hover host's, with DuelSight's sites. */
+const allowedParentOrigin = (origin: string, dev: boolean, sites: { youtube: boolean; twitch: boolean }) => hostAllowed(origin, { sites, dev });
 const BOTH_SITES = { youtube: true, twitch: true };
 
 describe("message checks", () => {
