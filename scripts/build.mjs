@@ -9,7 +9,7 @@
 //                 Runtime version) and copied into dist/release/. It is never committed.
 // --dev           A development build: also runs on the local test page (http://127.0.0.1, http://localhost).
 // --idle-unload-ms  Dev builds only: free the model after N ms with nobody hovering, instead of
-//                 10 minutes (src/constants.ts IDLE_UNLOAD_MS), to check the unload.
+//                 10 minutes (the shared hover host's standard preset), to check the unload.
 // --store         A Chrome Web Store build: the manifest has no `key` (the store assigns the ID).
 //                 Other builds carry the public key that fixes the ID of unpacked installs.
 // --target        chrome (the default; also Edge and Brave) or firefox: the same bundles with
