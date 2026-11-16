@@ -25,4 +25,4 @@ export interface ProductConfig {
     };
 }
 /** What is wrong with a raw config, as one message; null when it is a valid ProductConfig. */
-export declare function productConfigError(_raw: unknown): string | null;
+export declare function productConfigError(raw: unknown): string | null;

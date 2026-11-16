@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "toolkit": {
     "version": "0.14.1",
-    "commit": "5d7a9986e598364ca879eb36519db7ce31c19b75"
+    "commit": "e452420c7d1469bfd1690b46cfcb534447050e24"
   },
   "options": {
     "opencv": true,
@@ -49,8 +49,8 @@
       "sha256": "5110f6c8137a81c7e035778dadbfed6ee4fbe583d599549e93724fa786bcb8ab"
     },
     "cardvision-vendor-check.mjs": {
-      "bytes": 28159,
-      "sha256": "fcdb6c9682bc9a4dec5cb2ad6339f25fce864ac78942ad4b4ec14cdcbac0c133"
+      "bytes": 28183,
+      "sha256": "4d7b15e2eb78884b837a52a7c725822b3a6209b80c5596cd84e65b2ca7893bd3"
     },
     "cardvision.d.ts": {
       "bytes": 108,
@@ -77,32 +77,36 @@
       "sha256": "1dd1b4249a0a9d28476e5570cd3b5c479f4041b73723ccfce49c72b276f997eb"
     },
     "host-compute.js": {
-      "bytes": 50576,
-      "sha256": "516f36e2566807a239cce92444e2b3316c25557cc49c87533486665a7486f71e"
+      "bytes": 50599,
+      "sha256": "d48f6e086b573c6e385fb8391ce26e8e6050228358f8c997bef2d9f3a9fd2163"
     },
     "host-content.d.ts": {
       "bytes": 123,
       "sha256": "b67a90d1265e7903ce56cd6fd8b9d55b7d81fb2f9cd6ddd4283f9fce001fa622"
     },
     "host-content.js": {
-      "bytes": 27205,
-      "sha256": "90998e53009b6a8146e1fef84319852c686bfdc84746f0be7ed98d98cbc179d7"
+      "bytes": 27264,
+      "sha256": "7153adaf0b2ac0f6b5886b473812c3561baf75c141d9d620fa4c83102c7bb697"
     },
     "host-settings.d.ts": {
       "bytes": 125,
       "sha256": "b57994167564d6f3349eddd7648186fbc9eea2850855f41b573cda8fd1a4c599"
     },
     "host-settings.js": {
-      "bytes": 4561,
-      "sha256": "56b80f8a040862d10d16dfa75c9a46a6d3ec6c8a1c143e5827d4a6150b218ffb"
+      "bytes": 10141,
+      "sha256": "01d36f8dd60dfb30768fd1873a44a7b0a757c9e2449db9ebee9d023f49d0db1a"
     },
     "hover-spec.json": {
       "bytes": 44986,
-      "sha256": "79198033994c477d8cb974255919624bf2082f9ad203f9da9949814e90d4114c"
+      "sha256": "5a316bbb1117ac7bdfcc53cf25f0d405ab3297fb98dab2bbd9fe24fc0744c426"
     },
     "node/package-zip.mjs": {
       "bytes": 2861,
       "sha256": "b8b644c82a2cddfac0ba62b89565fb67faf65436f7386da84bab8126966b790d"
+    },
+    "node/realm-check.mjs": {
+      "bytes": 4438,
+      "sha256": "8674d8dbbfa951520f334adacb40ac51af1b3cd365133a1c256f3a6f8138ee88"
     },
     "node/store-upload.mjs": {
       "bytes": 37507,
@@ -245,8 +249,8 @@
       "sha256": "719bab872b5defefd9ecce5fa7e7f164b44f639282b8a53064519ae82d49f72e"
     },
     "types/host/config.d.ts": {
-      "bytes": 1008,
-      "sha256": "0c3798249d950ab185bbfe2f246c38c7d0589b65f78d8552a4a24b3516a6d333"
+      "bytes": 1007,
+      "sha256": "1bafd672a178bf2b95d0cd138d4db47a8ad02acccf920e97b901b92d908af30a"
     },
     "types/host/content-entry.d.ts": {
       "bytes": 462,
