@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { loadForkConfig } from "./fork-config.mjs";
 import { firefoxAddonId } from "./manifest.mjs";
 import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";
+import { realmCheck } from "./realm.mjs";
 import { writeZip, zipLayout } from "../vendor/cardvision-browser/node/package-zip.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -56,6 +57,13 @@ if (text.length > 0) {
 const big = oversizedTextFiles(dist);
 if (big.length > 0) {
   console.error(`dist/ holds text files of ${TEXT_FILE_LIMIT / 1024 / 1024} MiB or more (addons.mozilla.org refuses 5 MiB): ${describeOversized(big)}. Bundle a converted release (cardvision convert-release: bank.bin and a compact catalog).`);
+  process.exit(1);
+}
+// One copy of the toolkit's runtime per realm, checked again here: a build that failed the check
+// leaves its files in dist/ (scripts/realm.mjs).
+const realm = realmCheck(dist);
+if (realm.status !== 0) {
+  console.error(`dist/ fails the realm check:\n${realm.output}`);
   process.exit(1);
 }
 // A zip for a release page is loaded unpacked and carries the key; a Web Store build has none.

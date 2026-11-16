@@ -25,6 +25,13 @@ e452420), the same code Kenbunshoku runs. DuelSight keeps its own tooltip and ca
 - **Moving the pointer on a page where hovers do not run** (a miniplayer over a search page) stops
   following the video, and the first move back on a video page picks it again at once (S-G5).
 
+### For maintainers
+
+- `npm run build` and `npm run package` run the toolkit's realm check
+  (`vendor/cardvision-browser/node/realm-check.mjs`, through `scripts/realm.mjs`) on the built
+  extension and fail when a file holds a toolkit module twice. The Firefox source archive's
+  `build-firefox.sh` also compares the host files and the realm check with the toolkit's own build.
+
 ## [0.8.2] - unreleased
 
 The recognition runtime moves to cardvision 0.14.1, a final release, and card hovers start on when
