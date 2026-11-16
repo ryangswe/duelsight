@@ -8,11 +8,12 @@ import DEFAULT_CONFIG from "../cdn/config.json";
 import { createSettingsCore, LAST_ATTEMPT_KEY, LAST_GOOD_KEY, SETTINGS_REFRESH_MS } from "../vendor/cardvision-browser/host-settings.js";
 import { type KeyValueStorage, SETTINGS_SCHEMA } from "../src/settings/store.js";
 
-/** The core as each part of the extension makes it, with the address overridable (null: none). */
-const core = (s: KeyValueStorage, url: string | null = SETTINGS_URL) => createSettingsCore({ ...SETTINGS_SCHEMA, url }, s);
+/** The core as each part of the extension makes it (SETTINGS_SCHEMA as it ships), or with another
+ *  address (null: none). */
+const core = (s: KeyValueStorage, url?: string | null) => createSettingsCore(url === undefined ? SETTINGS_SCHEMA : { ...SETTINGS_SCHEMA, url }, s);
 const readEffectiveSettings = (s: KeyValueStorage) => core(s).read();
 const refreshSettings = (s: KeyValueStorage, { url, ...options }: { url?: string | null; fetch: typeof fetch; now: () => number; force?: boolean; timeoutMs?: number }) =>
-  core(s, url === undefined ? SETTINGS_URL : url).refresh(options);
+  core(s, url).refresh(options);
 const defaultSettings = () => core(new MemoryStorage()).defaults();
 
 class MemoryStorage implements KeyValueStorage {
