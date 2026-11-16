@@ -1,14 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
-// DuelSight's compute frame (src/compute/frame.ts) on the toolkit's real session, with a stand-in
-// worker, stand-in pictures and a stand-in hit test: a test points at a card and the frame
-// captures, analyzes and shows it, as in the page.
+// DuelSight's compute frame on the toolkit's real session, started with the options the shared
+// hover host passes (startHostCompute: its standard preset, DuelSight's tag and pages, the hold
+// "Keep the card I'm pointing at" picks) and DuelSight's card facts channel (src/compute/frame.ts),
+// with a stand-in worker, stand-in pictures and a stand-in hit test: a test points at a card and
+// the frame captures, analyzes and shows it, as in the page. The host takes no stand-in hit test,
+// so this starts the session the host starts; test/compute-frame.test.ts checks the host's own
+// start (the pages it serves) on the host itself.
 import { vi } from "vitest";
 
 import type { FrameAnalysis, ReleaseStatus, WorkerRequest } from "../../vendor/cardvision-browser/cardvision.js";
-import type { WorkerLike } from "../../vendor/cardvision-browser/compute-session.js";
-import { type DuelSightFrameEnv, startDuelSightFrame } from "../../src/compute/frame.js";
-import { type CardFactsMessage, tag } from "../../src/shared/messages.js";
+import { type ComputeFrameEnv, computeProtocol, READING_HOLD, SHOWN_HOLD, startComputeFrame, type WorkerLike } from "../../vendor/cardvision-browser/compute-session.js";
+import { STANDARD_PRESET } from "../../vendor/cardvision-browser/host-compute.js";
+import { allowedParentOrigin } from "../../vendor/cardvision-browser/host-settings.js";
+import { createFactsChannel } from "../../src/compute/frame.js";
+import { type CardFactsMessage, tag, TAG } from "../../src/shared/messages.js";
+import { productConfig } from "../../src/shared/product.js";
 import { SITE_ORIGIN } from "./fork.js";
+
+/** What a test may change about the frame's start. */
+export interface HarnessOptions {
+  /** The stored "Keep the card I'm pointing at"; default on. */
+  keepCard?: boolean;
+  /** A dev build's shorter idle unload (the host's devIdleUnloadMs). */
+  idleUnloadMs?: number;
+  dev?: boolean;
+  chooseRelease?: ComputeFrameEnv["chooseRelease"];
+}
 
 export const releaseOf = (id: string) =>
   ({
@@ -56,7 +73,7 @@ export interface Scene {
   card: { cardId: string; name: string } | null;
 }
 
-export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
+export function computeHarness(over: HarnessOptions = {}) {
   vi.stubGlobal("ImageBitmap", FakeBitmap);
   const scene: Scene = { card: { cardId: "89631139", name: "Dark Magician" } };
   const clock = { t: 1_000 };
@@ -75,7 +92,12 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
     scene.card && x >= 100 && x <= 300 && y >= 100 && y <= 400
       ? { card: null, boxIndex: 0, box: { x: 100, y: 100, width: 200, height: 300 }, ...scene.card }
       : { card: null, boxIndex: null, box: null, cardId: null, name: null };
-  const env: DuelSightFrameEnv = {
+  const config = productConfig(over.dev ?? false);
+  const channel = createFactsChannel((m) => {
+    facts.push(m);
+    order.push("facts");
+  });
+  const env: ComputeFrameEnv = {
     win: {
       parent,
       addEventListener: (_: "message", l: (e: MessageEvent) => void) => void (listener = l),
@@ -83,7 +105,13 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
     },
     framed: true,
     parentOrigin: SITE_ORIGIN,
-    dev: false,
+    allowedParentOrigin: (origin) => allowedParentOrigin(origin, config),
+    protocol: computeProtocol(TAG),
+    ...STANDARD_PRESET,
+    hold: over.keepCard === false ? SHOWN_HOLD : READING_HOLD,
+    idleUnloadMs: over.idleUnloadMs ?? STANDARD_PRESET.idleUnloadMs,
+    onShown: channel.onShown,
+    ...(over.chooseRelease ? { chooseRelease: over.chooseRelease } : {}),
     createWorker: () => {
       const w = new FakeWorker();
       workers.push(w);
@@ -92,13 +120,9 @@ export function computeHarness(over: Partial<DuelSightFrameEnv> = {}) {
     loadRequest: { kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "chrome-extension://x/runtime/" },
     now: () => clock.t,
     hoverAt: hit as never,
-    postFacts: (m) => {
-      facts.push(m);
-      order.push("facts");
-    },
-    ...over,
   };
-  const started = startDuelSightFrame(env);
+  const frame = startComputeFrame(env);
+  const started = frame ? { frame, facts: channel } : null;
   const worker = () => workers.at(-1)!;
   const sent = (kind: string) => toParent.filter((p) => p.message.kind === kind).map((p) => p.message);
   const lastShown = () => (sent("shown").at(-1)?.card ?? null) as { cardId: string; releaseId?: string; held?: true } | null;

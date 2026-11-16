@@ -15,7 +15,7 @@ import { buildManifest, UNPACKED_EXTENSION_ID } from "../scripts/manifest.mjs";
 // @ts-expect-error plain JavaScript build scripts
 import { configProblems, loadForkConfig, videoSitePatterns, withCdnBase } from "../scripts/fork-config.mjs";
 import { IMAGE_HOSTS, SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
-import { isActivePage } from "../src/content/site.js";
+import { pagePolicy } from "../vendor/cardvision-browser/host-content.js";
 import { allowedParentOrigin } from "../src/shared/messages.js";
 import { makePrintedId, printedId } from "../src/settings/templates.js";
 import { CONFIG, FIXTURE_CDN, IS_DUELSIGHT, TOY_CONFIG } from "./helpers/fork.js";
@@ -228,8 +228,8 @@ describe("a fork's minimal config (names only, no settings address, no stage, on
     expect(m.action.default_title).toBe("Toy Cards");
   });
   it("its pages and frames accept only that site", () => {
-    expect(isActivePage(new URL("https://www.youtube.com/watch?v=abc"), false, TOY_CONFIG.videoSites)).toBe(true);
-    expect(isActivePage(new URL("https://www.twitch.tv/someone"), false, TOY_CONFIG.videoSites)).toBe(false);
+    expect(pagePolicy(new URL("https://www.youtube.com/watch?v=abc"), { sites: TOY_CONFIG.videoSites, dev: false }).active).toBe(true);
+    expect(pagePolicy(new URL("https://www.twitch.tv/someone"), { sites: TOY_CONFIG.videoSites, dev: false }).active).toBe(false);
     expect(allowedParentOrigin("https://www.twitch.tv", false, TOY_CONFIG.videoSites)).toBe(false);
     expect(allowedParentOrigin("https://www.youtube.com", false, TOY_CONFIG.videoSites)).toBe(true);
   });
