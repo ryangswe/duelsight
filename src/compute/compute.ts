@@ -30,6 +30,22 @@ declare const __IDLE_UNLOAD_MS__: number | null;
 // Dev builds only: per-frame figures for the smoke check.
 const frames: Array<Record<string, number | null>> = [];
 
+// Dev builds only: when this page finished loading, and when the first message from the video page
+// arrived (the content script's hello), in epoch ms. The hover browser test reports the difference.
+let loadedAt: number | null = null;
+let helloAt: number | null = null;
+if (__DEV__) {
+  const epochNow = (): number => performance.timeOrigin + performance.now();
+  addEventListener("load", () => (loadedAt ??= epochNow()));
+  addEventListener(
+    "message",
+    (event) => {
+      if (helloAt === null && event.source === window.parent) helloAt = epochNow();
+    },
+    true,
+  );
+}
+
 const sha256Hex = async (bytes: ArrayBuffer): Promise<string> => {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -136,6 +152,8 @@ void (async () => {
         stopped: frame.stopped,
         release: { source: frame.release.source, id: frame.release.id, reason: frame.release.reason, decision: lastDecision },
         frames,
+        loadedAt,
+        helloAt,
       };
     };
   }
