@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { FrameAnalysis } from "../vendor/cardvision-browser/cardvision.js";
 import { SOURCE_FAILURE_LIMIT } from "../src/constants.js";
@@ -361,7 +361,15 @@ describe("fetching ahead when a source keeps failing", () => {
     stalled = true;
     await nameInTurn(p, ["10", "11", "12"]);
     stalled = false;
-    await nameInTurn(p, ["13", "14"]);
+    // However long it is (the clock moves an hour on), as the tooltip does.
+    vi.useFakeTimers({ toFake: ["Date", "performance"] });
+    try {
+      vi.setSystemTime(Date.now() + 3_600_000);
+      vi.advanceTimersByTime(3_600_000);
+      await nameInTurn(p, ["13", "14"]);
+    } finally {
+      vi.useRealTimers();
+    }
     expect(fetched.slice(-2)).toEqual([fullUrl("13"), fullUrl("14")]);
     p.settingsChanged();
     await nameInTurn(p, ["15"]);

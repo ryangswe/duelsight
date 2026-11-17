@@ -30,7 +30,8 @@
 //     does not try a skipped source again until the settings are read again (`settingsChanged`),
 //     which tries every source again; a fetch started before that does not count. If a stall trips
 //     it while the tooltip, seeing fewer failures, stays on the source, the tooltip's pictures load
-//     without a warm cache until then, as before pictures were fetched ahead.
+//     without a warm cache until then, as before pictures were fetched ahead, and the pictures
+//     fetched ahead in the meantime (within PREFETCH_LIMIT) are not shown.
 
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { IMAGE_TIMEOUT_MS, SOURCE_FAILURE_LIMIT } from "../constants.js";
