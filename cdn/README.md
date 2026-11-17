@@ -72,10 +72,13 @@ which is where images come from.
 
 ## Usage
 
-From the repository's root (the tool reads `cdn/cdn.config.json` there):
+From the repository's root (the tool reads `cdn/cdn.config.json` there). The tool needs Python 3.11
+to 3.14: its `onnxruntime` dependency has no wheels for 3.15 yet, so where `python3` is newer, name
+the version (here `python3.12`). After `cdn/requirements.txt` changes, run the first line again;
+`--clear` replaces what the old environment held.
 
 ```bash
-python3 -m venv cdn/.venv && cdn/.venv/bin/pip install -r cdn/requirements.txt
+python3.12 -m venv --clear cdn/.venv && cdn/.venv/bin/pip install -r cdn/requirements.txt
 CDN=cdn/.venv/bin/cardvision
 CATALOG=<the release's catalog JSON>   # entries with an id and an `art` path
 IMAGES=<the folder of card images>    # the `art` paths are relative to it
