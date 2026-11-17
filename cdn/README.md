@@ -122,7 +122,8 @@ $CDN cdn verify --env-file cdn/.env
   with the catalog of the release the pointer will name (`<release folder>/catalog.json`), after
   the art publish has made that release's new cards' pictures. A `config.json` that no longer
   points under `art/tooltip/` (back to the full art as `primary`, or `primary: null`) is published
-  without `--catalog`: the tool refuses it otherwise. A card without art has no tooltip picture,
+  without `--catalog` unless the same run uploads art with `--images`; `publish-release` refuses
+  `--catalog` with it. A card without art has no tooltip picture,
   so each time it shows the tooltip misses and falls back to the full art; three misses in a row
   skip the tooltip pictures until the settings are read again. Three catalog cards have no art.
 - **The card details file:** build it outside the repository, from the one-time card list and the
