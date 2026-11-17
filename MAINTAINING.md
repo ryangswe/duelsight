@@ -111,9 +111,17 @@ no npm.
   in the pull request that bumps the version. When PRIVACY.md changed, the privacy page is a
   `before` entry with its sha256, so nothing uploads until that page is live.
 - [.github/workflows/store-check.yml](.github/workflows/store-check.yml) runs the same build and
-  checks on every pull request with the tag package.json's version would get. It is red while a
-  `before` address is not live yet (or the version has no release file), so it is not a required
-  check.
+  checks on every pull request with the tag package.json's version would get, while that tag does
+  not exist yet, or when the pull request changes that version's release file, its notes or
+  `cdn/RUNTIMES.json` (a fix before tagging again). A `before` address that is not live yet is a
+  warning there, not a failure ([scripts/store-before.mjs](scripts/store-before.mjs)); the tag's
+  build job and the upload job still hold the release until it is live. Otherwise the version is
+  released and the pull request is not that release: the check builds the packages with
+  `npm run store:build -- --warn-runtimes-row`, lints them and checks them against
+  `store/permissions.json`. Where this commit no longer matches the version's row in
+  `cdn/RUNTIMES.json` (toolkit, ONNX Runtime Web, card release), or the permissions changed since
+  the tag, it warns: the next version pull request adds the row and sets `permissionsChanged`.
+  It is not a required check.
 
 ## A core-model refresh
 

@@ -3,6 +3,7 @@
 // and store-check.yml) and for a release by hand.
 //
 //   npm run store:build [-- --release <release folder>] [--runtime-repo <toolkit checkout>]
+//                          [--warn-runtimes-row]
 //
 // It writes, in out/:
 //   chrome.zip           the Chrome Web Store package (npm run build -- --store, npm run package)
@@ -15,6 +16,12 @@
 // scripts/release-source.json names, unless --release gives a folder (which must be the same
 // release). The source archive needs the toolkit at the vendored commit: --runtime-repo, or a
 // shallow fetch of that one commit from the toolkit's public repository.
+//
+// --warn-runtimes-row makes the check against cdn/RUNTIMES.json warnings (GitHub workflow
+// commands) instead of a failure, for a pull request whose version is already released
+// (store-check.yml): that commit will never ship as that version, so a row that no longer matches
+// it is news for the next version's row, not a problem in the pull request. The release must still
+// be the one scripts/release-source.json pins. A release build never takes it.
 //
 // After building, it runs the source round trip: it unzips firefox-source.zip into an empty
 // folder, runs its build-firefox.sh and checks that the package it makes holds the same files,
@@ -31,6 +38,7 @@ import { parseArgs } from "node:util";
 
 import { fetchRelease, readReleaseSource } from "./fetch-release.mjs";
 import { loadForkConfig } from "./fork-config.mjs";
+import { workflowMessage } from "./store-before.mjs";
 
 const TOOLKIT_REPO = "https://github.com/ryangswe/riftsight-vision.git";
 
@@ -78,11 +86,12 @@ function sameFiles(a, b) {
   return { problems, count: la.length };
 }
 
-function checkRuntimesRow({ version, releaseDir, vendor }) {
+/** The card release's id, and how this version's row in cdn/RUNTIMES.json differs from this commit. */
+function runtimesRowProblems({ version, releaseDir, vendor }) {
   const runtimes = JSON.parse(readFileSync(join(root, "cdn", "RUNTIMES.json"), "utf-8"));
   const row = runtimes[version];
-  if (!row) throw new Error(`cdn/RUNTIMES.json has no row for ${version}`);
   const release = JSON.parse(readFileSync(join(releaseDir, "release.json"), "utf-8"));
+  if (!row) return { releaseId: release.id, problems: [`cdn/RUNTIMES.json has no row for ${version}`] };
   const problems = [];
   if (row.vendoredCommit !== vendor.toolkit.commit) {
     problems.push(`vendoredCommit ${row.vendoredCommit} is not the vendored toolkit's ${vendor.toolkit.commit}`);
@@ -94,8 +103,7 @@ function checkRuntimesRow({ version, releaseDir, vendor }) {
     const got = sha256(readFileSync(join(releaseDir, entry.path)));
     if (bundled[key] !== got) problems.push(`bundledRelease.${key} ${bundled[key]} is not ${entry.path}'s ${got}`);
   }
-  if (problems.length > 0) throw new Error(`cdn/RUNTIMES.json, row ${version}:\n  ${problems.join("\n  ")}`);
-  return release.id;
+  return { releaseId: release.id, problems: problems.map((p) => `cdn/RUNTIMES.json, row ${version}: ${p}`) };
 }
 
 function toolkitCheckout(commit, work) {
@@ -109,7 +117,11 @@ function toolkitCheckout(commit, work) {
 
 async function main() {
   const { values } = parseArgs({
-    options: { release: { type: "string" }, "runtime-repo": { type: "string" } },
+    options: {
+      release: { type: "string" },
+      "runtime-repo": { type: "string" },
+      "warn-runtimes-row": { type: "boolean", default: false },
+    },
   });
   const config = loadForkConfig();
   const version = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).version;
@@ -124,9 +136,14 @@ async function main() {
       }
     }
     const releaseDir = values.release ? resolve(values.release) : await fetchRelease(join(work, "release-source"), source);
-    const releaseId = checkRuntimesRow({ version, releaseDir, vendor });
+    const { releaseId, problems: rowProblems } = runtimesRowProblems({ version, releaseDir, vendor });
+    if (rowProblems.length > 0 && !values["warn-runtimes-row"]) throw new Error(rowProblems.join("\n"));
     if (releaseId !== source.id) throw new Error(`the release is ${releaseId}; scripts/release-source.json pins ${source.id}`);
-    console.log(`release ${releaseId} matches cdn/RUNTIMES.json row ${version} (toolkit ${vendor.toolkit.commit.slice(0, 7)}, ONNX Runtime Web ${vendor.ort.version})`);
+    if (rowProblems.length > 0) {
+      for (const p of rowProblems) console.log(`::warning title=Next version::${workflowMessage(`${p} (the next version's row names this commit's)`)}`);
+    } else {
+      console.log(`release ${releaseId} matches cdn/RUNTIMES.json row ${version} (toolkit ${vendor.toolkit.commit.slice(0, 7)}, ONNX Runtime Web ${vendor.ort.version})`);
+    }
 
     rmSync(out, { recursive: true, force: true });
     mkdirSync(out);

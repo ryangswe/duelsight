@@ -55,7 +55,8 @@ hand:
      and submits.
 
    [store-check.yml](../.github/workflows/store-check.yml) builds and checks both packages on that
-   pull request (the tests, the vendor check, Mozilla's linter and the toolkit's store check).
+   pull request (the tests, the vendor check, Mozilla's linter and the toolkit's store check). The
+   `before` addresses are warnings there until they are live; nothing uploads before they are.
    Locally, `npm run store:build` writes `out/chrome.zip`, `out/firefox.zip` and
    `out/firefox-source.zip`, after checking the card release against `cdn/RUNTIMES.json`, and checks
    the source archive's round trip.
