@@ -39,8 +39,9 @@ describe("validateSettings", () => {
       // It changes with every publish: an ISO-8601 UTC time, not a fixed one.
       updatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/),
       namesOnly: false,
-      primary: { id: "cdn", template: `${CDN}/art/{art}` },
-      fallbacks: [],
+      // The tooltip pictures (640 px WebP, cdn/README.md), then the full art for a card without one.
+      primary: { id: "tooltip", template: `${CDN}/art/tooltip/{cardId}.webp` },
+      fallbacks: [{ id: "cdn", template: `${CDN}/art/{art}` }],
       update: null,
       details: { path: expect.stringMatching(/^data\/details-[0-9a-f]{8}\.json$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
     });

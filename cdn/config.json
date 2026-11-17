@@ -1,12 +1,17 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-29T00:00:00Z",
+  "updatedAt": "2026-11-17T00:00:00Z",
   "namesOnly": false,
   "primary": {
-    "id": "cdn",
-    "template": "https://cdn.duelsight.com/art/{art}"
+    "id": "tooltip",
+    "template": "https://cdn.duelsight.com/art/tooltip/{cardId}.webp"
   },
-  "fallbacks": [],
+  "fallbacks": [
+    {
+      "id": "cdn",
+      "template": "https://cdn.duelsight.com/art/{art}"
+    }
+  ],
   "details": {
     "path": "data/details-bdd8ffa0.json",
     "sha256": "bdd8ffa02f09339e8f3455fa2dc4e893f361cc3266247ed8f86ad467c618ec91"

@@ -137,7 +137,7 @@ here. `test/browser/LIVE-CHECKS.md` lists the release's live checks and which of
 - `duelsight.config.json` holds the extension's names, sites, CDN base, printed-number rule and
   links; `scripts/fork-config.mjs` explains and checks it. `cdnBase` is the one place the CDN host is
   written. The places that follow it: the manifest's host permissions and the pages' `connect-src`
-  (derived), `settingsUrl` (derived), `cdn/config.json`'s `primary` template, `cdn/SETTINGS.md`,
+  (derived), `settingsUrl` (derived), `cdn/config.json`'s image templates, `cdn/SETTINGS.md`,
   `cdn/README.md`, `PRIVACY.md`, `docs/permissions.md` and the tests' fixture host. The tests fail
   when the derived values and the config disagree; the prose files are updated by hand.
 - A new image host needs an extension release: the settings file can name the config's host
