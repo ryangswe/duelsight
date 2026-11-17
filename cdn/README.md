@@ -92,7 +92,28 @@ $CDN cdn verify --env-file cdn/.env
 ```
 
 - **A new set:** once the catalog refresh has added the images, re-run steps 2–4.
-  Only new or changed files are uploaded. Then rebuild the card details file (below).
+  Only new or changed files are uploaded, the tooltip pictures included. Then rebuild the card
+  details file (below).
+- **The tooltip pictures:** `art.derived` in [cdn.config.json](cdn.config.json) lists one set,
+  `tooltip`: each card's art made 640 px wide in WebP (quality 75), at
+  `art/tooltip/<cardId>.webp` with its own index, `art/tooltip/index.json` (the toolkit's
+  docs/cdn.md, "Derived art sets"). Steps 2–4 make and upload it with the full art. The tooltip
+  asks for it once the settings point at it, in a publish of its own after the set is complete:
+  1. Steps 2–4 as above, with the current `config.json`. Then
+     `$CDN cdn verify --env-file cdn/.env --catalog $CATALOG` also checks the set lists every card
+     with art.
+  2. In `config.json`, set `primary` to
+     `{"id": "tooltip", "template": "https://cdn.duelsight.com/art/tooltip/{cardId}.webp"}`, written
+     exactly so (no other placeholder, no query), and `fallbacks` to the full art,
+     `[{"id": "cdn", "template": "https://cdn.duelsight.com/art/{art}"}]`. Then
+     `$CDN cdn publish --env-file cdn/.env --catalog $CATALOG --config cdn/config.json --dry-run`,
+     the same without `--dry-run`, and `verify --catalog` as above. The publish is refused unless
+     the set lists every catalog card with art at the current spec.
+  3. A pull request records the new `config.json`.
+
+  From then on, every publish of `config.json` takes `--catalog`, also `publish-release --config`.
+  Publishing a `config.json` with the full art as `primary` switches back. A card without art has
+  no tooltip picture: the tooltip misses once and falls back.
 - **The card details file:** build it outside the repository, from the one-time card list and the
   release's catalog, then publish it with `config.json` naming it:
   ```bash
@@ -114,7 +135,8 @@ $CDN cdn verify --env-file cdn/.env
   ```
 - **Switching images off or over:** edit `config.json` (`namesOnly: true` shows names without pictures; `primary: null`
   with no `fallbacks` stops images entirely), then `$CDN cdn publish --env-file cdn/.env --config cdn/config.json`
-  (config only) and `verify`. Installed extensions follow within about an hour.
+  (config only; add `--catalog $CATALOG` while a template points at the tooltip pictures) and
+  `verify`. Installed extensions follow within about an hour.
 - **A replaced image** (e.g. a better scan) reaches viewers within a day; purge its URL in the
   Cloudflare dashboard (Caching → Configuration → Custom Purge) to make it immediate.
 - **Exit codes:** 0 ok; 1 failed uploads or verify failures; 3 refused by a guard (nothing
@@ -128,7 +150,9 @@ $CDN cdn verify --env-file cdn/.env
 - Every catalog `art` path must be a clean relative path to a jpg/png/webp under `--images`
   (no `..`, no symlink escapes), at most 5 MB, whose bytes match its type.
 - `config.json` must pass the SETTINGS.md schema; its `primary` must be on `DSCDN_PUBLIC_BASE`;
-  no template may point at those other projects.
+  no template may point at those other projects. A template under `art/tooltip/` is refused unless
+  `art/tooltip/index.json` lists every catalog card with art at the set's current spec (`--catalog`
+  needed).
 - A details file must be named `details-<sha8>.json` after its own SHA-256 and be a schema 1
   details file; a `config.json` published with it must name it (path and SHA-256).
 - A `config.json` that names a details file it is not published with (`publish --config`, or

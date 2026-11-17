@@ -13,5 +13,6 @@
     "detailsPt": {"prefix": "data/", "namePattern": "details-pt-<sha8>.json", "schemaVersion": 1, "requiredObjectKeys": ["cards", "names"], "maxBytes": 33554432}
   },
   "pages": ["privacy.html"],
+  "art": {"derived": [{"name": "tooltip", "width": 640, "format": "webp", "quality": 75}]},
   "geometric": false
 }
