@@ -22,6 +22,9 @@ import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.j
 import { createSettingsCore, startHostCompute, type WorkerLike } from "../../vendor/cardvision-browser/host-compute.js";
 import { createFactsChannel } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
+import { createPrefetcher } from "./prefetch.js";
+import type { CardRef } from "../settings/templates.js";
+import type { CardTable } from "../tooltip/card-data.js";
 
 declare const __DEV__: boolean;
 // Null except in a dev build made with --idle-unload-ms.
@@ -65,6 +68,26 @@ void (async () => {
   let lastDecision: ReleaseDecision | null = null;
   const settingsUrl = SETTINGS_URL;
 
+  // Card pictures fetched ahead of the pointer (prefetch.ts), from the card table of the release
+  // in effect: the remote release's, once confirmed, else the bundled one (an extension file,
+  // read when first needed).
+  let releaseTable: () => CardTable | null = () => null;
+  let bundledTable: Promise<CardTable> | null = null;
+  const prefetcher = createPrefetcher({
+    settings: async () => (await createSettingsCore(SETTINGS_SCHEMA, chrome.storage.local).read()).settings,
+    card: async (id): Promise<CardRef | null> => {
+      const table =
+        releaseTable() ??
+        (await (bundledTable ??= fetch(chrome.runtime.getURL("data/cards.json"))
+          .then((r) => (r.ok ? (r.json() as Promise<CardTable>) : ({} as CardTable)))
+          .catch((): CardTable => ({}))));
+      if (!Object.hasOwn(table, id)) return null;
+      const row = table[id]!;
+      return { id, art: row[2], ...(row.length > 3 ? { printed: row[3] ?? null } : {}) };
+    },
+    fetch: (url, init) => fetch(url, init),
+  });
+
   const host = await startHostCompute({
     config: productConfig(__DEV__),
     win: window,
@@ -104,20 +127,19 @@ void (async () => {
     },
     observe: {
       onShown: channel.onShown,
-      ...(__DEV__
-        ? {
-            onAnalysis: (analysis: FrameAnalysis) => {
-              const faces = analysis.boxes.filter((b) => b.face);
+      onAnalysis: (analysis: FrameAnalysis) => {
+        prefetcher.onAnalysis(analysis);
+        if (__DEV__) {
+          const faces = analysis.boxes.filter((b) => b.face);
               frames.push({
                 analyzeMs: analysis.timings.analyzeMs,
                 detectorMs: analysis.timings.detectorMs,
                 recognizeMs: analysis.timings.recognizeMs,
                 faces: faces.length,
               });
-              if (frames.length > 200) frames.shift();
-            },
-          }
-        : {}),
+          if (frames.length > 200) frames.shift();
+        }
+      },
     },
   });
   if (!host) {
@@ -125,6 +147,7 @@ void (async () => {
     return;
   }
   const { frame } = host;
+  releaseTable = () => (frame.release.source === "remote" ? frame.release.table : null);
 
   // A tooltip frame that lacks a card's facts asks for them on the channel (one made again, or a
   // card that arrived before its facts); the frame whose release it is answers.
@@ -154,6 +177,7 @@ void (async () => {
         frames,
         loadedAt,
         helloAt,
+        prefetched: [...prefetcher.started],
       };
     };
   }
