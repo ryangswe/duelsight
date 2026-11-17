@@ -24,6 +24,10 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
   `cdn/README.md` says how to publish the set and then point the settings at it. The published
   settings point at it since 2026-11-17, with the full art as the fallback, and so does
   `cdn/config.json`, the settings built into the extension.
+- The vendored toolkit moves to riftsight-vision 584012d, after 0.15.0: only its store tool
+  changed (`store-upload.mjs check --pull-request`), and the extension's files are the same.
+  `.github/workflows/store-check.yml` is now the toolkit's template for it, with DuelSight's build
+  step; `scripts/store-before.mjs` is gone.
 
 ## [0.9.0] - unreleased
 

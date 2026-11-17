@@ -110,17 +110,23 @@ no npm.
 - A release adds `store/releases/<version>.json` and its AMO notes (`store/releases/<version>/`)
   in the pull request that bumps the version. When PRIVACY.md changed, the privacy page is a
   `before` entry with its sha256, so nothing uploads until that page is live.
-- [.github/workflows/store-check.yml](.github/workflows/store-check.yml) runs the same build and
-  checks on every pull request with the tag package.json's version would get, while that tag does
-  not exist yet, or when the pull request changes that version's release file, its notes or
-  `cdn/RUNTIMES.json` (a fix before tagging again). A `before` address that is not live yet is a
-  warning there, not a failure ([scripts/store-before.mjs](scripts/store-before.mjs)); the tag's
-  build job and the upload job still hold the release until it is live. Otherwise the version is
-  released and the pull request is not that release: the check builds the packages with
-  `npm run store:build -- --warn-runtimes-row`, lints them and checks them against
-  `store/permissions.json`. Where this commit no longer matches the version's row in
-  `cdn/RUNTIMES.json` (toolkit, ONNX Runtime Web, card release), or the permissions changed since
-  the tag, it warns: the next version pull request adds the row and sets `permissionsChanged`.
+- [.github/workflows/store-check.yml](.github/workflows/store-check.yml) is the toolkit's
+  template (`browser/templates/store-check.yml` at riftsight-vision 83bde6d; the toolkit's
+  `docs/store-uploads.md`, "Checking a pull request") with DuelSight's build step. It runs the
+  same build and checks on every pull request with the tag package.json's version would get, in
+  one of two modes (`store-upload.mjs check --pull-request`):
+  - `release`, while that tag does not exist yet, or when the pull request changes that version's
+    release file, its notes or its row in `cdn/RUNTIMES.json` (a fix before tagging again): the
+    release's checks, but a `before` address that is not live yet is a warning, not a failure
+    (`BEFORE_ON_PULL_REQUEST: warn`: the privacy page is published after the merge). The tag's
+    build job and the upload job still hold the release until it is live.
+  - `released` otherwise: the pull request is not that release. The packages are built with
+    `npm run store:build -- --warn-runtimes-row`, linted and checked against
+    `store/permissions.json`. Where this commit no longer matches the version's row in
+    `cdn/RUNTIMES.json` (toolkit, ONNX Runtime Web, card release), or the permissions changed
+    since the tag, it warns: the next version pull request adds the row and sets
+    `permissionsChanged`.
+
   It is not a required check.
 
 ## A core-model refresh

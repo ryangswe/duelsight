@@ -885,12 +885,33 @@ function surfaceFile(path) {
   return o;
 }
 var sameSurface = (a, b) => !!a && surfaceChanges(a, b).length === 0;
+function releasedVersion(path) {
+  let o;
+  try {
+    o = JSON.parse(readFileSync5(path, "utf-8"));
+  } catch (error) {
+    throw new StoreError(`${path}: ${error.message}`);
+  }
+  const version = o?.version;
+  if (typeof version !== "string" || version === "") throw new StoreError(`${path}: version is required`);
+  return { version };
+}
 async function runCheck(a, deps) {
   const problems = [];
+  const warnings = [];
   const summary = [];
   const config = readStoreConfig(a.config);
-  const release = readReleaseFile(a.release);
-  summary.push(`## Store release ${release.version}`, "");
+  const released = a.pullRequest === "released";
+  const release = released ? releasedVersion(a.release) : readReleaseFile(a.release);
+  if (!a.pullRequest) summary.push(`## Store release ${release.version}`, "");
+  else if (released) {
+    summary.push(
+      `## Store check: ${a.tag} is already released`,
+      "",
+      "This pull request will not ship as that version, so what describes the release (notes, before-upload addresses, permissionsChanged, the runtime row) is not checked. The packages are checked against the committed permissions; a difference from the release is a warning for the next version.",
+      ""
+    );
+  } else summary.push(`## Store check: ${release.version}, a pull request before its tag`, "");
   if (a.tag !== `${a.tagPrefix}${release.version}`) problems.push(`the tag ${a.tag} is not ${a.tagPrefix}${release.version}`);
   for (const w of a.workflows) {
     const text = readFileSync5(w, "utf-8");
@@ -923,7 +944,9 @@ async function runCheck(a, deps) {
     }
     if (previous) {
       const diff = previous[target] ? surfaceChanges(previous[target], surface) : [];
-      if (diff.length > 0) {
+      if (diff.length > 0 && released) {
+        warnings.push(`${target}: the permissions changed since ${a.tag} (${diff.join("; ")}): the next version's release file sets permissionsChanged`);
+      } else if (diff.length > 0) {
         changed = true;
         summary.push(`**${target} permission change:** ${diff.join("; ")}`, "");
       }
@@ -970,9 +993,9 @@ async function runCheck(a, deps) {
     }
   }
   if (!previous && (a.chromeZip || a.firefoxZip)) {
-    summary.push("", "No previous release's permissions: not compared.");
+    summary.push("", released ? `No permissions of ${a.tag}: not compared.` : "No previous release's permissions: not compared.");
   }
-  if (previous) {
+  if (previous && !released) {
     if (changed && !release.permissionsChanged) problems.push("the permissions changed: set permissionsChanged in the release file once the store justifications are updated");
     if (!changed && release.permissionsChanged) problems.push("permissionsChanged is set but nothing changed since the previous release");
   }
@@ -982,15 +1005,19 @@ async function runCheck(a, deps) {
       release.chrome.submit === "auto" ? `Chrome: upload, then submit for review (${release.chrome.publish === "staged" ? "publish by hand after approval" : "live once approved"}).` : "Chrome: upload only. Paste the listing text in the dashboard, then submit."
     );
   }
-  try {
-    const notes = readNotes(a.release, release);
-    for (const [locale, text] of Object.entries(notes.releaseNotes ?? {})) summary.push("", `Firefox release notes (${locale}):`, "", ...text.split("\n").map((l) => `> ${l}`));
-    if (notes.approvalNotes) summary.push("", "Firefox notes to reviewers:", "", ...notes.approvalNotes.split("\n").map((l) => `> ${l}`));
-  } catch (error) {
-    problems.push(error.message);
+  if (!released) {
+    try {
+      const notes = readNotes(a.release, release);
+      for (const [locale, text] of Object.entries(notes.releaseNotes ?? {})) summary.push("", `Firefox release notes (${locale}):`, "", ...text.split("\n").map((l) => `> ${l}`));
+      if (notes.approvalNotes) summary.push("", "Firefox notes to reviewers:", "", ...notes.approvalNotes.split("\n").map((l) => `> ${l}`));
+    } catch (error) {
+      problems.push(error.message);
+    }
+    const notLive = await beforeProblems(release, deps.fetchFn);
+    if (a.pullRequest) for (const p of notLive) warnings.push(`before upload (checked again on the tag): ${p}`);
+    else for (const p of notLive) problems.push(`before upload: ${p}`);
+    if ((release.before ?? []).length > 0) summary.push("", `Before upload: ${(release.before ?? []).length} address(es) checked.`);
   }
-  for (const p of await beforeProblems(release, deps.fetchFn)) problems.push(`before upload: ${p}`);
-  if ((release.before ?? []).length > 0) summary.push("", `Before upload: ${(release.before ?? []).length} address(es) checked.`);
   if ((a.ciResults || a.runtimes) && !a.recordOut) throw new Usage("--ci-results and --runtimes go with --record-out");
   if (a.recordOut) {
     if (!a.recordOut.endsWith(".json")) throw new Usage("--record-out names a .json file (the Markdown is written beside it)");
@@ -1018,14 +1045,17 @@ async function runCheck(a, deps) {
       facts: Object.fromEntries(Object.entries(productFacts).filter(([k]) => k !== "modelRelease"))
     };
     if (a.runtimes) {
+      const rowProblems = [];
       try {
         const row = readRuntimesRow(a.runtimes, release.version);
-        if (record.modelRelease === null) problems.push(`the record names no model release: set modelRelease in the facts file (${basename3(a.runtimes)} says ${row.releaseId})`);
-        else if (record.modelRelease !== row.releaseId) problems.push(`the bundled model release ${record.modelRelease} is not ${row.releaseId}, the row of ${release.version} in ${basename3(a.runtimes)}`);
-        if (row.ortWeb && record.ort && row.ortWeb !== record.ort) problems.push(`the vendored ONNX Runtime ${record.ort} is not ${row.ortWeb}, the row of ${release.version} in ${basename3(a.runtimes)}`);
+        if (record.modelRelease === null) rowProblems.push(`the record names no model release: set modelRelease in the facts file (${basename3(a.runtimes)} says ${row.releaseId})`);
+        else if (record.modelRelease !== row.releaseId) rowProblems.push(`the bundled model release ${record.modelRelease} is not ${row.releaseId}, the row of ${release.version} in ${basename3(a.runtimes)}`);
+        if (row.ortWeb && record.ort && row.ortWeb !== record.ort) rowProblems.push(`the vendored ONNX Runtime ${record.ort} is not ${row.ortWeb}, the row of ${release.version} in ${basename3(a.runtimes)}`);
       } catch (error) {
-        problems.push(error.message);
+        rowProblems.push(error.message);
       }
+      if (released) for (const p of rowProblems) warnings.push(`${p} (${a.tag} is released: the next version's row)`);
+      else problems.push(...rowProblems);
     }
     const json = recordJson(record);
     const markdown = recordMarkdown(record);
@@ -1039,8 +1069,13 @@ async function runCheck(a, deps) {
   }
   if (a.hashesOut) writeFileSync3(a.hashesOut, `${JSON.stringify(hashes, null, 2)}
 `);
+  if (warnings.length > 0) summary.push("", `**${warnings.length} warning(s):**`, ...warnings.map((w) => `- ${w}`));
   summary.push("", problems.length === 0 ? "**All checks passed.**" : `**${problems.length} problem(s):**`, ...problems.map((p) => `- ${p}`));
-  return { problems, summary, hashes };
+  return { problems, warnings, summary, hashes };
+}
+function warningLine(text, env) {
+  if (env.GITHUB_ACTIONS !== "true") return `warning: ${text}`;
+  return `::warning title=Store check::${text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`;
 }
 function need(env, name) {
   const v = env[name];
@@ -1162,7 +1197,7 @@ var USAGE = `usage:
        --workflow FILE [--workflow FILE\u2026] [--lint REPORT [--lint-baseline FILE]]
        [--hashes-out FILE] [--summary FILE] [--load-unpacked-zip Z]
        [--record-out FILE.json --vendor-manifest FILE [--facts FILE] [--commit SHA] [--run-id ID]
-       [--ci-results FILE] [--runtimes FILE]]
+       [--ci-results FILE] [--runtimes FILE]] [--pull-request release|released]
   node store-upload.mjs status --config FILE --releases DIR [--state-in FILE] [--state-out FILE] [--summary FILE]
   node store-upload.mjs assets --record FILE.json --dir DIR --out-dir DIR
   node store-upload.mjs upload --config FILE --release FILE --targets chrome,firefox --hashes FILE
@@ -1205,6 +1240,7 @@ async function main(argv, deps = DEFAULT_DEPS) {
         "run-id": { type: "string" },
         "ci-results": { type: "string" },
         runtimes: { type: "string" },
+        "pull-request": { type: "string" },
         record: { type: "string" },
         releases: { type: "string" },
         "state-in": { type: "string" },
@@ -1245,6 +1281,10 @@ async function main(argv, deps = DEFAULT_DEPS) {
     if (command === "check") {
       if (values["env-file"]) throw new Usage("--env-file is for upload: check uses no credentials");
       if (!values.tag || !values.permissions || !values.workflow?.length) throw new Usage("check needs --tag, --permissions and --workflow");
+      const pullRequest = values["pull-request"];
+      if (pullRequest !== void 0 && pullRequest !== "release" && pullRequest !== "released") {
+        throw new Usage(`--pull-request is "release" or "released", not "${pullRequest}"`);
+      }
       const res = await runCheck(
         {
           config: values.config,
@@ -1267,10 +1307,12 @@ async function main(argv, deps = DEFAULT_DEPS) {
           commit: values.commit,
           runId: values["run-id"],
           ciResults: values["ci-results"],
-          runtimes: values.runtimes
+          runtimes: values.runtimes,
+          pullRequest
         },
         deps
       );
+      for (const w of res.warnings) deps.log(warningLine(w, deps.env));
       for (const line of res.summary) deps.log(line);
       writeSummary(res.summary);
       return res.problems.length === 0 ? 0 : 1;
@@ -1327,5 +1369,6 @@ export {
   defaultZipFiles,
   main,
   runCheck,
-  runUpload
+  runUpload,
+  warningLine
 };

@@ -19,9 +19,9 @@
 //
 // --warn-runtimes-row makes the check against cdn/RUNTIMES.json warnings (GitHub workflow
 // commands) instead of a failure, for a pull request whose version is already released
-// (store-check.yml): that commit will never ship as that version, so a row that no longer matches
-// it is news for the next version's row, not a problem in the pull request. The release must still
-// be the one scripts/release-source.json pins. A release build never takes it.
+// (store-check.yml's `released` mode): that commit will never ship as that version, so a row that
+// no longer matches it is news for the next version's row, not a problem in the pull request. The
+// release must still be the one scripts/release-source.json pins. A release build never takes it.
 //
 // After building, it runs the source round trip: it unzips firefox-source.zip into an empty
 // folder, runs its build-firefox.sh and checks that the package it makes holds the same files,
@@ -38,7 +38,6 @@ import { parseArgs } from "node:util";
 
 import { fetchRelease, readReleaseSource } from "./fetch-release.mjs";
 import { loadForkConfig } from "./fork-config.mjs";
-import { workflowMessage } from "./store-before.mjs";
 
 const TOOLKIT_REPO = "https://github.com/ryangswe/riftsight-vision.git";
 
@@ -46,6 +45,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const out = join(root, "out");
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+/** A GitHub workflow command's message: %, CR and LF escaped. */
+const workflowMessage = (text) => text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 const run = (cmd, args, cwd = root) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
 const step = (text) => console.log(`\n== ${text}`);
 
