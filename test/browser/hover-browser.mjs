@@ -10,7 +10,12 @@
 //   node test/browser/hover-browser.mjs --chrome <Chrome for Testing> --release <release folder>
 //        --art <folder for the card pictures named below, outside this repository> [--fetch-art]
 //        [--dist dist] [--dist-idle dist-idle] [--out <folder for the report and logs>]
-//        [--only <check id,...>]
+//        [--only <check id,...>] [--art-delay-ms <ms>]
+//
+// --art-delay-ms holds each card picture's answer from the settings host that long, as a CDN far
+// away would (default 0). The report's `artAfterShownMs` is, per card, the time from the tooltip
+// showing it to its picture on screen (the dev build's tooltip timings), and `prefetched` the
+// pictures the compute frame fetched ahead (src/compute/prefetch.ts).
 //
 // ffmpeg (with libvpx) and openssl must be on the PATH.
 //
@@ -136,14 +141,17 @@ const { values } = parseArgs({
     out: { type: "string" },
     only: { type: "string" },
     "fetch-art": { type: "boolean", default: false },
+    "art-delay-ms": { type: "string", default: "0" },
     headful: { type: "boolean", default: false },
   },
 });
 const usage = (problem) => {
-  console.error(`${problem}\nusage: node test/browser/hover-browser.mjs --chrome <Chrome for Testing> --release <release folder> --art <card pictures> [--fetch-art] [--dist dist] [--dist-idle dist-idle] [--out folder] [--only ids]`);
+  console.error(`${problem}\nusage: node test/browser/hover-browser.mjs --chrome <Chrome for Testing> --release <release folder> --art <card pictures> [--fetch-art] [--dist dist] [--dist-idle dist-idle] [--out folder] [--only ids] [--art-delay-ms ms]`);
   process.exit(2);
 };
 if (!values.chrome || !values.release || !values.art) usage("missing --chrome, --release or --art");
+const artDelayMs = Number(values["art-delay-ms"]);
+if (!(Number.isInteger(artDelayMs) && artDelayMs >= 0 && artDelayMs <= 10_000)) usage("--art-delay-ms must be a whole number of ms from 0 to 10000");
 const only = values.only ? new Set(values.only.split(",")) : null;
 if (only) for (const id of only) if (!CHECKS.includes(id)) usage(`--only: no check ${id}`);
 const want = (id) => !only || only.has(id);
@@ -242,7 +250,7 @@ function startStandIn() {
       res.writeHead(status, { "content-type": type, "cache-control": cache, "access-control-allow-origin": "*" }).end(body);
     };
     if (path === settingsUrl.pathname) send(200, JSON.stringify(testSettings), "application/json", "no-cache");
-    else if (art.has(path)) send(200, art.get(path), "image/jpeg", "public, max-age=86400");
+    else if (art.has(path)) setTimeout(() => send(200, art.get(path), "image/jpeg", "public, max-age=86400"), artDelayMs);
     else send(404, "", "text/plain", "no-store");
   });
   return new Promise((ok) => server.listen(0, "127.0.0.1", () => ok({ server, port: server.address().port, spki, requests })));
@@ -321,6 +329,20 @@ async function offVideo(page) {
 
 async function extensionFrames(page) {
   return page.evaluate((names) => [...document.querySelectorAll("iframe")].map((f) => f.src.split("/").at(-1)).filter((n) => names.includes(n)), Object.values(PRODUCT.frames));
+}
+
+/** Per card slot, the ms from the tooltip showing that card the first time to its picture on
+ *  screen (the dev build's tooltip timings); null for a card not shown or with no picture yet. */
+async function artAfterShown(page) {
+  const f = page.frames().find((fr) => fr.url().startsWith("chrome-extension://") && fr.url().endsWith(`/${PRODUCT.frames.tooltip}`));
+  const timings = f ? ((await f.evaluate(() => window.__duelsightTooltipDebug?.().timings ?? null).catch(() => null)) ?? []) : [];
+  const out = {};
+  for (const [slot, c] of Object.entries(cards)) {
+    const shown = timings.find((x) => x.event === "show" && x.cardId === c.id);
+    const art = shown ? timings.find((x) => x.event === "art" && x.cardId === c.id && x.at >= shown.at) : null;
+    out[slot] = shown && art ? Math.round(art.at - shown.at) : null;
+  }
+  return out;
 }
 
 async function computeDebug(page) {
@@ -529,6 +551,8 @@ try {
       // The switch on (the default): the hovered card stays, and its outline goes once it is seen
       // gone and stays gone while the tooltip stays.
       const on = await covered();
+      counts.artAfterShownMs = await artAfterShown(page);
+      counts.prefetched = ((await computeDebug(page))?.prefetched ?? []).map((u) => new URL(u).pathname);
       if (want("covered-kept")) record("covered-kept", on.first === cards.A.name && on.last === cards.A.name && !on.names.includes(cards.D.name), on);
       if (want("held-outline-hides")) record("held-outline-hides", on.outlineBefore && on.heldFrom !== null && !on.outlineCameBack && on.last === cards.A.name, on);
 
