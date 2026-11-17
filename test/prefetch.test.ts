@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FrameAnalysis } from "../vendor/cardvision-browser/cardvision.js";
 import { SOURCE_FAILURE_LIMIT } from "../src/constants.js";
-import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, PREFETCH_RETRY_MS, PrefetchHealth, type PrefetchDeps } from "../src/compute/prefetch.js";
+import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, PrefetchHealth, type PrefetchDeps } from "../src/compute/prefetch.js";
 import type { CardRef } from "../src/settings/templates.js";
 import { FIXTURE_CDN } from "./helpers/fork.js";
 
@@ -339,81 +339,37 @@ describe("fetching ahead when a source keeps failing", () => {
     expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5"), tooltipUrl("6"), fullUrl("7")]);
   });
 
-  it(`tries a skipped source again ${PREFETCH_RETRY_MS / 1000} s after its last failure: a success brings it back`, async () => {
-    let now = 0;
-    let down = true;
-    const fetched: string[] = [];
-    const p = createPrefetcher({
-      settings: async () => TWO,
-      card: async (id) => ({ id, art: `full/${id}.jpg` }),
-      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") && down ? refused : ok),
-      now: () => now,
-    });
-    await nameInTurn(p, ["1", "2", "3"]);
-    now += PREFETCH_RETRY_MS - 1;
-    await nameInTurn(p, ["4"]);
-    down = false;
-    now += 1;
-    await nameInTurn(p, ["5", "6"]);
-    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4"), tooltipUrl("5"), tooltipUrl("6")]);
-  });
-
-  it("skips a source again for as long after a retry that failed, and retries once at a time", async () => {
-    let now = 0;
-    const fetched: string[] = [];
-    const p = createPrefetcher({
-      settings: async () => TWO,
-      card: async (id) => ({ id, art: `full/${id}.jpg` }),
-      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
-      now: () => now,
-    });
-    await nameInTurn(p, ["1", "2", "3"]);
-    now += PREFETCH_RETRY_MS;
-    // Two cards in one analysis, fetched side by side: only the first retries the tooltip pictures.
-    p.onAnalysis(analysis(["4", "5"]));
-    await flush();
-    now += PREFETCH_RETRY_MS - 1;
-    await nameInTurn(p, ["6"]);
-    now += 1;
-    await nameInTurn(p, ["7"]);
-    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), fullUrl("5"), fullUrl("6"), tooltipUrl("7")]);
-  });
-
-  it("after a network stall, goes back to the first source within one retry time", async () => {
-    let now = 0;
+  it("trips on a stall only after as many analyses as the tooltip would need hovers, and stays off until the settings are read", async () => {
     let stalled = true;
     const fetched: string[] = [];
     const p = createPrefetcher({
       settings: async () => TWO,
       card: async (id) => ({ id, art: `full/${id}.jpg` }),
       fetch: async (url) => (fetched.push(url), stalled ? Promise.reject(new Error("timeout")) : ok),
-      now: () => now,
     });
-    // A 10 s stall, four cards per analysis, an analysis a second: both sources are skipped.
-    let next = 100;
-    for (let t = 0; t < 10; t++) {
-      p.onAnalysis(analysis([String(next++), String(next++), String(next++), String(next++)]));
-      await flush();
-      now += 1000;
-    }
+    // Two analyses of four cards fail: two failures, not eight. The stall ends, and the tooltip
+    // pictures are fetched again.
+    p.onAnalysis(analysis(["1", "2", "3", "4"]));
+    await flush();
+    p.onAnalysis(analysis(["5", "6", "7", "8"]));
+    await flush();
     stalled = false;
-    const afterStall = fetched.length;
-    // Cards named from then on: within the retry time, the first fetch retries a source again.
-    for (let t = 0; t < 30; t++) {
-      p.onAnalysis(analysis([String(next++)]));
-      await flush();
-      now += 1000;
-    }
-    const after = fetched.slice(afterStall);
-    // Every card named once both sources were retried is fetched from the tooltip pictures.
-    const firstTooltip = after.findIndex((u) => u.includes("/tooltip/"));
-    expect(firstTooltip).toBeGreaterThanOrEqual(0);
-    expect(after.slice(firstTooltip).every((u) => u.includes("/tooltip/"))).toBe(true);
-    expect(firstTooltip).toBeLessThanOrEqual(PREFETCH_RETRY_MS / 1000);
+    await nameInTurn(p, ["9"]);
+    expect(fetched.at(-1)).toBe(tooltipUrl("9"));
+    // A longer one: three failed analyses skip it, as three failed hovers skip it in the tooltip,
+    // and the next source is fetched until the settings are read again.
+    stalled = true;
+    await nameInTurn(p, ["10", "11", "12"]);
+    stalled = false;
+    await nameInTurn(p, ["13", "14"]);
+    expect(fetched.slice(-2)).toEqual([fullUrl("13"), fullUrl("14")]);
+    p.settingsChanged();
+    await nameInTurn(p, ["15"]);
+    expect(fetched.at(-1)).toBe(tooltipUrl("15"));
   });
 
   it("counts an analysis once when its fetches end out of order", async () => {
-    const health = new PrefetchHealth(() => 0);
+    const health = new PrefetchHealth();
     for (const a of [1, 2, 1]) health.record(TOOLTIP, false, a);
     expect(health.skipped(TOOLTIP)).toBe(false);
     health.record(TOOLTIP, false, 3);

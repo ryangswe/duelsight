@@ -11,9 +11,9 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
 ### Fixed
 
 - **When the card pictures from one source keep failing**, the pictures downloaded ahead of the
-  pointer come from the next source, as the tooltip's do after three failures in a row, and the
-  failing source is tried again after 30 seconds. Before, the downloads ahead kept asking the
-  failing source for pictures the tooltip would not show, until the settings were read again.
+  pointer come from the next source, as the tooltip's do after three failures in a row, until the
+  settings are read again. Before, the downloads ahead kept asking the failing source for pictures
+  the tooltip would not show.
 
 ### For maintainers
 
