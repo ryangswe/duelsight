@@ -32,7 +32,7 @@ the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details
   extension and fail when a file holds a toolkit module twice. The Firefox source archive's
   `build-firefox.sh` also compares the host files and the realm check with the toolkit's own build.
 
-## [0.8.2] - unreleased
+## [0.8.2] - 2026-11-16
 
 The recognition runtime moves to cardvision 0.14.1, a final release, and card hovers start on when
 their switch cannot be read. Same bundled cards (`862aec0f937da326`).
