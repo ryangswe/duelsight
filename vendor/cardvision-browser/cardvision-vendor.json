@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "toolkit": {
-    "version": "0.15.0rc1",
-    "commit": "48428bb43204e561ffd0b5484c78288563965781"
+    "version": "0.15.0",
+    "commit": "745d996de319156caa39a3644a669a9367b0cbf0"
   },
   "options": {
     "opencv": true,

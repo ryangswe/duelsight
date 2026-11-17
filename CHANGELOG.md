@@ -6,6 +6,17 @@ What changes for viewers in each version of DuelSight, and why. Store dates are 
 follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-spec.json`, and
 `docs/hover-spec.md` in the toolkit's repository).
 
+## [Unreleased]
+
+### For maintainers
+
+- The recognition runtime moves to cardvision 0.15.0, the final release of 0.15.0rc1. The vendored
+  files are byte for byte rc1's, and the built extension does not change.
+- The CDN publishing tool moves to cardvision 0.15.0 (`cdn/requirements.txt`), and
+  `cdn/cdn.config.json` lists a set of smaller tooltip pictures, 640 px wide in WebP.
+  `cdn/README.md` says how to publish the set and then point the settings at it. Until the
+  settings do, the tooltip asks for the full art as before.
+
 ## [0.9.0] - unreleased
 
 Card hovers run on the cardvision toolkit's shared hover host (experimental, cardvision 0.15.0rc1),

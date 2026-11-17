@@ -15,17 +15,17 @@ and removes the two frames, applies the site policy, gives the compute frame pic
 viewer's trusted pointer (through the toolkit's capture control), reads the `enabled` and
 `keepCard` switches, decides when a card is shown and when it goes, and draws the outline. The
 runtime inside the compute frame, and the capture control, have their own map: the toolkit's
-[hover map](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md)
+[hover map](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md)
 (`docs/hover-map.md` in the toolkit), which this page links to and does not draw again. That map
 draws the host as a whole, in its section
-[1d](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#1d-the-shared-hover-host);
+[1d](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#1d-the-shared-hover-host);
 the host's decisions DuelSight depends on are drawn here in more detail, from the host's source
 (`browser/src/host/` in the toolkit at that commit), with the host named as their owner.
 
 The rules are clauses of the toolkit's
-[hover spec](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-spec.md),
+[hover spec](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-spec.md),
 at the commit DuelSight vendors (`vendor/cardvision-browser/cardvision-vendor.json`, toolkit
-0.15.0rc1, commit 48428bb). Where DuelSight differs from them, `HOVER-DEVIATIONS.md` says so. This page
+0.15.0, commit 745d996). Where DuelSight differs from them, `HOVER-DEVIATIONS.md` says so. This page
 shows the structure and the flows: which part decides what, and in what order the parts talk. It
 does not repeat the rules; each element names the clauses it carries out.
 
@@ -144,7 +144,7 @@ flowchart TD
 | Settings refresh: asked by the tooltip frame and the popup, fetched by the background when due | `src/tooltip/tooltip.ts`, `src/tooltip/controller.ts#TooltipController.show`, `src/popup/popup.ts`, `src/background/index.ts` | |
 
 Inside the compute frame, from the session core to the worker, is the toolkit's
-[map, 1b](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#1b-inside-the-compute-frame).
+[map, 1b](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#1b-inside-the-compute-frame).
 
 ### 1b. The life of the frames (host)
 
@@ -195,7 +195,7 @@ stateDiagram-v2
 | Behind: a load waits for the front (owed) | | S-A7, S-A8 |
 
 The compute frame's own life inside, from loading to idle, is the toolkit's
-[map, 1c](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#1c-the-life-of-the-frames).
+[map, 1c](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#1c-the-life-of-the-frames).
 
 ## Layer 2: the decision points
 
@@ -386,7 +386,7 @@ flowchart TD
 | Its picture on screen (`pictureOf`, host `video-pick.ts`) | | S-B5 |
 
 How the control uses the answer (the gate, its grants and its timings) is the toolkit's
-[map, 2a](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#2a-may-a-picture-be-taken).
+[map, 2a](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#2a-may-a-picture-be-taken).
 
 ### 2e. Which hold does a compute frame start with? (host)
 
@@ -503,7 +503,7 @@ flowchart TD
 | No outline on a held card (`outlinePlace`, host `outline.ts`) | | S-F4, S-W7 |
 
 What makes the shown card (the hover rule and the hold) is the toolkit's
-[map, 2d](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#2d-is-a-card-shown-and-is-it-held).
+[map, 2d](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#2d-is-a-card-shown-and-is-it-held).
 
 ### 2h. How big is the tooltip?
 
@@ -630,7 +630,7 @@ flowchart TD
 The video plays on a YouTube watch page, in a tab in front. Both frames are made then, so the model
 has loaded by the time the viewer points at a card. Inside the compute frame, the steps from the
 pointer to the shown card are the toolkit's
-[map, 3a](https://github.com/ryangswe/riftsight-vision/blob/48428bb43204e561ffd0b5484c78288563965781/docs/hover-map.md#3a-the-opening-hover-on-a-fresh-tab).
+[map, 3a](https://github.com/ryangswe/riftsight-vision/blob/745d996de319156caa39a3644a669a9367b0cbf0/docs/hover-map.md#3a-the-opening-hover-on-a-fresh-tab).
 
 ```mermaid
 sequenceDiagram

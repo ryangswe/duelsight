@@ -237,8 +237,9 @@ compressed (the bank and catalog are most of a card-only update).
 ### Publishing a release
 
 `cardvision cdn publish-release --release <folder named after its id> --min-version 0.3.0 [--data-file F]
-[--config cdn/config.json --set-pointer (--verdict-r R --verdict-n N | --no-refresh-gate "REASON")]
-[--sessions] [--dry-run]`:
+[--config cdn/config.json --set-pointer [--catalog C] (--verdict-r R --verdict-n N | --no-refresh-gate
+"REASON")] [--sessions] [--dry-run]`, with `--catalog` (the release's catalog) exactly when that
+`--config` file points at the tooltip pictures ([README.md](README.md#usage)):
 
 0. **Refresh gate** (with `--config`, cardvision 0.10.0 and later): both refresh verdicts, each a
    PASS of its own gate with `rehearsal` false under one rule, or `--no-refresh-gate` with the reason
