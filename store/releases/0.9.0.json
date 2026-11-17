@@ -1,0 +1,16 @@
+{
+  "version": "0.9.0",
+  "chrome": { "submit": "auto", "publish": "default" },
+  "firefox": {
+    "releaseNotes": { "en-US": "0.9.0/amo-release-notes.en-US.md" },
+    "approvalNotes": "0.9.0/amo-approval-notes.md"
+  },
+  "permissionsChanged": false,
+  "before": [
+    {
+      "url": "https://cdn.duelsight.com/privacy.html",
+      "sha256": "17a545e1229a507c0f3ef0ae43b6d2d13b386df3822aa9193d80cdbc6199824c",
+      "why": "PRIVACY.md changed in 0.9.0 (the pictures of the cards named on the video are downloaded ahead of the pointer): the privacy page the stores link to must be this version's (node scripts/privacy-page.mjs)"
+    }
+  ]
+}
