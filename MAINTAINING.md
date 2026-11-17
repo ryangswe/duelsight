@@ -74,8 +74,9 @@ not a monthly card update.
 [docs/store-listing.md](docs/store-listing.md) holds every field of the Chrome Web Store dashboard,
 paste-ready, what Firefox Add-ons asks for differently, and how to make what they upload:
 
-- the packages (`npm run package` on a `--store` build for Chrome and a `--target firefox` build
-  for Firefox, plus the source archive Mozilla's reviewers rebuild from: [docs/development.md](docs/development.md#firefox));
+- the packages (`npm run store:build`, which the release workflow below runs from the tag: the
+  Chrome and Firefox packages, plus the source archive Mozilla's reviewers rebuild from:
+  [docs/development.md](docs/development.md#firefox));
 - the privacy page at `<cdnBase>/privacy.html`, generated from PRIVACY.md by
   `scripts/privacy-page.mjs` and published with `cardvision cdn publish --page` (republish it
   whenever PRIVACY.md changes: the listing links to it);
@@ -86,7 +87,7 @@ paste-ready, what Firefox Add-ons asks for differently, and how to make what the
 - the promo reel, if one goes with the release: [docs/reel/](docs/reel/README.md), made by
   [tools/promo-video/](tools/promo-video/README.md).
 
-Submitting, and every declaration in either store's dashboard, is the owner's.
+Approving each upload, the listings and every declaration in either store's dashboard are the owner's.
 
 ### The store workflow
 
