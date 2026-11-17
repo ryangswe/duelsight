@@ -109,8 +109,8 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
   While the pointer is over the video, it fetches the pictures of the cards each analysis names,
   each once and at most 60 each time it loads, from the address the tooltip frame will ask for
-  (none with `namesOnly`), so the tooltip finds them in the browser's cache
-  (`src/compute/prefetch.ts`).
+  (none with `namesOnly`; after three failures in a row from one source, the next one, as the
+  tooltip does), so the tooltip finds them in the browser's cache (`src/compute/prefetch.ts`).
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box; a card lying at an
   angle is outlined, and hovered, along its own edges (the runtime's turned outlines). While the

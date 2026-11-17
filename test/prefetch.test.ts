@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { FrameAnalysis } from "../vendor/cardvision-browser/cardvision.js";
-import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, type PrefetchDeps } from "../src/compute/prefetch.js";
+import { SOURCE_FAILURE_LIMIT } from "../src/constants.js";
+import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, PrefetchHealth, type PrefetchDeps } from "../src/compute/prefetch.js";
 import type { CardRef } from "../src/settings/templates.js";
 import { FIXTURE_CDN } from "./helpers/fork.js";
 
@@ -212,5 +213,174 @@ describe("fetching ahead", () => {
     await flush();
     expect(s.p.started).toEqual([`${FIXTURE_CDN}/art/full/1.jpg`]);
     expect(read).toBe(0);
+  });
+});
+
+describe("fetching ahead when a source keeps failing", () => {
+  const TOOLTIP = { id: "tooltip", template: `${FIXTURE_CDN}/art/tooltip/{cardId}.webp` };
+  const TWO = { namesOnly: false, primary: TOOLTIP, fallbacks: [PRIMARY] };
+  const tooltipUrl = (id: string) => `${FIXTURE_CDN}/art/tooltip/${id}.webp`;
+  const fullUrl = (id: string) => `${FIXTURE_CDN}/art/full/${id}.jpg`;
+  const ok = { ok: true, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+  const refused = { ok: false, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+
+  /** One card per analysis, each settled before the next, so the order is the fetch order. */
+  async function nameInTurn(p: ReturnType<typeof createPrefetcher>, ids: string[]) {
+    for (const id of ids) {
+      p.onAnalysis(analysis([id]));
+      await flush();
+    }
+  }
+
+  it(`skips a source after ${SOURCE_FAILURE_LIMIT} failures in a row, as the tooltip does, and fetches the next one`, async () => {
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? Promise.reject(new Error("timeout")) : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4", "5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4"), fullUrl("5")]);
+  });
+
+  it("counts a refused picture as a failure, and a picture that came as a fresh start", async () => {
+    const fetched: string[] = [];
+    const answers: Record<string, Response> = { "1": refused, "2": refused, "3": ok, "4": refused, "5": refused, "6": refused, "7": ok };
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? answers[url.match(/(\d+)\.webp$/)![1]!]! : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4", "5", "6", "7"]);
+    // 1 and 2 fail, 3 comes (the count starts over), 4 to 6 fail: 7 is fetched from the full art.
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5"), tooltipUrl("6"), fullUrl("7")]);
+  });
+
+  it("tries every source again once the settings are read again", async () => {
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4"]);
+    p.settingsChanged();
+    await nameInTurn(p, ["5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4"), tooltipUrl("5")]);
+  });
+
+  it("does not count a fetch that started before the settings were read again", async () => {
+    const fetched: string[] = [];
+    const pending: Array<() => void> = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: (url) => {
+        fetched.push(url);
+        if (["1", "2"].some((id) => url === tooltipUrl(id))) return new Promise((_, reject) => pending.push(() => reject(new Error("timeout"))));
+        return Promise.resolve(url.includes("/tooltip/") ? refused : ok);
+      },
+    });
+    p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    p.settingsChanged();
+    while (pending.length) pending.shift()!();
+    await flush();
+    // 1 and 2 failed under the old settings: they do not count, so 3 and 4 failing is two in a
+    // row, and 5 is still asked from the tooltip pictures.
+    await nameInTurn(p, ["3", "4", "5"]);
+    expect(fetched.slice(2)).toEqual([tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5")]);
+  });
+
+  it("counts a picture whose body cannot be read as a failure", async () => {
+    const fetched: string[] = [];
+    const unreadable = { ok: true, arrayBuffer: async () => Promise.reject(new Error("reset")) } as unknown as Response;
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? unreadable : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4")]);
+  });
+
+  it("does not count a fetch made from settings read before they changed", async () => {
+    const fetched: string[] = [];
+    let readSettings: (() => void) | null = null;
+    let reads = 0;
+    const p = createPrefetcher({
+      settings: () => (reads++ === 0 ? new Promise((resolve) => (readSettings = () => resolve(TWO))) : Promise.resolve(TWO)),
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
+    });
+    p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    // The settings change while the first read is still waiting: 1 and 2 are fetched from it.
+    p.settingsChanged();
+    readSettings!();
+    await flush();
+    // So they do not count: 3 and 4 failing is two in a row, and 5 is still asked from the
+    // tooltip pictures.
+    await nameInTurn(p, ["3", "4", "5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5")]);
+  });
+
+  it("counts at most one failure per source per analysis, as the tooltip counts the hovered card", async () => {
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
+    });
+    // Four cards fail in one analysis: one failure. Two more analyses make three.
+    p.onAnalysis(analysis(["1", "2", "3", "4"]));
+    await flush();
+    await nameInTurn(p, ["5", "6", "7"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5"), tooltipUrl("6"), fullUrl("7")]);
+  });
+
+  it("trips on a stall only after as many analyses as the tooltip would need hovers, and stays off until the settings are read", async () => {
+    let stalled = true;
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), stalled ? Promise.reject(new Error("timeout")) : ok),
+    });
+    // Two analyses of four cards fail: two failures, not eight. The stall ends, and the tooltip
+    // pictures are fetched again.
+    p.onAnalysis(analysis(["1", "2", "3", "4"]));
+    await flush();
+    p.onAnalysis(analysis(["5", "6", "7", "8"]));
+    await flush();
+    stalled = false;
+    await nameInTurn(p, ["9"]);
+    expect(fetched.at(-1)).toBe(tooltipUrl("9"));
+    // A longer one: three failed analyses skip it, as three failed hovers skip it in the tooltip,
+    // and the next source is fetched until the settings are read again.
+    stalled = true;
+    await nameInTurn(p, ["10", "11", "12"]);
+    stalled = false;
+    // However long it is (the clock moves an hour on), as the tooltip does.
+    vi.useFakeTimers({ toFake: ["Date", "performance"] });
+    try {
+      vi.setSystemTime(Date.now() + 3_600_000);
+      vi.advanceTimersByTime(3_600_000);
+      await nameInTurn(p, ["13", "14"]);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(fetched.slice(-2)).toEqual([fullUrl("13"), fullUrl("14")]);
+    p.settingsChanged();
+    await nameInTurn(p, ["15"]);
+    expect(fetched.at(-1)).toBe(tooltipUrl("15"));
+  });
+
+  it("counts an analysis once when its fetches end out of order", async () => {
+    const health = new PrefetchHealth();
+    for (const a of [1, 2, 1]) health.record(TOOLTIP, false, a);
+    expect(health.skipped(TOOLTIP)).toBe(false);
+    health.record(TOOLTIP, false, 3);
+    expect(health.skipped(TOOLTIP)).toBe(true);
   });
 });
