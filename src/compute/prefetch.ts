@@ -10,16 +10,20 @@
 // picture at once instead of after a download.
 //
 //   - Nothing is fetched with `namesOnly`, with no source, or for a card the release in effect
-//     does not have.
+//     does not have. The settings are read when first needed and again after they change in
+//     storage (`settingsChanged`, as the tooltip does): a change to names only stops the fetching,
+//     and a new picture address is fetched for the cards named after it.
 //   - Each address is fetched once per compute frame (a frame made again starts over), at most
 //     PREFETCH_PER_ANALYSIS new ones per analysis, PREFETCH_IN_FLIGHT at a time, and
 //     PREFETCH_LIMIT in all: a duel's cards, not a whole video's.
-//   - A reused analysis (the previous frame's detections again) adds nothing new and is skipped.
+//   - A reused analysis (the previous frame's detections again) is read too: its track layer is new.
 //   - The fetch is the tooltip's (images/chain.ts): no credentials, no referrer, the browser's
-//     cache; its body is read so that the cache keeps it, and nothing else is done with it.
-//     A failure is dropped: the tooltip's own fetch tries again, with its fallbacks.
+//     cache, given up after IMAGE_TIMEOUT_MS; its body is read so that the cache keeps it, and
+//     nothing else is done with it. A failure is dropped and not asked for again by this frame:
+//     the tooltip's own fetch tries again when the card is shown, with its fallbacks.
 
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
+import { IMAGE_TIMEOUT_MS } from "../constants.js";
 import type { Settings } from "../settings/schema.js";
 import { type CardRef, expandTemplate } from "../settings/templates.js";
 
@@ -41,6 +45,9 @@ export interface PrefetchDeps {
 export interface Prefetcher {
   /** The host's `observe.onAnalysis`. */
   onAnalysis(analysis: FrameAnalysis): void;
+  /** The settings changed in storage: they are read again, and the cards named from now on are
+   *  looked at again (an address already fetched is not fetched again). */
+  settingsChanged(): void;
   /** Addresses started so far, oldest first (for tests and the dev build's debug record). */
   readonly started: readonly string[];
 }
@@ -97,7 +104,7 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
       if (url === null || seenUrls.has(url) || started.length >= PREFETCH_LIMIT) return;
       seenUrls.add(url);
       started.push(url);
-      const response = await deps.fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "default" });
+      const response = await deps.fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "default", signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
       if (response.ok) await response.arrayBuffer();
     } catch {
       // Dropped: the tooltip fetches it itself.
@@ -106,8 +113,11 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
 
   return {
     started,
+    settingsChanged() {
+      settings = null;
+      seenIds.clear();
+    },
     onAnalysis(analysis) {
-      if (analysis.reused) return;
       let added = 0;
       for (const id of namedCards(analysis)) {
         // Room left: what is started, running and waiting stays within the limit.

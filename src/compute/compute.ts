@@ -20,11 +20,17 @@ import { productConfig } from "../shared/product.js";
 import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { createSettingsCore, startHostCompute, type WorkerLike } from "../../vendor/cardvision-browser/host-compute.js";
+// The key the settings are kept under, from the host's settings core: compute.js bundles that core
+// inside host-compute.js, so importing host-settings.js here would bundle it twice (the realm check
+// refuses that). The type keeps the value the host's.
+import type { LAST_GOOD_KEY as HOST_LAST_GOOD_KEY } from "../../vendor/cardvision-browser/host-settings.js";
 import { createFactsChannel } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
 import { createPrefetcher } from "./prefetch.js";
 import type { CardRef } from "../settings/templates.js";
 import type { CardTable } from "../tooltip/card-data.js";
+
+const LAST_GOOD_KEY: typeof HOST_LAST_GOOD_KEY = "settings.lastGood";
 
 declare const __DEV__: boolean;
 // Null except in a dev build made with --idle-unload-ms.
@@ -86,6 +92,10 @@ void (async () => {
       return { id, art: row[2], ...(row.length > 3 ? { printed: row[3] ?? null } : {}) };
     },
     fetch: (url, init) => fetch(url, init),
+  });
+  // The settings file changed (names only, or another picture address): the prefetch follows it.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && LAST_GOOD_KEY in changes) prefetcher.settingsChanged();
   });
 
   const host = await startHostCompute({

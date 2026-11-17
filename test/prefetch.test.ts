@@ -100,7 +100,10 @@ describe("fetching ahead", () => {
     await flush();
     await s.releaseAll();
     expect(s.fetched.map((f) => f.url)).toEqual([`${FIXTURE_CDN}/art/full/1.jpg`, `${FIXTURE_CDN}/art/full/2.jpg`]);
-    expect(s.fetched[0]!.init).toEqual({ credentials: "omit", referrerPolicy: "no-referrer", cache: "default" });
+    const { signal, ...init } = s.fetched[0]!.init;
+    expect(init).toEqual({ credentials: "omit", referrerPolicy: "no-referrer", cache: "default" });
+    // Given up after the tooltip's own time limit.
+    expect(signal).toBeInstanceOf(AbortSignal);
     expect(s.bodiesRead()).toBe(2);
   });
 
@@ -133,7 +136,7 @@ describe("fetching ahead", () => {
     expect(s.p.started).toHaveLength(PREFETCH_LIMIT);
   });
 
-  it("fetches nothing with names only, for an unknown card, for a card with no address, or on a reused analysis", async () => {
+  it("fetches nothing with names only, for an unknown card, or for a card with no address", async () => {
     const names = setup({ settings: async () => ({ ...SETTINGS, namesOnly: true }) });
     names.p.onAnalysis(analysis(["1"]));
     await flush();
@@ -141,9 +144,40 @@ describe("fetching ahead", () => {
 
     const s = setup({}, { "5": null });
     s.p.onAnalysis(analysis(["token_1", "5"]));
-    s.p.onAnalysis(analysis(["6"], [], { reused: true }));
     await flush();
     expect(s.fetched).toEqual([]);
+  });
+
+  it("reads a reused analysis too: its track layer is new", async () => {
+    const s = setup();
+    s.p.onAnalysis(analysis([], ["7"], { reused: true }));
+    await flush();
+    await s.releaseAll();
+    expect(s.fetched.map((f) => f.url)).toEqual([`${FIXTURE_CDN}/art/full/7.jpg`]);
+  });
+
+  it("follows the settings after they change: names only stops it, a new address is fetched for cards named again", async () => {
+    let current: { namesOnly: boolean; primary: typeof PRIMARY; fallbacks: never[] } = SETTINGS;
+    let reads = 0;
+    const s = setup({ settings: async () => (reads++, current) });
+    s.p.onAnalysis(analysis(["1"]));
+    await flush();
+    await s.releaseAll();
+
+    current = { ...SETTINGS, namesOnly: true };
+    s.p.settingsChanged();
+    s.p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    await s.releaseAll();
+    expect(s.fetched.map((f) => f.url)).toEqual([`${FIXTURE_CDN}/art/full/1.jpg`]);
+
+    current = { namesOnly: false, primary: { id: "small", template: `${FIXTURE_CDN}/art/tooltip/{cardId}.webp` }, fallbacks: [] };
+    s.p.settingsChanged();
+    s.p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    await s.releaseAll();
+    expect(s.fetched.map((f) => f.url)).toEqual([`${FIXTURE_CDN}/art/full/1.jpg`, `${FIXTURE_CDN}/art/tooltip/1.webp`, `${FIXTURE_CDN}/art/tooltip/2.webp`]);
+    expect(reads).toBe(3);
   });
 
   it("drops a failed fetch or an unreadable settings file without throwing", async () => {
