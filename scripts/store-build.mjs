@@ -3,6 +3,7 @@
 // and store-check.yml) and for a release by hand.
 //
 //   npm run store:build [-- --release <release folder>] [--runtime-repo <toolkit checkout>]
+//                          [--skip-runtimes-row]
 //
 // It writes, in out/:
 //   chrome.zip           the Chrome Web Store package (npm run build -- --store, npm run package)
@@ -15,6 +16,11 @@
 // scripts/release-source.json names, unless --release gives a folder (which must be the same
 // release). The source archive needs the toolkit at the vendored commit: --runtime-repo, or a
 // shallow fetch of that one commit from the toolkit's public repository.
+//
+// --skip-runtimes-row leaves out the check against cdn/RUNTIMES.json, for a pull request whose
+// version is already released (store-check.yml): that commit will never ship as that version, so
+// the row of the version it carries says nothing about it. The release must still be the one
+// scripts/release-source.json pins. A release build never takes it.
 //
 // After building, it runs the source round trip: it unzips firefox-source.zip into an empty
 // folder, runs its build-firefox.sh and checks that the package it makes holds the same files,
@@ -109,7 +115,11 @@ function toolkitCheckout(commit, work) {
 
 async function main() {
   const { values } = parseArgs({
-    options: { release: { type: "string" }, "runtime-repo": { type: "string" } },
+    options: {
+      release: { type: "string" },
+      "runtime-repo": { type: "string" },
+      "skip-runtimes-row": { type: "boolean", default: false },
+    },
   });
   const config = loadForkConfig();
   const version = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).version;
@@ -124,9 +134,16 @@ async function main() {
       }
     }
     const releaseDir = values.release ? resolve(values.release) : await fetchRelease(join(work, "release-source"), source);
-    const releaseId = checkRuntimesRow({ version, releaseDir, vendor });
+    const skipRow = values["skip-runtimes-row"];
+    const releaseId = skipRow
+      ? JSON.parse(readFileSync(join(releaseDir, "release.json"), "utf-8")).id
+      : checkRuntimesRow({ version, releaseDir, vendor });
     if (releaseId !== source.id) throw new Error(`the release is ${releaseId}; scripts/release-source.json pins ${source.id}`);
-    console.log(`release ${releaseId} matches cdn/RUNTIMES.json row ${version} (toolkit ${vendor.toolkit.commit.slice(0, 7)}, ONNX Runtime Web ${vendor.ort.version})`);
+    if (skipRow) {
+      console.log(`release ${releaseId}; cdn/RUNTIMES.json row ${version} not checked (--skip-runtimes-row: ${version} is already released)`);
+    } else {
+      console.log(`release ${releaseId} matches cdn/RUNTIMES.json row ${version} (toolkit ${vendor.toolkit.commit.slice(0, 7)}, ONNX Runtime Web ${vendor.ort.version})`);
+    }
 
     rmSync(out, { recursive: true, force: true });
     mkdirSync(out);

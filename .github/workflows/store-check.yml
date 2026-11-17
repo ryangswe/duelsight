@@ -1,13 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The store release's build and checks on every pull request, with the tag the version would get
-# (the toolkit's docs/store-uploads.md, "Checking a pull request without a tag"). The same steps as
-# the build job of store-release.yml: the tests, the store packages (npm run store:build, with its
-# source round trip and its check of the card release against cdn/RUNTIMES.json), Mozilla's
-# linter against store/lint-baseline.json, and `store-upload.mjs check` on the release file of
-# package.json's version. That check also fetches each address in the release file's `before`
-# list, so it stays red until what that release needs is live (the privacy page, when PRIVACY.md
-# changed). This workflow has no store access and must never name a store credential.
+# (the toolkit's docs/store-uploads.md, "Checking a pull request without a tag"). It is red only for
+# a problem in the pull request itself. How much it checks depends on whether package.json's
+# version is already released (its tag exists):
+#
+# - Not released yet (the version pull request, or a change that will ship in that version): the
+#   same steps as the build job of store-release.yml. The tests, the store packages (npm run
+#   store:build, with its source round trip and its check of the card release against
+#   cdn/RUNTIMES.json), Mozilla's linter against store/lint-baseline.json, and `store-upload.mjs
+#   check` on the release file of package.json's version. The addresses in the release file's
+#   `before` list (the privacy page, when PRIVACY.md changed) are only warnings here
+#   (scripts/store-before.mjs): they are published after the merge. The tag's build job checks
+#   them again, and the upload job refuses to upload until they are live.
+# - Already released (most pull requests): this commit will never ship as that version, so the
+#   version's row in cdn/RUNTIMES.json, its release file and the permissions compared with the
+#   release before it say nothing about it. The packages are still built with their round trip
+#   (store:build --skip-runtimes-row), linted and checked against store/permissions.json. A
+#   vendored runtime that the row no longer names, or permissions that changed since the tag, are
+#   warnings for the next version pull request.
+#
+# This workflow has no store access and must never name a store credential.
 name: Store check
 
 on:
@@ -39,11 +52,25 @@ jobs:
       - run: npm ci
       - run: npm test
 
-      - name: The would-be tag
-        run: echo "TAG=${TAG_PREFIX}$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      - name: The would-be tag, and whether it exists
+        run: |
+          tag="${TAG_PREFIX}$(node -p "require('./package.json').version")"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+            echo "RELEASED=true" >> "$GITHUB_ENV"
+            echo "$tag is released: the release checks run on the next version pull request."
+            printf '%s\n' "## Store check: $tag is already released" "" \
+              "package.json's version is already released, so this pull request is not checked as that release (its cdn/RUNTIMES.json row, release file and permissions since the release before). The packages are built, round-tripped, linted and checked against store/permissions.json." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "RELEASED=false" >> "$GITHUB_ENV"
+            echo "$tag is not released yet: full release checks."
+          fi
 
       - name: Build the store packages
-        run: npm run vendor-check && npm run store:build
+        run: |
+          npm run vendor-check
+          if [ "$RELEASED" = true ]; then npm run store:build -- --skip-runtimes-row; else npm run store:build; fi
 
       - name: Lint the Firefox package
         run: |
@@ -51,6 +78,7 @@ jobs:
           npx --yes web-ext@10.8.0 lint --source-dir out/firefox --output json > out/lint.json || true
 
       - name: The previous release's permissions
+        if: env.RELEASED == 'false'
         run: |
           # The newest earlier release tag (pre-release tags such as v1.0.0-rc1 are left out).
           prev=$(git tag --list "${TAG_PREFIX}*" --sort=-v:refname --merged HEAD | while read -r t; do
@@ -62,10 +90,31 @@ jobs:
             echo "PREVIOUS=--previous-permissions out/previous-permissions.json" >> "$GITHUB_ENV"
           fi
 
-      - name: Check the release
+      - name: Since the release (warnings for the next version)
+        if: env.RELEASED == 'true'
         run: |
           version="${TAG#"$TAG_PREFIX"}"
-          node "$STORE_TOOL" check --config store/store.config.json --release "store/releases/$version.json" \
+          row=$(node -p "(require('./cdn/RUNTIMES.json')['$version'] ?? {}).vendoredCommit ?? ''")
+          vendored=$(node -p "require('./vendor/cardvision-browser/cardvision-vendor.json').toolkit.commit")
+          if [ "$row" != "$vendored" ]; then
+            echo "::warning title=Next version::The vendored toolkit is $vendored; $version shipped ${row:-an unrecorded commit}. The next version's row in cdn/RUNTIMES.json names $vendored."
+          fi
+          if git cat-file -e "$TAG:store/permissions.json" 2>/dev/null && ! git diff --quiet "$TAG" HEAD -- store/permissions.json; then
+            echo "::warning title=Next version::store/permissions.json changed since $TAG: the next release file sets permissionsChanged."
+          fi
+
+      - name: The release file, its before addresses as warnings
+        run: |
+          version="${TAG#"$TAG_PREFIX"}"
+          released=""
+          if [ "$RELEASED" = true ]; then released="--released"; fi
+          node scripts/store-before.mjs --release "store/releases/$version.json" \
+            --out "store/releases/$version.pr-check.json" $released
+
+      - name: Check the packages and the release
+        run: |
+          version="${TAG#"$TAG_PREFIX"}"
+          node "$STORE_TOOL" check --config store/store.config.json --release "store/releases/$version.pr-check.json" \
             --tag "$TAG" --tag-prefix "$TAG_PREFIX" --permissions store/permissions.json $PREVIOUS \
             --chrome-zip out/chrome.zip --firefox-zip out/firefox.zip --firefox-source out/firefox-source.zip \
             --workflow .github/workflows/store-release.yml --workflow .github/workflows/store-check.yml \
