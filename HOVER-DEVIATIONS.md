@@ -16,7 +16,6 @@ contents) and the card facts channel, which the spec leaves to each product.
 | Clause | What DuelSight does instead | Reason |
 | --- | --- | --- |
 | S-A3, S-W9 | No geometric stage loads, and nothing is shown in focus scope: DuelSight's releases have no geometric stage (`capabilities.geometricStage: false` in `src/shared/product.ts`; the host refuses a load request that names one). | `game`: Yu-Gi-Oh! card recognition here is the detector and the recognizer only. |
-| S-B12 | The privacy page says nothing more is read after the slow start's 10 seconds until the pointer moves. With this toolkit commit, a compute frame whose worker restarts under a resting pointer can take one more picture within 60 seconds of the pointer's last move. | `temporary`: until a toolkit commit with ryangswe/riftsight-vision#127 (one slow-start picture per rest) is vendored. |
 
 ## Changed by moving onto the shared host
 

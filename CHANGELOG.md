@@ -8,8 +8,8 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
 
 ## [Unreleased]
 
-Card hovers run on the cardvision toolkit's shared hover host (experimental, standard-hover/t8
-fc10875), the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details.
+Card hovers run on the cardvision toolkit's shared hover host (experimental, cardvision 0.15.0rc1),
+the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details.
 `HOVER-DEVIATIONS.md` lists where DuelSight still differs from the hover spec.
 
 ### Changed

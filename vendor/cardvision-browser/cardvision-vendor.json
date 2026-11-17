@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "toolkit": {
-    "version": "0.14.1",
-    "commit": "fc1087544e73accb8bc21833292d9e98a9c11858"
+    "version": "0.15.0rc1",
+    "commit": "48428bb43204e561ffd0b5484c78288563965781"
   },
   "options": {
     "opencv": true,
@@ -49,8 +49,8 @@
       "sha256": "5110f6c8137a81c7e035778dadbfed6ee4fbe583d599549e93724fa786bcb8ab"
     },
     "cardvision-vendor-check.mjs": {
-      "bytes": 28183,
-      "sha256": "4d7b15e2eb78884b837a52a7c725822b3a6209b80c5596cd84e65b2ca7893bd3"
+      "bytes": 28210,
+      "sha256": "411fa2c5d8cb3244bf268de1d865ad04eb5410d238dbaf90d918aa989500b5ef"
     },
     "cardvision.d.ts": {
       "bytes": 108,
@@ -113,8 +113,8 @@
       "sha256": "b67a90d1265e7903ce56cd6fd8b9d55b7d81fb2f9cd6ddd4283f9fce001fa622"
     },
     "host-content.js": {
-      "bytes": 27264,
-      "sha256": "7153adaf0b2ac0f6b5886b473812c3561baf75c141d9d620fa4c83102c7bb697"
+      "bytes": 27343,
+      "sha256": "91f63bf0294f2ab104447990c793be0af9f07a019fc04120b8384cca77940532"
     },
     "host-settings.d.ts": {
       "bytes": 125,
@@ -125,8 +125,8 @@
       "sha256": "01d36f8dd60dfb30768fd1873a44a7b0a757c9e2449db9ebee9d023f49d0db1a"
     },
     "hover-spec.json": {
-      "bytes": 44986,
-      "sha256": "5a316bbb1117ac7bdfcc53cf25f0d405ab3297fb98dab2bbd9fe24fc0744c426"
+      "bytes": 53910,
+      "sha256": "e66c6b0cd1be596ea9bfa0e3fc5ebcd06a31decdb0d293912932eceb544958b8"
     },
     "node/package-zip.mjs": {
       "bytes": 2861,
@@ -136,9 +136,13 @@
       "bytes": 4438,
       "sha256": "8674d8dbbfa951520f334adacb40ac51af1b3cd365133a1c256f3a6f8138ee88"
     },
+    "node/release-decide.mjs": {
+      "bytes": 8225,
+      "sha256": "c9a619c7da28d2c6467ad8675c3078960c6e030334cd2ffd7201a48d3b98a763"
+    },
     "node/store-upload.mjs": {
-      "bytes": 37507,
-      "sha256": "384a13a2f9ef0a0b5e517eb66bfb7148517e69f317bbe3cac9accd04dd0d5cea"
+      "bytes": 67109,
+      "sha256": "e0052f058a5de127a632034d37c2b2fdb256efc2330cb2ae90680d1be4f55011"
     },
     "node/verify-release.mjs": {
       "bytes": 5989,
@@ -161,8 +165,8 @@
       "sha256": "e2849875b00317d9aa030b83b4ea3a8b0960263b2bdc03cba5c27079b152836a"
     },
     "page-capture.js": {
-      "bytes": 13961,
-      "sha256": "9fabc207480da365a4669f6cf4c36002b6a62a627c4641d2fef6539f1cb65e6d"
+      "bytes": 14040,
+      "sha256": "2b71e4ef727579049a6689aa83f5feaf6b40730f9cb156afbd7c39e97ff46867"
     },
     "remote-release.d.ts": {
       "bytes": 119,
@@ -273,8 +277,8 @@
       "sha256": "5aa352799190fb36a4866baa1fa65f9f5b1cb87974e7832944f3563478ec475a"
     },
     "types/host/compute.d.ts": {
-      "bytes": 2210,
-      "sha256": "719bab872b5defefd9ecce5fa7e7f164b44f639282b8a53064519ae82d49f72e"
+      "bytes": 2227,
+      "sha256": "ccd5689d6bb053de60ec880498340eff0b6a86a2333edf1b8cb129655bb7a8b2"
     },
     "types/host/config.d.ts": {
       "bytes": 1007,
