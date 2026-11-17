@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FrameAnalysis } from "../vendor/cardvision-browser/cardvision.js";
 import { SOURCE_FAILURE_LIMIT } from "../src/constants.js";
-import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, PREFETCH_RETRY_MS, type PrefetchDeps } from "../src/compute/prefetch.js";
+import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, PREFETCH_RETRY_MS, PrefetchHealth, type PrefetchDeps } from "../src/compute/prefetch.js";
 import type { CardRef } from "../src/settings/templates.js";
 import { FIXTURE_CDN } from "./helpers/fork.js";
 
@@ -410,5 +410,13 @@ describe("fetching ahead when a source keeps failing", () => {
     expect(firstTooltip).toBeGreaterThanOrEqual(0);
     expect(after.slice(firstTooltip).every((u) => u.includes("/tooltip/"))).toBe(true);
     expect(firstTooltip).toBeLessThanOrEqual(PREFETCH_RETRY_MS / 1000);
+  });
+
+  it("counts an analysis once when its fetches end out of order", async () => {
+    const health = new PrefetchHealth(() => 0);
+    for (const a of [1, 2, 1]) health.record(TOOLTIP, false, a);
+    expect(health.skipped(TOOLTIP)).toBe(false);
+    health.record(TOOLTIP, false, 3);
+    expect(health.skipped(TOOLTIP)).toBe(true);
   });
 });

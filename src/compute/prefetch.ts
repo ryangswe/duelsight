@@ -50,7 +50,8 @@ export const PREFETCH_RETRY_MS = 30_000;
 
 /** Failures per source, counted at the tooltip's pace, with a retry of a skipped source. */
 export class PrefetchHealth {
-  private readonly sources = new Map<string, { failures: number; lastFailure: number; lastAnalysis: number; probing: boolean }>();
+  /** Per source: the analyses whose failures counted since its last success (one each). */
+  private readonly sources = new Map<string, { counted: Set<number>; lastFailure: number; probing: boolean }>();
 
   constructor(private readonly now: () => number) {}
 
@@ -61,14 +62,14 @@ export class PrefetchHealth {
   /** Whether a fetch starting now leaves this source out. */
   skipped(source: ImageSource): boolean {
     const s = this.sources.get(this.key(source));
-    if (!s || s.failures < SOURCE_FAILURE_LIMIT) return false;
+    if (!s || s.counted.size < SOURCE_FAILURE_LIMIT) return false;
     return s.probing || this.now() - s.lastFailure < PREFETCH_RETRY_MS;
   }
 
   /** A fetch from this source starts: for a skipped source, it is the one retry. */
   starting(source: ImageSource): void {
     const s = this.sources.get(this.key(source));
-    if (s && s.failures >= SOURCE_FAILURE_LIMIT) s.probing = true;
+    if (s && s.counted.size >= SOURCE_FAILURE_LIMIT) s.probing = true;
   }
 
   /** A fetch from this source ended, for a card named by analysis number `analysis`. */
@@ -78,13 +79,11 @@ export class PrefetchHealth {
       this.sources.delete(key);
       return;
     }
-    const s = this.sources.get(key) ?? { failures: 0, lastFailure: 0, lastAnalysis: -1, probing: false };
+    // Fetches can end out of order (two at a time): an analysis counts once however they end.
+    const s = this.sources.get(key) ?? { counted: new Set<number>(), lastFailure: 0, probing: false };
     s.probing = false;
     s.lastFailure = this.now();
-    if (s.lastAnalysis !== analysis) {
-      s.failures += 1;
-      s.lastAnalysis = analysis;
-    }
+    s.counted.add(analysis);
     this.sources.set(key, s);
   }
 
