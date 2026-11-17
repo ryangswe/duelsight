@@ -12,6 +12,13 @@ Card hovers run on the cardvision toolkit's shared hover host (experimental, car
 the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details.
 `HOVER-DEVIATIONS.md` lists where DuelSight still differs from the hover spec.
 
+### Added
+
+- **A card's picture shows as soon as you point at it** once card recognition has named the card
+  on the video: while the pointer is over the video, DuelSight downloads the pictures of the cards
+  it names, each once (at most 60 each time card recognition loads in a tab). Before, a card's
+  picture was downloaded only when its tooltip opened. PRIVACY.md says so.
+
 ### Changed
 
 - **A background tab loads card recognition when it comes to the front**, also when hovers are

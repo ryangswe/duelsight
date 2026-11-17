@@ -158,6 +158,19 @@ describe("fetching ahead", () => {
     expect(noSettings.fetched).toEqual([]);
   });
 
+  it("asks once for a picture that failed or was refused, however many analyses name it again", async () => {
+    let calls = 0;
+    const failing = setup({ fetch: async () => (calls++, Promise.reject(new Error("offline"))) });
+    const refused = setup({ fetch: async () => (calls++, { ok: false, arrayBuffer: async () => new ArrayBuffer(0) }) as unknown as Response });
+    for (const s of [failing, refused]) {
+      for (let i = 0; i < 5; i++) {
+        s.p.onAnalysis(analysis(["404"]));
+        await flush();
+      }
+    }
+    expect(calls).toBe(2);
+  });
+
   it("does not read the body of a picture the CDN refused", async () => {
     let read = 0;
     const s = setup({ fetch: async () => ({ ok: false, arrayBuffer: async () => (read++, new ArrayBuffer(0)) }) as unknown as Response });
