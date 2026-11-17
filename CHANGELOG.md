@@ -6,11 +6,12 @@ What changes for viewers in each version of DuelSight, and why. Store dates are 
 follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-spec.json`, and
 `docs/hover-spec.md` in the toolkit's repository).
 
-## [Unreleased]
+## [0.9.0] - unreleased
 
 Card hovers run on the cardvision toolkit's shared hover host (experimental, cardvision 0.15.0rc1),
 the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details.
-`HOVER-DEVIATIONS.md` lists where DuelSight still differs from the hover spec.
+`HOVER-DEVIATIONS.md` lists where DuelSight still differs from the hover spec. A card's picture is
+downloaded ahead of the pointer. Same bundled cards (`862aec0f937da326`).
 
 ### Added
 
