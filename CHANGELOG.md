@@ -27,9 +27,9 @@ downloaded ahead of the pointer. Same bundled cards (`862aec0f937da326`).
 - **When a page removes the card picture while it shows**, the next move over the video brings it
   back with the same card (S-A10). Before, it came back with the next card named.
 - **On Twitch, `/collections`, `/payments`, `/privacy`, `/products` and `/team`** wait for a hover
-  before loading, as `/following` and `/creatorcamp` do (S-G3), and `/videos/` is matched in
-  lowercase only, as are addresses with an empty part (`//name`) or an unusual clip name. Before,
-  the five were taken for channels.
+  before loading, as `/following` and `/creatorcamp` do, and so do addresses with an empty part
+  (`//name`) or an unusual clip name (S-G3); `/videos/` is matched in lowercase only. Before, the
+  five were taken for channels.
 - **Moving the pointer on a page where hovers do not run** (a miniplayer over a search page) stops
   following the video, and the first move back on a video page picks it again at once (S-G5).
 
