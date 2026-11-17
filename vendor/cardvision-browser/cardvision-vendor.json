@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "toolkit": {
     "version": "0.15.0",
-    "commit": "745d996de319156caa39a3644a669a9367b0cbf0"
+    "commit": "584012dcaf3278c6de1dba07fc0aad51d4db5f1e"
   },
   "options": {
     "opencv": true,
@@ -141,8 +141,8 @@
       "sha256": "c9a619c7da28d2c6467ad8675c3078960c6e030334cd2ffd7201a48d3b98a763"
     },
     "node/store-upload.mjs": {
-      "bytes": 67109,
-      "sha256": "e0052f058a5de127a632034d37c2b2fdb256efc2330cb2ae90680d1be4f55011"
+      "bytes": 69534,
+      "sha256": "c2263a6528ca6be989067c565c969e4c58516587133cc1ac49ed41e2c9e0a5ac"
     },
     "node/verify-release.mjs": {
       "bytes": 5989,
