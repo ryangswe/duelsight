@@ -50,12 +50,14 @@ with `cardvision refresh` for the checks and `cardvision cdn` for the host ([cdn
    cdn/config.json --set-pointer --verdict-r <VERDICT-R.json> --verdict-n <VERDICT-N.json>` (try it with
    `--dry-run` before). The two verdicts are step 3's files: each must be a PASS of its own gate, not a
    rehearsal, under the same rule, or the tool refuses before anything is fetched or written (cardvision
-   0.10.0 and later). An update with no new card has no new-card verdict: it takes
+   0.10.0 and later). While `cdn/config.json` points at the tooltip pictures, add `--catalog <release
+   folder>/catalog.json` to it ([cdn/README.md](cdn/README.md#usage)): the art publish
+   before it has made the new cards' tooltip pictures. An update with no new card has no new-card verdict: it takes
    `--no-refresh-gate "official renames, no new cards"` in place of both, after the regression
    check has still been run and its verdict kept. It uploads the release folder, verifies it
    live, publishes the details file, and moves the pointer in `config.json` last. Publish each
-   language's file with `cardvision cdn publish --data-file <file> --config cdn/config.json` after
-   setting its `details<Lang>` entry. Commit the changed
+   language's file with `cardvision cdn publish --data-file <file> --config cdn/config.json` (and
+   `--catalog`, as above) after setting its `details<Lang>` entry. Commit the changed
    `cdn/config.json` (as a pull request: `main` is protected). Publishing needs the CDN account's
    token: it is the owner's step, or the
    maintainer's under a standing permission the owner gave for updates that add cards and nothing else, which

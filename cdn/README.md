@@ -19,6 +19,8 @@ and details come from.
 |---|---|---|
 | `art/<art path>` | the image, original bytes, path = the catalog's `art` value (e.g. `89631139.jpg`) | `public, max-age=86400` |
 | `art/index.json` | every uploaded path with sha256 and size: the tool's record of what is live | `no-cache` |
+| `art/tooltip/<cardId>.webp` | the tooltip picture: the card's art made 640 px wide in WebP (see Usage) | `public, max-age=86400` |
+| `art/tooltip/index.json` | every tooltip picture with its sha256, its source's sha256 and the set's spec | `no-cache` |
 | `data/details-<sha8>.json` | the card details file (type, stats, text), from `scripts/card-details.mjs` | `public, max-age=31536000, immutable` |
 | `config.json` | the extension's settings ([SETTINGS.md](SETTINGS.md)) | `public, max-age=300` |
 | `privacy.html` | the privacy policy as a page (PRIVACY.md, from `scripts/privacy-page.mjs`): the store listing's privacy-policy link | `public, max-age=3600` |
@@ -27,9 +29,9 @@ The publishing tool is the toolkit's `cardvision cdn` ([its guide](https://githu
 driven by this product's [cdn.config.json](cdn.config.json): the environment prefix `DSCDN`, the
 details file as the one data file, `privacy.html` as the one page, no geometric stage.
 
-Uploads are additive: the tool never deletes. Order is images → `art/index.json` → the details
-file (with `--data-file`) → the page (with `--page`) → `config.json` (with `--config`, and if
-everything before it landed).
+Uploads are additive: the tool never deletes. Order is images → tooltip pictures →
+`art/index.json` and `art/tooltip/index.json` → the details file (with `--data-file`) → the page
+(with `--page`) → `config.json` (with `--config`, and if everything before it landed).
 
 ## One-time setup (maintainer, about 30 minutes)
 
@@ -84,7 +86,7 @@ $CDN cdn plan --offline --catalog $CATALOG --images $IMAGES
 # 2. Against the live bucket, upload nothing
 $CDN cdn publish --env-file cdn/.env --catalog $CATALOG --images $IMAGES --config cdn/config.json --dry-run
 
-# 3. Publish (images, index, then config.json)
+# 3. Publish (images, tooltip pictures, indexes, then config.json)
 $CDN cdn publish --env-file cdn/.env --catalog $CATALOG --images $IMAGES --config cdn/config.json
 
 # 4. Check what is served: config contract, headers, CORS, sampled images by sha256
@@ -94,26 +96,35 @@ $CDN cdn verify --env-file cdn/.env
 - **A new set:** once the catalog refresh has added the images, re-run steps 2–4.
   Only new or changed files are uploaded, the tooltip pictures included. Then rebuild the card
   details file (below).
-- **The tooltip pictures:** `art.derived` in [cdn.config.json](cdn.config.json) lists one set,
-  `tooltip`: each card's art made 640 px wide in WebP (quality 75), at
-  `art/tooltip/<cardId>.webp` with its own index, `art/tooltip/index.json` (the toolkit's
-  docs/cdn.md, "Derived art sets"). Steps 2–4 make and upload it with the full art. The tooltip
-  asks for it once the settings point at it, in a publish of its own after the set is complete:
-  1. Steps 2–4 as above, with the current `config.json`. Then
-     `$CDN cdn verify --env-file cdn/.env --catalog $CATALOG` also checks the set lists every card
-     with art.
-  2. In `config.json`, set `primary` to
+- **The tooltip pictures:** `art.derived` in
+  [cdn.config.json](cdn.config.json) lists one set, `tooltip`: each card's art made 640 px wide
+  in WebP (quality 75), at `art/tooltip/<cardId>.webp` with its own index (the toolkit's
+  docs/cdn.md, "Derived art sets"). Steps 2–4 make and upload it with the full art, and redo only
+  the cards whose art changed. The tooltip asks for it once the settings point at it, in a
+  publish of its own after the set is complete:
+  1. Steps 2–4 as above, with the current `config.json`. `verify` shows the set's index and checks
+     a few of its files.
+  2. In a copy of `config.json`, set `primary` to
      `{"id": "tooltip", "template": "https://cdn.duelsight.com/art/tooltip/{cardId}.webp"}`, written
-     exactly so (no other placeholder, no query), and `fallbacks` to the full art,
-     `[{"id": "cdn", "template": "https://cdn.duelsight.com/art/{art}"}]`. Then
-     `$CDN cdn publish --env-file cdn/.env --catalog $CATALOG --config cdn/config.json --dry-run`,
-     the same without `--dry-run`, and `verify --catalog` as above. The publish is refused unless
-     the set lists every catalog card with art at the current spec.
-  3. A pull request records the new `config.json`.
+     exactly so (no other placeholder, extension, query or fragment), and `fallbacks` to the full
+     art, `[{"id": "cdn", "template": "https://cdn.duelsight.com/art/{art}"}]`. Then
+     `$CDN cdn publish --env-file cdn/.env --catalog $CATALOG --config <the copy> --dry-run`, the
+     same without `--dry-run`, and `$CDN cdn verify --env-file cdn/.env --catalog $CATALOG`, which
+     now also fails if a card with art is missing from the set. The publish is refused, dry run
+     included, unless the set lists every catalog card with art at the current spec.
+  3. A pull request makes the copy `cdn/config.json`. That file is also the extension's built-in
+     settings ([docs/development.md](../docs/development.md)), so the next store build asks for the
+     tooltip pictures too. The same pull request updates the settings test that pins `primary` and
+     `fallbacks` (`test/settings.test.ts`) and the example in [SETTINGS.md](SETTINGS.md).
 
-  From then on, every publish of `config.json` takes `--catalog`, also `publish-release --config`.
-  Publishing a `config.json` with the full art as `primary` switches back. A card without art has
-  no tooltip picture: the tooltip misses once and falls back.
+  While the settings point at the set, every publish of `config.json` takes `--catalog`:
+  `publish --config` (with or without `--images` or `--data-file`), and `publish-release --config`
+  with the catalog of the release the pointer will name (`<release folder>/catalog.json`), after
+  the art publish has made that release's new cards' pictures. A `config.json` that no longer
+  points under `art/tooltip/` (back to the full art as `primary`, or `primary: null`) is published
+  without `--catalog`: the tool refuses it otherwise. A card without art has no tooltip picture,
+  so each time it shows the tooltip misses and falls back to the full art; three misses in a row
+  skip the tooltip pictures until the settings are read again. Three catalog cards have no art.
 - **The card details file:** build it outside the repository, from the one-time card list and the
   release's catalog, then publish it with `config.json` naming it:
   ```bash
@@ -123,6 +134,7 @@ $CDN cdn verify --env-file cdn/.env
   $CDN cdn publish --env-file cdn/.env --data-file <out>/data/details-<sha8>.json --config cdn/config.json
   $CDN cdn verify --env-file cdn/.env
   ```
+  While `config.json` points at the tooltip pictures, add `--catalog $CATALOG` to both publishes.
   `publish` refuses a `config.json` that does not name the file being published. Removing
   `details` from `config.json` and publishing it turns the details panel off for everyone.
 - **The privacy page** (after any change to PRIVACY.md, and before a store submission): write it
@@ -135,8 +147,8 @@ $CDN cdn verify --env-file cdn/.env
   ```
 - **Switching images off or over:** edit `config.json` (`namesOnly: true` shows names without pictures; `primary: null`
   with no `fallbacks` stops images entirely), then `$CDN cdn publish --env-file cdn/.env --config cdn/config.json`
-  (config only; add `--catalog $CATALOG` while a template points at the tooltip pictures) and
-  `verify`. Installed extensions follow within about an hour.
+  (config only; add `--catalog $CATALOG` when the file being published points at the tooltip
+  pictures, and not otherwise) and `verify`. Installed extensions follow within about an hour.
 - **A replaced image** (e.g. a better scan) reaches viewers within a day; purge its URL in the
   Cloudflare dashboard (Caching → Configuration → Custom Purge) to make it immediate.
 - **Exit codes:** 0 ok; 1 failed uploads or verify failures; 3 refused by a guard (nothing
@@ -150,9 +162,10 @@ $CDN cdn verify --env-file cdn/.env
 - Every catalog `art` path must be a clean relative path to a jpg/png/webp under `--images`
   (no `..`, no symlink escapes), at most 5 MB, whose bytes match its type.
 - `config.json` must pass the SETTINGS.md schema; its `primary` must be on `DSCDN_PUBLIC_BASE`;
-  no template may point at those other projects. A template under `art/tooltip/` is refused unless
+  no template may point at those other projects. A template under `art/tooltip/` must be exactly
+  `https://cdn.duelsight.com/art/tooltip/{cardId}.webp`, and is refused unless
   `art/tooltip/index.json` lists every catalog card with art at the set's current spec (`--catalog`
-  needed).
+  needed) and `tooltip` is still in `art.derived`.
 - A details file must be named `details-<sha8>.json` after its own SHA-256 and be a schema 1
   details file; a `config.json` published with it must name it (path and SHA-256).
 - A `config.json` that names a details file it is not published with (`publish --config`, or
@@ -161,7 +174,8 @@ $CDN cdn verify --env-file cdn/.env
 - A page must be one of `pages` in `cdn.config.json` (`privacy.html`), an HTML document, with no
   script, event handler or `javascript:` link.
 - A failed image upload leaves it out of `art/index.json` (a re-run retries it) and blocks
-  `config.json`.
+  `config.json`. So does a tooltip picture that cannot be made or is 5 MB or larger, which stays out
+  of `art/tooltip/index.json`.
 
 The toolkit's own tests run all of this offline with no credentials (`python -m pytest
 tests/test_cdn_*.py` in a checkout of the toolkit).
