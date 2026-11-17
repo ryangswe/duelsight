@@ -4,9 +4,12 @@
 Everything the Chrome Web Store developer dashboard asks for, tab by tab, and how to make the files
 it takes. Firefox Add-ons takes the same text and images: what it asks for differently is in
 [Firefox Add-ons](#firefox-add-ons-addonsmozillaorg). Every field to paste sits in a fenced `text`
-block, so it copies verbatim; keep it that way. **Submitting is a manual dashboard action by the owner**
-([developer dashboard](https://chrome.google.com/webstore/devconsole)); nothing here uploads
-anything. Read the store's current policies before each submission: they change.
+block, so it copies verbatim; keep it that way. The release workflow uploads the packages to both
+stores once the owner approves its run, and submits them for review unless the release says
+otherwise ([Before a release](#before-a-release)). It never changes a listing, an image or a declaration:
+those are the owner's, in the [developer dashboard](https://chrome.google.com/webstore/devconsole)
+and the Firefox Add-ons Developer Hub. Read the store's current policies before each submission:
+they change.
 
 *[Back to README](../README.md)*
 
@@ -29,26 +32,69 @@ Update this table with each submission (date submitted, date approved, store ite
 `okngcckiafmekbmdgoakggfbicgoagnc`; Firefox's add-on is `duelsight@duelsight.com`
 ([its page](https://addons.mozilla.org/firefox/addon/duelsight/)).
 
-## Before you open the dashboard
+## Before a release
 
-1. **The package.** Bump `version` in `package.json` if this is an update, then
-   `npm test`, `npm run build -- --store --release <release folder>` and `npm run package`. Upload
-   `duelsight-<version>-store.zip` (it has `manifest.json` at its top level, as the store requires;
-   the other zip is for the release page). The opening line of `release-legal/NOTICE` must name the release
-   (the build refuses otherwise).
-2. **The privacy page** must be live at `<cdnBase>/privacy.html`, and match PRIVACY.md. After any
-   change to PRIVACY.md: `node scripts/privacy-page.mjs --out <folder outside the repository>`,
-   then `cardvision cdn publish --page <that folder>/privacy.html` and `verify` (owner's step:
-   [cdn/README.md](../cdn/README.md)).
-3. **The images** (four screenshots, two promo tiles): the listing's are in
-   [docs/store/](store/README.md). New ones are made as in [Store images](#store-images) below.
-4. **Links resolve.** The description, the privacy page and the URL fields link to the project's
-   GitHub repository; a reviewer who clicks a dead link may reject the item. If the repository is
-   not public yet, leave the URL fields empty and replace those links before submitting.
+From 0.8.2, the packages go to both stores through the release workflow
+([MAINTAINING.md](../MAINTAINING.md#the-store-workflow)). What it does, and what is still done by
+hand:
+
+1. **The version pull request** bumps `version` in `package.json`, adds the version's row to the
+   table above and its `[<version>] - unreleased` entry to [CHANGELOG.md](../CHANGELOG.md), and adds
+   `store/releases/<version>.json` with its Firefox notes beside it in `store/releases/<version>/`
+   (the release notes for viewers, and the notes to Mozilla's reviewers). It also adds the version's
+   row to `cdn/RUNTIMES.json` (`npm run store:build` refuses a version without one), and the opening
+   line of `release-legal/NOTICE` names the bundled card release (the build refuses otherwise). In
+   the release file:
+   - `before` lists the privacy page with its sha256 when PRIVACY.md changed, so nothing uploads
+     until that page is live;
+   - `permissionsChanged` is true when `store/permissions.json` changed;
+   - `chrome.submit` is `auto` (uploaded and submitted for review) unless the Chrome listing text
+     changes with this release. Then it takes the value that uploads without submitting (the
+     toolkit's `docs/store-uploads.md` names it), and the owner pastes the text in the dashboard
+     and submits.
+
+   [store-check.yml](../.github/workflows/store-check.yml) builds and checks both packages on that
+   pull request (the tests, the vendor check, Mozilla's linter and the toolkit's store check).
+   Locally, `npm run store:build` writes `out/chrome.zip`, `out/firefox.zip` and
+   `out/firefox-source.zip`, after checking the card release against `cdn/RUNTIMES.json`, and checks
+   the source archive's round trip.
+2. **The privacy page**, when PRIVACY.md changed: `node scripts/privacy-page.mjs --out <folder
+   outside the repository>`, then `cardvision cdn publish --page <that folder>/privacy.html` and
+   `verify` (owner's step: [cdn/README.md](../cdn/README.md)). Firefox Add-ons wants the text
+   pasted, not a link: paste PRIVACY.md again there (see [Firefox Add-ons](#firefox-add-ons-addonsmozillaorg)).
+3. **What the workflow never changes**, done by the owner in the dashboards:
+   - **Permissions:** before the upload, when `permissionsChanged`, the justification fields
+     ([Privacy practices tab](#privacy-practices-tab)) and [permissions.md](permissions.md).
+   - **Listing text:** this page's fields. Chrome's are pasted after an upload that does not
+     submit, as above; Firefox's are edited on its listing page at any time.
+   - **Images:** the four screenshots and two promo tiles in [docs/store/](store/README.md), made as
+     in [Store images](#store-images) below and uploaded in both dashboards by hand.
+
+   Every link in the listing and the privacy page must resolve: a reviewer who clicks a dead link
+   may reject the item.
+4. **The tag and the run.** After the version pull request is merged, the owner tags `v<version>`
+   on main. The tag's push runs the build job, and the upload job waits for the owner's approval
+   on the run page (the `store` environment). Approving it uploads. To sign in to both stores and
+   read them with nothing uploaded, as for 0.8.2:
+   1. reject that waiting upload job (one upload job runs at a time, and a job waiting for
+      approval may hold the slot);
+   2. "Run workflow" on the tag (Use workflow from: the tag) with `upload` and `precheck_only`
+      ticked, and approve it: it signs in and reads both stores, and uploads nothing;
+   3. "Run workflow" on the tag with `upload` alone, and approve it.
+
+   The upload checks both stores and the `before` addresses again before sending anything. It
+   stops when a Chrome submission is still in review or an approved one waits to be published by
+   hand, or when a Firefox version is awaiting review. Then it uploads to Chrome and submits it for
+   review (unless the release file says not to), and creates the Firefox version with its source
+   archive and notes. If one store fails after the other succeeded, re-run the failed job: the
+   store that already has the version is skipped.
+5. **After both are live**, a pull request records the dates in the table above and in
+   CHANGELOG.md.
 
 ## Package tab
 
-Upload `duelsight-<version>-store.zip`.
+The workflow uploads the package. By hand (if the workflow cannot run): `out/chrome.zip` from
+`npm run store:build`.
 
 ## Store listing tab
 
@@ -173,16 +219,18 @@ No account or login. Open a public Yu-Gi-Oh! video, for example https://www.yout
 
 ## Firefox Add-ons (addons.mozilla.org)
 
-The Firefox listing reuses this page's text and images; the owner submits it in the
-[Developer Hub](https://addons.mozilla.org/developers/). What differs from Chrome:
+The Firefox listing reuses this page's text and images; the owner edits it in the
+[Developer Hub](https://addons.mozilla.org/developers/), and the release workflow submits each
+version. What differs from Chrome:
 
 - **Distribution:** On this site (listed). **Compatibility:** Firefox. Leave Firefox for Android
   unchecked: the add-on is for desktop, and its manifest names no Android settings.
-- **Files:** the Firefox package (`npm run build -- --target firefox --release <folder>`, then
-  `npm run package`) and, because the bundles are minified, the source archive Mozilla's reviewers
-  rebuild it from (`scripts/firefox-source-archive.mjs`; check its round trip as
-  [development.md](development.md#firefox) says). Mozilla's linter (`web-ext lint`) warns about
-  `eval` and dynamic import inside ONNX Runtime Web; the add-on's own scripts get no warnings.
+- **Files:** the workflow uploads the Firefox package and, because the bundles are minified, the
+  source archive Mozilla's reviewers rebuild it from (`npm run store:build` writes both, as
+  `out/firefox.zip` and `out/firefox-source.zip`, and checks the archive's round trip:
+  [development.md](development.md#firefox)). Mozilla's linter (`web-ext lint`) warns about
+  `eval` and dynamic import inside ONNX Runtime Web; the add-on's own scripts get no warnings
+  (the workflow fails on a warning not in `store/lint-baseline.json`).
 - **Add-on URL:** `duelsight`. **Summary** and **Description:** the same as Chrome's, above.
 - **Categories:** Photos, Music & Videos; Other, if it allows a second one.
 - **Support website:** `https://github.com/ryangswe/duelsight/issues`. **Homepage:**
@@ -191,12 +239,13 @@ The Firefox listing reuses this page's text and images; the owner submits it in 
   the text, not a link. Paste it again whenever PRIVACY.md changes.
 - **Screenshots:** the four in [docs/store/](store/README.md), in the same order (1280×800 fits).
   Tags: none.
-- **Notes to the reviewer:** what the add-on does, how to test it (no account; a public video
+- **Notes to the reviewer:** sent by the workflow from `store/releases/<version>/amo-approval-notes.md`:
+  what the add-on does, how to test it (no account; a public video
   and a card to point at, as in [Test instructions](#test-instructions-if-the-dashboard-asks)), how to
   rebuild from the source archive, where the linter warnings come from, the one host it requests
   and that it collects no data (`data_collection_permissions: none`), and what each permission
   is for ([permissions.md](permissions.md)).
-- **Release notes:** after approval, in Manage Status & Versions → the version → Release notes.
+- **Release notes:** set by the workflow from `store/releases/<version>/amo-release-notes.en-US.md`.
   Write them for the users updating: when a version is skipped on Firefox, cover its changes too.
 
 ## Store images
@@ -239,4 +288,5 @@ repository; check each one, then replace the files in docs/store/ and upload the
    Each hover waits for the tooltip, then 4 seconds for its picture and details from the CDN. Look
    at every image: check the named card is the card under the pointer.
 
-Rebuild with `--store` afterwards: the dev build is not the one you upload.
+The dev build is not the one the stores get: the release workflow builds the packages from the
+tag (`npm run store:build`).
