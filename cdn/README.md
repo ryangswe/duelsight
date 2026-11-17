@@ -60,8 +60,9 @@ Uploads are additive: the tool never deletes. Order is images → tooltip pictur
    DSCDN_PUBLIC_BASE=https://cdn.duelsight.com   # the cdnBase value
    DSCDN_EXTENSION_IDS=<store id>,<unpacked id>   # verify-release-live checks CORS for each
    ```
-7. **Domain:** `cdn.duelsight.com` on duelsight.com. It appears in `cdnBase` in `duelsight.config.json`, the `primary` template
-   in `cdn/config.json`, `cdn/SETTINGS.md` and its `DSCDN_PUBLIC_BASE`. Change them together.
+7. **Domain:** `cdn.duelsight.com` on duelsight.com. It appears in `cdnBase` in `duelsight.config.json`, the image templates
+   in `cdn/config.json` (`primary` and `fallbacks`), `cdn/SETTINGS.md` and its `DSCDN_PUBLIC_BASE`.
+   Change them together.
 8. **Network Error Logging off.** Turn off Network Error Logging for the zone (or strip NEL/Report-To
    with a response header transform rule); verify checks it. Otherwise every viewer's browser
    sends error reports to a Cloudflare host the extension does not otherwise contact.
@@ -126,9 +127,11 @@ $CDN cdn verify --env-file cdn/.env
   the art publish has made that release's new cards' pictures. A `config.json` that no longer
   points under `art/tooltip/` (back to the full art as `primary`, or `primary: null`) is published
   without `--catalog` unless the same run uploads art with `--images`; `publish-release` refuses
-  `--catalog` with it. A card without art has no tooltip picture,
-  so each time it shows the tooltip misses and falls back to the full art; three misses in a row
-  skip the tooltip pictures until the settings are read again. Three catalog cards have no art.
+  `--catalog` with it. A card without art has no tooltip picture and no full art either: each time
+  it shows, the tooltip asks for its tooltip picture (a 404), skips the full art (no `{art}` to
+  fill in) and shows the card's name. Three misses in a row skip the tooltip pictures until the
+  settings are read again. Three catalog cards have no art; none of them is in the bundled
+  release's recognition bank, so card recognition does not name them.
 - **The card details file:** build it outside the repository, from the one-time card list and the
   release's catalog, then publish it with `config.json` naming it:
   ```bash
