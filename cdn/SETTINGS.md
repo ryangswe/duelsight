@@ -23,8 +23,8 @@ file that `cardvision cdn` accepts can still have parts the extension drops.
   "schemaVersion": 1,
   "updatedAt": "2026-10-16T00:00:00Z",
   "namesOnly": false,
-  "primary": { "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" },
-  "fallbacks": [],
+  "primary": { "id": "tooltip", "template": "https://cdn.duelsight.com/art/tooltip/{cardId}.webp" },
+  "fallbacks": [{ "id": "cdn", "template": "https://cdn.duelsight.com/art/{art}" }],
   "details": { "path": "data/details-2442d28d.json", "sha256": "2442d28d…(64 hex digits)" },
   "detailsFr": { "path": "data/details-fr-9c0d5bb2.json", "sha256": "9c0d5bb2…(64 hex digits)" }
 }

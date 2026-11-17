@@ -80,7 +80,8 @@ nothing beyond the local server.
    - **Your own image host.** Follow [cdn/SETTINGS.md](../cdn/SETTINGS.md), the settings file's
      contract. Serve each picture at a path made from the catalog's `art` value (for example
      `https://<your host>/art/{art}`), serve `config.json` beside it with
-     `Access-Control-Allow-Origin: *`, set `primary` to that template. Put the host in
+     `Access-Control-Allow-Origin: *`, set `primary` to that template and `fallbacks` to `[]` (the
+     shipped file's own sources are on DuelSight's host). Put the host in
      `cdnBase`. The toolkit's `cardvision cdn` publishes to Cloudflare R2 ([cdn/README.md](../cdn/README.md));
      set your own `envPrefix` and `forbiddenWords` in `cdn/cdn.config.json` before you use it. Any static host that serves
      the same files works too.

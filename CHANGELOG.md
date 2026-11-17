@@ -14,8 +14,9 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
   files are byte for byte rc1's, and the built extension does not change.
 - The CDN publishing tool moves to cardvision 0.15.0 (`cdn/requirements.txt`), and
   `cdn/cdn.config.json` lists a set of smaller tooltip pictures, 640 px wide in WebP.
-  `cdn/README.md` says how to publish the set and then point the settings at it. Until the
-  settings do, the tooltip asks for the full art as before.
+  `cdn/README.md` says how to publish the set and then point the settings at it. The published
+  settings point at it since 2026-11-17, with the full art as the fallback, and so does
+  `cdn/config.json`, the settings built into the extension.
 
 ## [0.9.0] - unreleased
 
