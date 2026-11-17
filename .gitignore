@@ -3,7 +3,7 @@ dist/
 dist-idle/
 /out/
 # store-check.yml's copy of a release file, beside it (scripts/store-before.mjs)
-store/releases/*.pr-check.json
+store/releases/*.json.pr-check
 release/
 *.zip
 .DS_Store

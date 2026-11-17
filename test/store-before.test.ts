@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error plain JavaScript build scripts
-import { beforeProblems, splitBefore, workflowMessage } from "../scripts/store-before.mjs";
+import { beforeFormProblems, beforeProblems, splitBefore, workflowMessage } from "../scripts/store-before.mjs";
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
@@ -34,6 +34,34 @@ describe("splitBefore", () => {
 
   it("gives an empty list when there is no `before`", () => {
     expect(splitBefore({ version: "1.2.3" })).toEqual({ release: { version: "1.2.3" }, before: [] });
+  });
+});
+
+describe("beforeFormProblems", () => {
+  const good = { url: "https://cdn.example/privacy.html", sha256: "a".repeat(64), why: "PRIVACY.md changed" };
+
+  it("accepts a well-formed list, and none at all", () => {
+    expect(beforeFormProblems({ version: "1.2.3", before: [good, { url: good.url }] })).toEqual([]);
+    expect(beforeFormProblems({ version: "1.2.3" })).toEqual([]);
+  });
+
+  it("names what the toolkit's release-file reader would refuse", () => {
+    expect(beforeFormProblems({ before: { url: good.url } })).toEqual(["before must be a list"]);
+    expect(beforeFormProblems({
+      before: [
+        { url: "http://cdn.example/privacy.html" },
+        { url: good.url, sha: "abc" },
+        { url: good.url, sha256: "A".repeat(64) },
+        { url: good.url, sha256: "a".repeat(63) },
+        "https://cdn.example/privacy.html",
+      ],
+    })).toEqual([
+      "before[0] needs an https url",
+      'before[1]: unknown key "sha"',
+      "before[2].sha256 must be 64 hex",
+      "before[3].sha256 must be 64 hex",
+      "before[4] needs an https url",
+    ]);
   });
 });
 

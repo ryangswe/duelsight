@@ -9,8 +9,11 @@
 // where it matters: store-release.yml's build job checks the full release file on the tag, and
 // its upload job refuses to upload while an address is not live.
 //
-// It writes the release file without `before` to --out, which must be in the same folder as the
-// release file (the release file names its notes relative to that folder), then fetches each
+// It first checks the `before` list's form as the toolkit's release-file reader does, and fails on
+// a mistake there: only whether an address is live is a warning. It writes the release file
+// without `before` to --out, which must be in the same folder as the release file (the release
+// file names its notes relative to that folder) and must not end in .json (the toolkit's `status
+// --releases` reads every .json file there as a release), then fetches each
 // address as `store-upload.mjs check` does (HTTP 200, and the sha256 when the entry gives one). Each
 // problem is printed as a GitHub warning and added to the job summary ($GITHUB_STEP_SUMMARY).
 // It exits 0 whether or not the addresses are live. With --released (the version is already
@@ -27,6 +30,30 @@ import { parseArgs } from "node:util";
 export function splitBefore(release) {
   const { before = [], ...rest } = release;
   return { release: rest, before };
+}
+
+const BEFORE_KEYS = new Set(["url", "sha256", "why"]);
+
+/**
+ * Mistakes in the form of `before`, by the rules of the toolkit's release-file reader
+ * (store-upload.mjs, readReleaseFile): a list of objects with an https `url`, an optional `sha256`
+ * of 64 lowercase hex digits and an optional `why`, and no other key.
+ */
+export function beforeFormProblems(release) {
+  if (release.before === undefined) return [];
+  if (!Array.isArray(release.before)) return ["before must be a list"];
+  const out = [];
+  release.before.forEach((b, i) => {
+    if (b === null || typeof b !== "object" || Array.isArray(b) || typeof b.url !== "string" || !/^https:\/\//.test(b.url)) {
+      out.push(`before[${i}] needs an https url`);
+      return;
+    }
+    for (const key of Object.keys(b)) if (!BEFORE_KEYS.has(key)) out.push(`before[${i}]: unknown key "${key}"`);
+    if (b.sha256 !== undefined && !(typeof b.sha256 === "string" && /^[0-9a-f]{64}$/.test(b.sha256))) {
+      out.push(`before[${i}].sha256 must be 64 hex`);
+    }
+  });
+  return out;
 }
 
 /** Why each address is not ready, as `store-upload.mjs check` would say it. */
@@ -64,8 +91,11 @@ async function main() {
   if (dirname(resolve(values.out)) !== dirname(resolve(values.release))) {
     throw new Error(`--out must be in ${dirname(values.release)}, beside the release file`);
   }
-  if (resolve(values.out) === resolve(values.release)) throw new Error("--out must not be the release file");
-  const { release, before } = splitBefore(JSON.parse(readFileSync(values.release, "utf-8")));
+  if (values.out.endsWith(".json")) throw new Error("--out must not end in .json (the release folder's .json files are releases)");
+  const original = JSON.parse(readFileSync(values.release, "utf-8"));
+  const form = beforeFormProblems(original);
+  if (form.length > 0) throw new Error(`${values.release}: ${form.join("; ")}`);
+  const { release, before } = splitBefore(original);
   // A released version's file describes that release, not this pull request: only its version is
   // kept, which the packages are checked against.
   const kept = values.released ? { version: release.version } : release;
