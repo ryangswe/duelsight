@@ -37,6 +37,13 @@ const decode = async (blob: Blob): Promise<void> => {
 
 let post: ((message: TooltipOut) => void) | null = null;
 
+// Dev builds only: when each card was shown and when its picture came on screen (performance.now()),
+// for the hover browser test's shown-to-picture time (cardvision-hq#125). The last 50 are kept.
+const timings: Array<{ event: "show" | "art"; cardId: string; at: number }> = [];
+if (__DEV__) {
+  (window as unknown as { __duelsightTooltipDebug: () => unknown }).__duelsightTooltipDebug = () => ({ timings });
+}
+
 void (async () => {
   const framed = window.parent !== window;
   const parentOrigin = location.ancestorOrigins?.[0] ?? null;
@@ -69,6 +76,14 @@ void (async () => {
     measurePanel: () => measurePanel($("panel")),
     frameSize: () => ({ width: window.innerWidth, height: window.innerHeight }),
     fitText: () => fitPanelText($("panel"), $("panel-text")),
+    ...(__DEV__
+      ? {
+          timing: (event: "show" | "art", cardId: string) => {
+            timings.push({ event, cardId, at: performance.now() });
+            if (timings.length > 50) timings.shift();
+          },
+        }
+      : {}),
   });
   controller.setSettings(effective.settings);
   // Facts of a remote release's cards come from a compute frame over this channel, never through

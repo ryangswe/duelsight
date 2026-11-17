@@ -107,6 +107,8 @@ export interface TooltipDeps {
   revokeObjectURL(url: string): void;
   /** Ask the compute frames for a card's facts (the facts channel). */
   requestFacts?(releaseId: string, cardId: string): void;
+  /** Dev builds only: a card is shown (`show`), and its picture is on screen (`art`). */
+  timing?(event: "show" | "art", cardId: string): void;
   /** A timer (the facts wait); setTimeout by default. */
   setTimer?(fn: () => void, ms: number): unknown;
   clearTimer?(handle: unknown): void;
@@ -244,6 +246,7 @@ export class TooltipController {
       return false;
     }
     this.deps.requestRefresh();
+    this.deps.timing?.("show", card.id);
     this.current = card.id;
     this.currentFacts = card;
     this.currentRelease = releaseId;
@@ -317,6 +320,7 @@ export class TooltipController {
         e.art.classList.remove("loading");
         this.picture = { cardId: card.id, ...size, panel: panel !== null };
         this.layout();
+        this.deps.timing?.("art", card.id);
         // The details file or the switch changed while the frame took its shape (refreshPanel()
         // had no picture to act on then): the panel follows now.
         if (this.details !== details || this.detailsOn !== detailsOn) this.refreshPanel();

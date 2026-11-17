@@ -69,7 +69,8 @@ flowchart TD
     TT -- "refresh request" --> BG
     POP -- "refresh request" --> BG
     BG -- "config.json: install, update,<br/>browser start, then at most hourly" --> CDN
-    TT -- "card picture,<br/>when not loaded yet" --> CDN
+    HS -- "named cards' pictures, ahead:<br/>each once, at most 60" --> CDN
+    TT -- "card picture,<br/>when not in the cache yet" --> CDN
     TT -- "card details file,<br/>once, then cached" --> CDN
 ```
 
@@ -106,6 +107,10 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   checks each against its SHA-256, reuses the bundled files that are the same, and falls back to
   the bundled release on any problem. Frames, pictures and results never go to the network. With a newer release, the
   frame also sends each shown card's name to the tooltip frame over a channel the page cannot reach.
+  While the pointer is over the video, it fetches the pictures of the cards each analysis names,
+  each once and at most 60 each time it loads, from the address the tooltip frame will ask for
+  (none with `namesOnly`), so the tooltip finds them in the browser's cache
+  (`src/compute/prefetch.ts`).
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box; a card lying at an
   angle is outlined, and hovered, along its own edges (the runtime's turned outlines). While the
