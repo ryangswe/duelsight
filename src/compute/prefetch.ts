@@ -24,12 +24,18 @@
 //   - A source whose fetches failed SOURCE_FAILURE_LIMIT times in a row is skipped, as the tooltip
 //     skips it (images/chain.ts, SourceHealth): the cards named after that are fetched from the
 //     next source they can fill, the one the tooltip then shows. The tooltip frame keeps its own
-//     count, from its own fetches of the same addresses. Settings read again (`settingsChanged`)
-//     try every source again, as in the tooltip; a fetch started before that does not count.
+//     count, from its own fetches of the same addresses, so this one is kept close to it:
+//       - at most one failure per source counts per analysis (the tooltip counts the hovered card,
+//         not every card an analysis names), so a short stall does not trip it sooner;
+//       - the first fetch at least PREFETCH_RETRY_MS after a skipped source's last failure tries
+//         that source again (one fetch at a time). A success clears its count, a failure skips it
+//         for PREFETCH_RETRY_MS more. The tooltip goes back to a source on its own next success,
+//         so after a stall the two differ for about that long, not until the settings are read.
+//     Settings read again (`settingsChanged`) try every source again, as in the tooltip; a fetch
+//     started before that does not count.
 
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
-import { IMAGE_TIMEOUT_MS } from "../constants.js";
-import { SourceHealth } from "../images/chain.js";
+import { IMAGE_TIMEOUT_MS, SOURCE_FAILURE_LIMIT } from "../constants.js";
 import type { ImageSource, Settings } from "../settings/schema.js";
 import { type CardRef, expandTemplate } from "../settings/templates.js";
 
@@ -39,6 +45,54 @@ export const PREFETCH_LIMIT = 60;
 export const PREFETCH_PER_ANALYSIS = 4;
 /** Fetches running at once, at most. */
 export const PREFETCH_IN_FLIGHT = 2;
+/** A skipped source is tried again by the first fetch at least this long after its last failure. */
+export const PREFETCH_RETRY_MS = 30_000;
+
+/** Failures per source, counted at the tooltip's pace, with a retry of a skipped source. */
+export class PrefetchHealth {
+  private readonly sources = new Map<string, { failures: number; lastFailure: number; lastAnalysis: number; probing: boolean }>();
+
+  constructor(private readonly now: () => number) {}
+
+  private key(source: ImageSource): string {
+    return `${source.id}\n${source.template}`;
+  }
+
+  /** Whether a fetch starting now leaves this source out. */
+  skipped(source: ImageSource): boolean {
+    const s = this.sources.get(this.key(source));
+    if (!s || s.failures < SOURCE_FAILURE_LIMIT) return false;
+    return s.probing || this.now() - s.lastFailure < PREFETCH_RETRY_MS;
+  }
+
+  /** A fetch from this source starts: for a skipped source, it is the one retry. */
+  starting(source: ImageSource): void {
+    const s = this.sources.get(this.key(source));
+    if (s && s.failures >= SOURCE_FAILURE_LIMIT) s.probing = true;
+  }
+
+  /** A fetch from this source ended, for a card named by analysis number `analysis`. */
+  record(source: ImageSource, ok: boolean, analysis: number): void {
+    const key = this.key(source);
+    if (ok) {
+      this.sources.delete(key);
+      return;
+    }
+    const s = this.sources.get(key) ?? { failures: 0, lastFailure: 0, lastAnalysis: -1, probing: false };
+    s.probing = false;
+    s.lastFailure = this.now();
+    if (s.lastAnalysis !== analysis) {
+      s.failures += 1;
+      s.lastAnalysis = analysis;
+    }
+    this.sources.set(key, s);
+  }
+
+  /** Fresh settings: every source is tried again. */
+  reset(): void {
+    this.sources.clear();
+  }
+}
 
 export interface PrefetchDeps {
   /** The settings in effect (read once, when first needed); null: none could be read. */
@@ -46,6 +100,8 @@ export interface PrefetchDeps {
   /** The card for an id in the release in effect, or null. */
   card(id: string): Promise<CardRef | null>;
   fetch(url: string, init: RequestInit): Promise<Response>;
+  /** The clock, in milliseconds (Date.now when absent). */
+  now?(): number;
 }
 
 export interface Prefetcher {
@@ -75,7 +131,7 @@ export function namedCards(analysis: FrameAnalysis): string[] {
 export function firstSource(
   settings: Pick<Settings, "namesOnly" | "primary" | "fallbacks">,
   card: CardRef,
-  health?: SourceHealth,
+  health?: Pick<PrefetchHealth, "skipped">,
 ): { source: ImageSource; url: string } | null {
   if (settings.namesOnly) return null;
   for (const source of [...(settings.primary ? [settings.primary] : []), ...settings.fallbacks]) {
@@ -96,27 +152,28 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
   /** Addresses started, and card ids taken (queued, fetched or found to have no address). */
   const seenUrls = new Set<string>();
   const seenIds = new Set<string>();
-  /** Card ids waiting for a slot, oldest first. */
-  const queue: string[] = [];
+  /** Card ids waiting for a slot, oldest first, each with the number of the analysis that named it. */
+  const queue: Array<{ id: string; analysis: number }> = [];
+  let analyses = 0;
   let inFlight = 0;
   let settings: Promise<Pick<Settings, "namesOnly" | "primary" | "fallbacks"> | null> | null = null;
   /** Consecutive failures per source, since the settings were last read. */
-  const health = new SourceHealth();
+  const health = new PrefetchHealth(() => (deps.now ? deps.now() : Date.now()));
   /** Bumped when the settings are read again: a fetch from before then does not count. */
   let generation = 0;
 
   const pump = (): void => {
     while (inFlight < PREFETCH_IN_FLIGHT && queue.length > 0 && started.length + inFlight < PREFETCH_LIMIT) {
-      const id = queue.shift()!;
+      const { id, analysis } = queue.shift()!;
       inFlight += 1;
-      void fetchOne(id).finally(() => {
+      void fetchOne(id, analysis).finally(() => {
         inFlight -= 1;
         pump();
       });
     }
   };
 
-  const fetchOne = async (id: string): Promise<void> => {
+  const fetchOne = async (id: string, analysis: number): Promise<void> => {
     let target: { source: ImageSource; url: string } | null = null;
     // The settings it reads may be from before a change that comes while it waits for them: then
     // its result does not count either.
@@ -131,6 +188,7 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
         target = null;
         return;
       }
+      health.starting(target.source);
       seenUrls.add(target.url);
       started.push(target.url);
       const response = await deps.fetch(target.url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "default", signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
@@ -141,7 +199,7 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
     } catch {
       // Dropped: the tooltip fetches it itself.
     } finally {
-      if (target !== null && fetchedIn === generation) health.record(target.source, ok);
+      if (target !== null && fetchedIn === generation) health.record(target.source, ok, analysis);
     }
   };
 
@@ -154,13 +212,14 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
       generation += 1;
     },
     onAnalysis(analysis) {
+      analyses += 1;
       let added = 0;
       for (const id of namedCards(analysis)) {
         // Room left: what is started, running and waiting stays within the limit.
         if (added >= PREFETCH_PER_ANALYSIS || started.length + inFlight + queue.length >= PREFETCH_LIMIT) break;
         if (seenIds.has(id)) continue;
         seenIds.add(id);
-        queue.push(id);
+        queue.push({ id, analysis: analyses });
         added += 1;
       }
       pump();

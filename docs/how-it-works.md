@@ -110,7 +110,8 @@ in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
   While the pointer is over the video, it fetches the pictures of the cards each analysis names,
   each once and at most 60 each time it loads, from the address the tooltip frame will ask for
   (none with `namesOnly`; after three failures in a row from one source, the next one, as the
-  tooltip does), so the tooltip finds them in the browser's cache (`src/compute/prefetch.ts`).
+  tooltip does, trying the failing one again after 30 s), so the tooltip finds them in the browser's
+  cache (`src/compute/prefetch.ts`).
 - **The tooltip frame** gets a card id and name, loads the card's picture (from the CDN, or none with `namesOnly`), and reports its size back. The
   content script places it, and draws the **outline** around the same box; a card lying at an
   angle is outlined, and hovered, along its own edges (the runtime's turned outlines). While the
