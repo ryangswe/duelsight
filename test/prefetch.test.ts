@@ -291,4 +291,37 @@ describe("fetching ahead when a source keeps failing", () => {
     await nameInTurn(p, ["3", "4", "5"]);
     expect(fetched.slice(2)).toEqual([tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5")]);
   });
+
+  it("counts a picture whose body cannot be read as a failure", async () => {
+    const fetched: string[] = [];
+    const unreadable = { ok: true, arrayBuffer: async () => Promise.reject(new Error("reset")) } as unknown as Response;
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? unreadable : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4")]);
+  });
+
+  it("does not count a fetch made from settings read before they changed", async () => {
+    const fetched: string[] = [];
+    let readSettings: (() => void) | null = null;
+    let reads = 0;
+    const p = createPrefetcher({
+      settings: () => (reads++ === 0 ? new Promise((resolve) => (readSettings = () => resolve(TWO))) : Promise.resolve(TWO)),
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
+    });
+    p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    // The settings change while the first read is still waiting: 1 and 2 are fetched from it.
+    p.settingsChanged();
+    readSettings!();
+    await flush();
+    // So they do not count: 3 and 4 failing is two in a row, and 5 is still asked from the
+    // tooltip pictures.
+    await nameInTurn(p, ["3", "4", "5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5")]);
+  });
 });

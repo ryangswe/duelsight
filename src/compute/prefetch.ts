@@ -118,13 +118,14 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
 
   const fetchOne = async (id: string): Promise<void> => {
     let target: { source: ImageSource; url: string } | null = null;
-    let fetchedIn = generation;
+    // The settings it reads may be from before a change that comes while it waits for them: then
+    // its result does not count either.
+    const fetchedIn = generation;
     let ok = false;
     try {
       settings ??= deps.settings().catch(() => null);
       const [effective, card] = await Promise.all([settings, deps.card(id)]);
       if (!effective || !card) return;
-      fetchedIn = generation;
       target = firstSource(effective, card, health);
       if (target === null || seenUrls.has(target.url) || started.length >= PREFETCH_LIMIT) {
         target = null;
