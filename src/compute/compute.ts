@@ -20,9 +20,9 @@ import { productConfig } from "../shared/product.js";
 import { buildCardTable, chooseRelease, decisionLine, recordSkip, type ReleaseDecision } from "../../vendor/cardvision-browser/remote-release.js";
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { createSettingsCore, startHostCompute, type WorkerLike } from "../../vendor/cardvision-browser/host-compute.js";
-// The key the settings are kept under, from the host's settings core: compute.js bundles that core
-// inside host-compute.js, so importing host-settings.js here would bundle it twice (the realm check
-// refuses that). The type keeps the value the host's.
+// The key the settings are kept under, from the host's settings core. compute.js already has that
+// core inside host-compute.js, which does not export the key; a type-only import keeps
+// host-settings.js out of this bundle, and the type keeps the value the host's.
 import type { LAST_GOOD_KEY as HOST_LAST_GOOD_KEY } from "../../vendor/cardvision-browser/host-settings.js";
 import { createFactsChannel } from "./frame.js";
 import { buildLoadRequest } from "./load-request.js";
