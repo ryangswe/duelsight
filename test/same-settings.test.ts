@@ -3,9 +3,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { Settings } from "../src/settings/schema.js";
-import { sameSettings } from "../src/settings/same.js";
+import { createSettingsCore } from "../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../src/settings/store.js";
 import { validateSettings } from "../src/settings/schema.js";
 import CONFIG from "../cdn/config.json";
+
+/** The host's settings core compares DuelSight's settings. */
+const sameSettings = createSettingsCore(SETTINGS_SCHEMA, { get: async () => ({}), set: async () => undefined }).same;
 
 const base = (): Settings => ({
   schemaVersion: 1,

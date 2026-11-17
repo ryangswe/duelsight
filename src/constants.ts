@@ -21,8 +21,6 @@ export const MAINTAINER_CONTACT_URL = CONFIG.maintainerContactUrl;
 /** The settings file (SETTINGS.md, schema version 1), or null: the bundled copy only, no fetch. */
 export const SETTINGS_URL = CONFIG.settingsUrl;
 
-/** How often the settings file is fetched again while the extension runs. */
-export const SETTINGS_REFRESH_MS = 60 * 60 * 1000;
 
 /**
  * The only hosts the extension may request card images from. They are the image hosts in the
@@ -46,13 +44,6 @@ export const IMAGE_TIMEOUT_MS = 5_000;
 
 /** A source that failed this many times in a row is skipped until fresh settings are read. */
 export const SOURCE_FAILURE_LIMIT = 3;
-
-/** How long the model stays loaded with no trusted move over the picture and no card showing,
- *  before the frames are removed to free its memory (owner, 2026-11-10). */
-export const IDLE_UNLOAD_MS = 10 * 60_000;
-
-/** Smallest video, in CSS pixels of width on the page, that the extension attaches to. */
-export const MIN_VIDEO_WIDTH = 320;
 
 /** Where the release (models, bank, catalog) sits inside the built extension. */
 export const RELEASE_PATH = "release/release.json";

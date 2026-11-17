@@ -5,11 +5,13 @@
 // When the extension is installed or updated, it removes the stored entries of features that
 // are gone (src/shared/retired.ts).
 
-import { refreshSettings } from "../settings/store.js";
+import { createSettingsCore } from "../../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
 import { removeRetired } from "../shared/retired.js";
 
+const settings = createSettingsCore(SETTINGS_SCHEMA, chrome.storage.local);
 const refresh = (force: boolean): Promise<unknown> =>
-  refreshSettings(chrome.storage.local, { fetch: (...args) => fetch(...args), now: () => Date.now(), force }).catch(() => undefined);
+  settings.refresh({ fetch: (...args) => fetch(...args), now: () => Date.now(), force }).catch(() => undefined);
 
 chrome.runtime.onInstalled.addListener(() => {
   void removeRetired(chrome.storage.local as never).catch(() => undefined);

@@ -108,10 +108,10 @@ echo "1/3 the recognition runtime (cardvision-browser), from source"
 cd "$here/cardvision-browser/browser"
 npm ci
 npm run build
-for f in cardvision.js worker.js remote-release.js compute-session.js page-capture.js node/verify-release.mjs node/package-zip.mjs; do
+for f in cardvision.js worker.js remote-release.js compute-session.js page-capture.js host-content.js host-compute.js host-settings.js node/verify-release.mjs node/package-zip.mjs node/realm-check.mjs; do
   cmp "dist/$f" "$here/duelsight/vendor/cardvision-browser/$f"
 done
-echo "    dist/cardvision.js, worker.js, remote-release.js, compute-session.js, page-capture.js and node/*.mjs are byte for byte the vendored copies"
+echo "    dist/cardvision.js, worker.js, remote-release.js, compute-session.js, page-capture.js, host-*.js and node/*.mjs are byte for byte the vendored copies"
 
 echo "2/3 the add-on"
 cd "$here/duelsight"
@@ -147,9 +147,11 @@ It does three things:
 
 1. Builds the recognition runtime from \`cardvision-browser/browser/\` (\`npm ci && npm run build\`)
    and checks that \`dist/cardvision.js\`, \`dist/worker.js\`, \`dist/remote-release.js\`,
-   \`dist/compute-session.js\` and \`dist/page-capture.js\` are byte for byte the copies in
-   \`duelsight/vendor/cardvision-browser/\` that the add-on bundles, and \`dist/node/package-zip.mjs\`
-   the copy step 2 zips the package with. The build prints that
+   \`dist/compute-session.js\`, \`dist/page-capture.js\` and the shared hover host
+   (\`dist/host-content.js\`, \`dist/host-compute.js\`, \`dist/host-settings.js\`) are byte for byte
+   the copies in \`duelsight/vendor/cardvision-browser/\` that the add-on bundles, and
+   \`dist/node/package-zip.mjs\` and \`dist/node/realm-check.mjs\` the copies step 2 zips the
+   package with and checks it with. The build prints that
    OpenCV.js was not copied: the add-on does not use it.
 2. Builds the add-on from \`duelsight/\` (\`npm ci\`, then
    \`npm run build -- --target firefox --release ../release/${releaseId}\` and \`npm run package\`).
@@ -160,7 +162,7 @@ It does three things:
 
 | In the package | From |
 | --- | --- |
-| \`background.js\`, \`content.js\`, \`compute.js\`, \`tooltip.js\`, \`popup.js\` | \`duelsight/src/\` (TypeScript), bundled and minified by esbuild (\`duelsight/scripts/build.mjs\`). \`compute.js\` includes the runtime's \`compute-session.js\` and \`remote-release.js\`, and \`content.js\` its \`page-capture.js\`. |
+| \`background.js\`, \`content.js\`, \`compute.js\`, \`tooltip.js\`, \`popup.js\` | \`duelsight/src/\` (TypeScript), bundled and minified by esbuild (\`duelsight/scripts/build.mjs\`). They include the runtime's shared hover host, built in step 1: \`content.js\` its \`host-content.js\`, \`compute.js\` its \`host-compute.js\` (with \`remote-release.js\`), and \`background.js\`, \`popup.js\` and \`tooltip.js\` its \`host-settings.js\` (\`tooltip.js\` with \`remote-release.js\`). |
 | \`runtime/worker.js\` | the runtime's worker, built from \`cardvision-browser/browser/src/\` by esbuild (step 1). It includes ONNX Runtime Web's JavaScript. |
 | \`runtime/ort-wasm-simd-threaded.jsep.mjs\`, \`.wasm\` | ONNX Runtime Web ${vendor.ort.version} from npm (\`onnxruntime-web\`), unmodified. |
 | \`release/\` | the recognition release ${releaseId}: two ONNX models and JSON card data (a card list and reference vectors). Data, not code. |

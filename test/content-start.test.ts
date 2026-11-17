@@ -1,23 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
-// The content script's entry (src/content/index.ts) applies the stored switch and card size when a
-// page opens, with a stand-in for chrome.storage and the agent: a switch that cannot be read is on
-// (hover spec S-H1), the card size does not wait for the switch, and a popup change made while a
-// read is pending wins over the read.
+// The content script's entry (src/content/index.ts), with a stand-in for chrome.storage, the
+// shared hover host and the view: it starts the host with DuelSight's config, the extension's
+// storage and its change events, and the tooltip view; and it applies the stored card size when a
+// page opens, the default when it cannot be read, and a popup change made while the read is
+// pending over the read. The main switch's start-up read is the host's (tested in the toolkit, and
+// through the host in content.test.ts).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { OUTLINE_COLOR, OUTLINE_GLOW_COLOR } from "../src/constants.js";
+
 const calls: string[] = [];
-vi.mock("../src/content/agent.js", () => ({
-  Agent: class {
-    start(): void {}
-    setEnabled(on: boolean): void {
-      calls.push(`enabled:${on}`);
-    }
-    setCardSize(percent: number): void {
-      calls.push(`size:${percent}`);
-    }
-    keepCardChanged(): void {}
+const started: Array<Record<string, unknown>> = [];
+vi.mock("../vendor/cardvision-browser/host-content.js", () => ({
+  startHostContent: (env: Record<string, unknown>) => {
+    started.push(env);
+    return { relayout: () => void calls.push("relayout"), state: "off", stop: () => undefined };
   },
+}));
+vi.mock("../src/content/view.js", () => ({
+  createTooltipView: () => ({
+    look: { title: "Card", shadow: "" },
+    setCardSize: (percent: number) => {
+      calls.push(`size:${percent}`);
+      return percent !== 100;
+    },
+  }),
 }));
 
 type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>;
@@ -28,8 +36,9 @@ const flush = async (): Promise<void> => {
 };
 
 /** Loads index.ts with a storage whose reads wait until the test answers them, in any order. */
-async function load(): Promise<{ answer(key: string, data: Record<string, unknown>): Promise<void>; fail(key: string): Promise<void>; popup(changes: Changes): void }> {
+async function load(): Promise<{ answer(key: string, data: Record<string, unknown>): Promise<void>; fail(key: string): Promise<void>; popup(changes: Changes): void; sync(changes: Changes): void }> {
   calls.length = 0;
+  started.length = 0;
   vi.resetModules();
   const pending: Pending[] = [];
   let listener: ((changes: Changes, area: string) => void) | null = null;
@@ -40,8 +49,11 @@ async function load(): Promise<{ answer(key: string, data: Record<string, unknow
     },
   };
   (globalThis as Record<string, unknown>).chrome = {
-    storage: { local, onChanged: { addListener: (l: (changes: Changes, area: string) => void) => (listener = l) } },
+    storage: { local, onChanged: { addListener: (l: (changes: Changes, area: string) => void) => (listener = l), removeListener: () => undefined } },
+    runtime: { getURL: (path: string) => `chrome-extension://x/${path}` },
   };
+  (globalThis as Record<string, unknown>).window = {};
+  (globalThis as Record<string, unknown>).document = {};
   (globalThis as Record<string, unknown>).__DEV__ = false;
   await import("../src/content/index.js");
   await flush();
@@ -62,47 +74,60 @@ async function load(): Promise<{ answer(key: string, data: Record<string, unknow
     popup(changes) {
       listener?.(changes, "local");
     },
+    sync(changes) {
+      listener?.(changes, "sync");
+    },
   };
 }
 
 afterEach(() => {
-  delete (globalThis as Record<string, unknown>).chrome;
+  for (const name of ["chrome", "window", "document"]) delete (globalThis as Record<string, unknown>)[name];
 });
 
-describe("the content script's start-up read", () => {
-  it("switches hovers on, at the default size, when the storage cannot be read", async () => {
+describe("the content script's start-up", () => {
+  it("starts the shared hover host with DuelSight's config, the extension's storage and the tooltip view", async () => {
+    await load();
+    expect(started).toHaveLength(1);
+    const env = started[0]!;
+    const chromeStorage = (globalThis as unknown as { chrome: { storage: { local: unknown; onChanged: unknown } } }).chrome.storage;
+    expect(env.config).toMatchObject({ tag: "duelsight", dev: false, frames: { compute: "compute.html", view: "tooltip.html" }, capabilities: { geometricStage: false } });
+    // The outline in the configured colors (duelsight.config.json outlineColor, outlineGlowColor).
+    expect(env.config).toMatchObject({ outline: { edgeColor: OUTLINE_COLOR, glowColor: OUTLINE_GLOW_COLOR } });
+    expect(env.storage).toBe(chromeStorage.local);
+    expect(env.storageChanges).toBe(chromeStorage.onChanged);
+    expect((env.extensionUrl as (p: string) => string)("tooltip.html")).toBe("chrome-extension://x/tooltip.html");
+    expect((env.view as { look: { title: string } }).look.title).toBe("Card");
+  });
+
+  it("applies the default card size when the storage cannot be read", async () => {
     const s = await load();
-    await s.fail("enabled");
     await s.fail("cardSize");
-    expect(calls).toEqual(["enabled:true", "size:100"]);
+    expect(calls).toEqual(["size:100"]);
   });
 
-  it("applies the stored choices", async () => {
-    const s = await load();
-    await s.answer("enabled", { enabled: false });
-    await s.answer("cardSize", { cardSize: 120 });
-    expect(calls).toEqual(["enabled:false", "size:120"]);
-  });
-
-  it("applies the card size while the switch read is still pending", async () => {
+  it("applies the stored card size, and places the shown card again", async () => {
     const s = await load();
     await s.answer("cardSize", { cardSize: 120 });
-    expect(calls).toEqual(["size:120"]);
+    expect(calls).toEqual(["size:120", "relayout"]);
   });
 
   it("keeps a popup change made while the read was pending, whether the read fails or answers late", async () => {
-    const s = await load();
-    s.popup({ enabled: { oldValue: true, newValue: false }, cardSize: { oldValue: 100, newValue: 120 } });
-    await s.fail("enabled");
+    let s = await load();
+    s.popup({ cardSize: { oldValue: 100, newValue: 120 } });
     await s.answer("cardSize", { cardSize: 100 });
-    expect(calls).toEqual(["enabled:false", "size:120"]);
+    expect(calls).toEqual(["size:120", "relayout"]);
+    s = await load();
+    s.popup({ cardSize: { oldValue: 100, newValue: 120 } });
+    await s.fail("cardSize");
+    expect(calls).toEqual(["size:120", "relayout"]);
   });
 
-  it("applies a read whose choice the popup did not change", async () => {
+  it("follows later changes in the extension's own storage only", async () => {
     const s = await load();
-    s.popup({ cardSize: { oldValue: 100, newValue: 120 } });
-    await s.fail("enabled");
     await s.answer("cardSize", { cardSize: 100 });
-    expect(calls).toEqual(["size:120", "enabled:true"]);
+    s.popup({ cardSize: { oldValue: 100, newValue: 70 } });
+    s.popup({ enabled: { oldValue: true, newValue: false } });
+    s.sync({ cardSize: { oldValue: 70, newValue: 130 } });
+    expect(calls).toEqual(["size:100", "size:70", "relayout"]);
   });
 });

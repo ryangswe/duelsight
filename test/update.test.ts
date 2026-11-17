@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 
-import { compareVersions, updateNotice } from "../src/settings/update.js";
+// The popup's "New version available" line, by the shared hover host's rules (host-settings.js).
+import { compareVersions, updateNotice } from "../vendor/cardvision-browser/host-settings.js";
 
 describe("compareVersions", () => {
   it.each([

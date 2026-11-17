@@ -15,8 +15,8 @@ import { buildManifest, UNPACKED_EXTENSION_ID } from "../scripts/manifest.mjs";
 // @ts-expect-error plain JavaScript build scripts
 import { configProblems, loadForkConfig, videoSitePatterns, withCdnBase } from "../scripts/fork-config.mjs";
 import { IMAGE_HOSTS, SETTINGS_URL, UPDATE_URL_PREFIX } from "../src/constants.js";
-import { isActivePage } from "../src/content/site.js";
-import { allowedParentOrigin } from "../src/shared/messages.js";
+import { pagePolicy } from "../vendor/cardvision-browser/host-content.js";
+import { allowedParentOrigin } from "../vendor/cardvision-browser/host-settings.js";
 import { makePrintedId, printedId } from "../src/settings/templates.js";
 import { CONFIG, FIXTURE_CDN, IS_DUELSIGHT, TOY_CONFIG } from "./helpers/fork.js";
 import { buildLoadRequest } from "../src/compute/load-request.js";
@@ -228,10 +228,10 @@ describe("a fork's minimal config (names only, no settings address, no stage, on
     expect(m.action.default_title).toBe("Toy Cards");
   });
   it("its pages and frames accept only that site", () => {
-    expect(isActivePage(new URL("https://www.youtube.com/watch?v=abc"), false, TOY_CONFIG.videoSites)).toBe(true);
-    expect(isActivePage(new URL("https://www.twitch.tv/someone"), false, TOY_CONFIG.videoSites)).toBe(false);
-    expect(allowedParentOrigin("https://www.twitch.tv", false, TOY_CONFIG.videoSites)).toBe(false);
-    expect(allowedParentOrigin("https://www.youtube.com", false, TOY_CONFIG.videoSites)).toBe(true);
+    expect(pagePolicy(new URL("https://www.youtube.com/watch?v=abc"), { sites: TOY_CONFIG.videoSites, dev: false }).active).toBe(true);
+    expect(pagePolicy(new URL("https://www.twitch.tv/someone"), { sites: TOY_CONFIG.videoSites, dev: false }).active).toBe(false);
+    expect(allowedParentOrigin("https://www.twitch.tv", { sites: TOY_CONFIG.videoSites, dev: false })).toBe(false);
+    expect(allowedParentOrigin("https://www.youtube.com", { sites: TOY_CONFIG.videoSites, dev: false })).toBe(true);
   });
   it("its printed-number rule 'none' gives no number and so no {printedId}", () => {
     expect(makePrintedId("none")("OP01-001")).toBeNull();
@@ -342,10 +342,12 @@ describe("release-legal fits the release", () => {
 
 describe("the bundled default settings", () => {
   it("are the published cdn/config.json", async () => {
-    const { defaultSettings } = await import("../src/settings/store.js");
+    const { SETTINGS_SCHEMA } = await import("../src/settings/store.js");
+    const { createSettingsCore } = await import("../vendor/cardvision-browser/host-settings.js");
     const { validateSettings } = await import("../src/settings/schema.js");
     const published = JSON.parse(readFileSync(new URL("../cdn/config.json", import.meta.url), "utf-8"));
-    expect(defaultSettings()).toEqual(validateSettings(published).settings);
+    const core = createSettingsCore(SETTINGS_SCHEMA, { get: async () => ({}), set: async () => undefined });
+    expect(core.defaults()).toEqual(validateSettings(published).settings);
   });
 });
 

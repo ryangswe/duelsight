@@ -9,7 +9,8 @@
 // A stored language the settings no longer offer shows as Automatic, which is what the tooltip
 // does with it; the stored choice is kept, and shows again if the language comes back.
 
-import { readEffectiveSettings } from "../settings/store.js";
+import { createSettingsCore } from "../../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
 import { AUTOMATIC, CARD_LANGUAGE_KEY, readCardLanguage } from "../shared/card-language.js";
 import { detailsLanguage } from "../details/language.js";
 
@@ -57,7 +58,7 @@ export function initCardLanguage(doc: Document, local: Area, languages: () => re
     // An unreadable storage shows Automatic, with English alone. Settings that name no English
     // details file (the maintainer took the details down) offer no other language either.
     const choice = await readCardLanguage(local).catch(() => AUTOMATIC);
-    const settings = await readEffectiveSettings(local).then((e) => e.settings).catch(() => null);
+    const settings = await createSettingsCore(SETTINGS_SCHEMA, local).read().then((e) => e.settings).catch(() => null);
     const localDetails = settings?.details ? settings.localDetails : {};
     const offered = Object.keys(localDetails);
     const automatic = detailsLanguage({ localDetails }, languages());

@@ -9,7 +9,7 @@ import { PROJECT_URL, RUNTIME_URL, UPDATE_URL_PREFIX } from "../src/constants.js
 import { CONFIG } from "./helpers/fork.js";
 import { initPopup } from "../src/popup/view.js";
 import { languageName, languageOptions } from "../src/popup/card-language-control.js";
-import { LAST_GOOD_KEY } from "../src/settings/store.js";
+import { LAST_GOOD_KEY } from "../vendor/cardvision-browser/host-settings.js";
 import { memoryStorage } from "./helpers/memory-storage.js";
 
 const HTML = `<main class="panel"><span id="name"></span><button id="enabled" role="switch" aria-checked="false" aria-busy="true" disabled></button>

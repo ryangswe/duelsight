@@ -4,7 +4,7 @@
 // the capture gate, the tooltip's hide timer, leaving on a hidden tab, and teardown.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Agent, HIDE_DELAY_MS } from "../src/content/agent.js";
+import { Agent, HIDE_DELAY_MS } from "./helpers/content.js";
 import { tag } from "../src/shared/messages.js";
 import { NOT_POINTING, PROTOCOL_VERSION } from "../vendor/cardvision-browser/page-capture.js";
 
@@ -47,13 +47,27 @@ function move(x: number, y: number): void {
 }
 
 /** Each frame's window, as a stand-in: nothing is loaded into the frames here. */
-const windows = new WeakMap<HTMLIFrameElement, { sent: Array<Record<string, unknown>>; postMessage(m: Record<string, unknown>): void }>();
+const windows = new WeakMap<HTMLIFrameElement, { sent: Array<Record<string, unknown>>; postMessage(m: Record<string, unknown>): void; readonly location: { origin: string } }>();
+/** Frames whose window is still the first blank page (of the page's own origin, so readable). */
+const blank = new WeakSet<HTMLIFrameElement>();
+/** Whether new frames start on that blank page (as they do in a browser, for a moment). */
+let framesStartBlank = false;
 Object.defineProperty(HTMLIFrameElement.prototype, "contentWindow", {
   configurable: true,
   get(this: HTMLIFrameElement) {
     if (!windows.has(this)) {
       const sent: Array<Record<string, unknown>> = [];
-      windows.set(this, { sent, postMessage: (m) => void sent.push(m) });
+      const frame = this;
+      if (framesStartBlank) blank.add(frame);
+      windows.set(this, {
+        sent,
+        postMessage: (m) => void sent.push(m),
+        // The extension's page cannot be read from the page: only the blank page can.
+        get location() {
+          if (blank.has(frame)) return { origin: location.origin };
+          throw new DOMException("Blocked a frame from accessing a cross-origin frame.", "SecurityError");
+        },
+      });
     }
     return windows.get(this);
   },
@@ -100,13 +114,15 @@ function spyOn(frame: HTMLIFrameElement | undefined): Array<Record<string, unkno
 
 beforeEach(() => {
   trustedEvents = true;
+  framesStartBlank = false;
   Object.assign(media, { paused: false, readyState: 4, currentTime: 12.5 });
   agent?.stop();
   document.body.innerHTML = "";
   for (const f of frames()) f.remove();
   vi.stubGlobal("chrome", { runtime: { getURL: (path: string) => `${EXT}/${path}` } });
   vi.stubGlobal("location", new URL("http://127.0.0.1:8770/"));
-  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 0));
+  // Runs at once, and gives no handle: as if the frame had come and gone before the caller kept it.
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), null));
   video = makeVideo();
 });
 
@@ -160,6 +176,46 @@ describe("Agent", () => {
     move(110, 100);
     expect(compute()).toBeDefined();
     expect(compute()).not.toBe(first);
+  });
+
+  it("starts a new tooltip frame at the tooltip's first size, hidden, before any card (the host sets no size)", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    const t = tooltip()!;
+    expect([t.style.width, t.style.height, t.style.visibility]).toEqual(["320px", "448px", "hidden"]);
+  });
+
+  it("shows the card again in a new tooltip frame when the page removed the one showing it (shared host; HOVER-DEVIATIONS.md)", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    fromFrame(tooltip(), { kind: "ready" });
+    showCard({ cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
+    const first = tooltip()!;
+    first.remove();
+    // The next trusted move makes the missing frame, and the card on show goes to it at once.
+    move(110, 100);
+    const second = tooltip()!;
+    expect(second).not.toBe(first);
+    fromFrame(second, { kind: "ready" });
+    expect(spyOn(second).filter((m) => m.kind === "card")).toEqual([expect.objectContaining({ cardId: "89631139" })]);
+  });
+
+  it("stops following the video when the pointer moves on a page hovers do not run on, and picks it again at once back on one (S-G5)", async () => {
+    agent = await startAgent();
+    move(100, 100);
+    const sent = spyOn(compute());
+    fromFrame(compute(), { kind: "ready", version: PROTOCOL_VERSION, instance: INSTANCE });
+    vi.stubGlobal("location", new URL("https://example.org/somewhere"));
+    sent.length = 0;
+    move(110, 100);
+    // Not followed any more: the move counts for nothing, and nothing is sent for it.
+    expect(sent.map((m) => m.kind)).not.toContain("pointer");
+    vi.stubGlobal("location", new URL("http://127.0.0.1:8770/"));
+    sent.length = 0;
+    move(120, 100);
+    // Picked again on the first move back (not up to a second later), as a new source.
+    expect(sent.map((m) => m.kind)).toContain("pointer");
+    expect(sent.find((m) => m.kind === "discontinuity")).toMatchObject({ newSource: true });
   });
 
   it("refuses to capture when the pointer is not over the player", async () => {
@@ -385,12 +441,24 @@ describe("Agent", () => {
     expect(sent.filter((m) => m.kind === "pointer").at(-1)).toMatchObject({ kind: "pointer", x: 140 / 960, y: 120 / 540, touch: false });
   });
 
-  it("says hello to the compute frame once it has loaded, not while it is still blank", async () => {
+  it("says hello to a new compute frame at once, but not while its window is still the blank page (no origin errors in the page)", async () => {
     agent = await startAgent();
     move(100, 100);
-    const sent = spyOn(compute());
+    expect(spyOn(compute()).filter((m) => m.kind === "hello")).toEqual([expect.objectContaining({ duelsight: 1, kind: "hello", version: PROTOCOL_VERSION })]);
+  });
+
+  it("waits out a compute frame's first blank page before its hello", async () => {
+    vi.useFakeTimers();
+    framesStartBlank = true;
+    agent = await startAgent();
+    move(100, 100);
+    const frame = compute()!;
+    const sent = spyOn(frame);
+    vi.advanceTimersByTime(1_000);
     expect(sent.filter((m) => m.kind === "hello")).toEqual([]);
-    compute()!.dispatchEvent(new Event("load"));
+    // The extension's page is in: the next try says hello.
+    blank.delete(frame);
+    vi.advanceTimersByTime(300);
     expect(sent.filter((m) => m.kind === "hello")).toEqual([expect.objectContaining({ duelsight: 1, kind: "hello", version: PROTOCOL_VERSION })]);
   });
 
@@ -604,7 +672,8 @@ describe("Agent", () => {
     vi.stubGlobal("requestAnimationFrame", queue);
     window.dispatchEvent(new Event("resize"));
     expect(frames).toHaveLength(0);
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), 0));
+    // Runs at once, and gives no handle: as if the frame had come and gone before the caller kept it.
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => (cb(0), null));
     move(100, 100);
     showCard({ cardId: "89631139", name: "x", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } });
     vi.stubGlobal("requestAnimationFrame", queue);
@@ -967,7 +1036,7 @@ describe("Agent", () => {
 
   describe("frees the model after a stretch with nobody hovering (owner, 2026-11-10; the toolkit's idle unload)", () => {
     const BLUE_EYES = { cardId: "89631139", name: "Blue-Eyes White Dragon", box: { x: 0.1, y: 0.1, width: 0.1, height: 0.2 } };
-    /** The compute frame's worker ended for idleness (frame.ts idleUnloadMs): it says so. */
+    /** The compute frame's worker ended for idleness (the host's standard idle unload): it says so. */
     const goIdle = () => fromFrame(compute(), { kind: "status", state: "idle", error: null, backend: null });
     const play = () => {
       media.paused = false;
@@ -1146,17 +1215,21 @@ describe("Agent", () => {
         expect(compute()).toBe(made);
       });
 
-      it("makes nothing more in view when a new frame was made meanwhile (it read the choice)", async () => {
+      it("switched off and on out of view: makes the frames once, when it comes into view, and no second compute frame for the change (hover spec S-A7, S-H3)", async () => {
         agent = await startAgent();
         view("hidden");
         agent.keepCardChanged();
-        // Made again out of view: switched off and on, with no idle unload, while the video plays.
+        // Switched off and on out of view, with no idle unload, while the video plays: a tab out of
+        // view loads when it comes into view (the shared host's rule; before, it loaded at once).
         agent.setEnabled(false);
         agent.setEnabled(true);
-        const made = compute();
-        expect(made).toBeDefined();
+        expect(compute()).toBeUndefined();
+        const made = vi.spyOn(document, "createElement");
         view("visible");
-        expect(compute()).toBe(made);
+        // One compute frame and one tooltip frame: the new compute frame reads the choice as it starts.
+        expect(made.mock.calls.filter(([name]) => name === "iframe")).toHaveLength(2);
+        expect(compute()).toBeDefined();
+        made.mockRestore();
       });
 
       it("switched on out of view after an idle unload: makes the frames once, when the tab comes into view (hover spec S-A7)", async () => {

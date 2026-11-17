@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // The popup: one switch (the master on/off), the card details switch (details-control.ts), the
-// "Keep the card I'm pointing at" switch (shared/keep-card.ts, switch-control.ts), the
+// "Keep the card I'm pointing at" switch (switch-control.ts), the
 // card language menu (card-language-control.ts; also grayed out while the details are off), the
 // card-size dial (card-size-control.ts; all four grayed out and still while the master switch is
 // off), a "New version available" line only when the settings file names a newer version
@@ -10,14 +10,12 @@
 
 import { CONFIG } from "../config.js";
 import { PROJECT_URL, RUNTIME_URL } from "../constants.js";
-import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
-import { DISMISSED_UPDATE_KEY, updateNotice } from "../settings/update.js";
-import { ENABLED_KEY, readEnabled } from "../shared/enabled.js";
+import { createSettingsCore, createSwitches, DISMISSED_UPDATE_KEY, ENABLED_KEY, KEEP_CARD_KEY, LAST_GOOD_KEY, updateNotice } from "../../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
 import { CARD_SIZE_KEY } from "../shared/card-size.js";
 import { initCardSize } from "./card-size-control.js";
 import { DETAILS_KEY } from "../shared/details-pref.js";
 import { initDetailsSwitch } from "./details-control.js";
-import { KEEP_CARD_KEY, readKeepCardOn } from "../shared/keep-card.js";
 import { initStoredSwitch } from "./switch-control.js";
 import { CARD_LANGUAGE_KEY } from "../shared/card-language.js";
 import { initCardLanguage } from "./card-language-control.js";
@@ -41,6 +39,10 @@ export interface PopupEnv {
 /** Fill the popup and keep it current. Adds one storage listener. */
 export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; renderSwitch(): Promise<void> } {
   const $ = <T extends HTMLElement>(id: string): T => env.doc.getElementById(id) as T;
+  const settingsCore = createSettingsCore(SETTINGS_SCHEMA, env.local);
+  // The switches as the shared hover host reads them (a missing or unreadable value is on). The
+  // popup follows changes itself (below), so the reads watch none.
+  const switches = createSwitches(env.local, { addListener: () => undefined, removeListener: () => undefined });
 
   // The extension's own name, from duelsight.config.json.
   $("name").textContent = CONFIG.name;
@@ -62,7 +64,7 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
     detailsOn = on;
     showLanguage();
   });
-  const keepCard = initStoredSwitch(env.doc, env.local, { id: "keep-card", key: KEEP_CARD_KEY, read: readKeepCardOn });
+  const keepCard = initStoredSwitch(env.doc, env.local, { id: "keep-card", key: KEEP_CARD_KEY, read: () => switches.keepCard() });
   // The card details and keep-card switches, the language menu and the size dial only matter while card hovers
   // are on: off, they are grayed out and still, and their stored choices wait for the master switch.
   const panel = env.doc.querySelector(".panel");
@@ -79,7 +81,7 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
   let ready = false;
   const renderSwitch = async (): Promise<void> => {
     // A storage that cannot be read shows the default (on) rather than a switch stuck disabled.
-    const on = await readEnabled(env.local).catch(() => true);
+    const on = await switches.enabled();
     toggle.setAttribute("aria-checked", on ? "true" : "false");
     showActive(on);
     if (ready) return;
@@ -110,7 +112,7 @@ export function initPopup(env: PopupEnv): { renderUpdate(): Promise<void>; rende
   const renderUpdate = (): Promise<void> => showUpdate().catch(() => undefined);
   const showUpdate = async (): Promise<void> => {
     if (env.updateNotices === false) return;
-    const { settings } = await readEffectiveSettings(env.local);
+    const { settings } = await settingsCore.read();
     const dismissed = (await env.local.get(DISMISSED_UPDATE_KEY))[DISMISSED_UPDATE_KEY];
     const notice = updateNotice(settings.update, env.version, typeof dismissed === "string" ? dismissed : null);
     const line = $("update");

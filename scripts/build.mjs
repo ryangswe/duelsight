@@ -9,7 +9,7 @@
 //                 Runtime version) and copied into dist/release/. It is never committed.
 // --dev           A development build: also runs on the local test page (http://127.0.0.1, http://localhost).
 // --idle-unload-ms  Dev builds only: free the model after N ms with nobody hovering, instead of
-//                 10 minutes (src/constants.ts IDLE_UNLOAD_MS), to check the unload.
+//                 10 minutes (the shared hover host's standard preset), to check the unload.
 // --store         A Chrome Web Store build: the manifest has no `key` (the store assigns the ID).
 //                 Other builds carry the public key that fixes the ID of unpacked installs.
 // --target        chrome (the default; also Edge and Brave) or firefox: the same bundles with
@@ -36,6 +36,7 @@ import { buildCardTable } from "../vendor/cardvision-browser/remote-release.js";
 import { CONFIG_PATH, ICON_SIZES, loadForkConfig } from "./fork-config.mjs";
 import { LEGAL_FILES, releaseLegalProblem } from "./release-legal.mjs";
 import { describeOversized, oversizedTextFiles, TEXT_FILE_LIMIT } from "./package-size.mjs";
+import { realmCheck } from "./realm.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const { values } = parseArgs({
@@ -210,6 +211,13 @@ copyFileSync(join(root, "THIRD_PARTY_LICENSES.txt"), join(out, "THIRD_PARTY_LICE
 copyFileSync(join(vendorDir, "LICENSE"), join(out, "runtime", "LICENSE"));
 copyFileSync(join(vendorDir, "NOTICE"), join(out, "runtime", "NOTICE"));
 
+// Every file is written: one copy of the toolkit's runtime per realm (scripts/realm.mjs).
+const realm = realmCheck(out);
+if (realm.status !== 0) {
+  console.error(realm.output);
+  process.exit(1);
+}
+
 let commit = "unknown";
 try {
   commit = execFileSync("git", ["-C", root, "rev-parse", "--short", "HEAD"], { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -223,6 +231,7 @@ console.log(`  release ${release.id} (${release.game}, ${release.bank.cardCount}
 console.log(`  runtime cardvision ${vendor.toolkit.version} at ${vendor.toolkit.commit.slice(0, 7)}, onnxruntime-web ${ortVersion}`);
 console.log(`  content.js ${kb("content.js")}, compute.js ${kb("compute.js")}, tooltip.js ${kb("tooltip.js")}, runtime/worker.js ${kb("runtime/worker.js")}`);
 console.log(`  ${Object.keys(table).length} cards in data/cards.json (names from the release catalog)`);
+console.log(`  ${realm.output}`);
 // A dev build may hold them (a smoke on an unconverted release); `npm run package` refuses them.
 const big = oversizedTextFiles(out);
 if (big.length > 0) console.warn(`  warning: text files of ${TEXT_FILE_LIMIT / 1024 / 1024} MiB or more, which npm run package refuses: ${describeOversized(big)}`);

@@ -8,7 +8,8 @@
 
 import { loadImage } from "../images/chain.js";
 import type { Settings } from "../settings/schema.js";
-import { LAST_GOOD_KEY, readEffectiveSettings } from "../settings/store.js";
+import { createSettingsCore, LAST_GOOD_KEY } from "../../vendor/cardvision-browser/host-settings.js";
+import { SETTINGS_SCHEMA } from "../settings/store.js";
 import { forgetDetails, loadDetails, sha256Hex } from "../details/cache.js";
 import { DETAILS_KEY, readDetailsOn } from "../shared/details-pref.js";
 import { CARD_LANGUAGE_KEY, parseCardLanguage, readCardLanguage } from "../shared/card-language.js";
@@ -40,7 +41,8 @@ void (async () => {
   const framed = window.parent !== window;
   const parentOrigin = location.ancestorOrigins?.[0] ?? null;
   const factsChannel = new BroadcastChannel(FACTS_CHANNEL);
-  const [cards, effective] = await Promise.all([fetchJson("data/cards.json"), readEffectiveSettings(chrome.storage.local)]);
+  const settingsCore = createSettingsCore(SETTINGS_SCHEMA, chrome.storage.local);
+  const [cards, effective] = await Promise.all([fetchJson("data/cards.json"), settingsCore.read()]);
   const controller = new TooltipController({
     elements: {
       root: $("card"),
@@ -100,7 +102,7 @@ void (async () => {
   syncDetails(settingsNow);
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && LAST_GOOD_KEY in changes) {
-      void readEffectiveSettings(chrome.storage.local).then((e) => {
+      void settingsCore.read().then((e) => {
         controller.setSettings(e.settings);
         settingsNow = e.settings;
         syncDetails(settingsNow);

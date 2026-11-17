@@ -6,6 +6,32 @@ What changes for viewers in each version of DuelSight, and why. Store dates are 
 follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-spec.json`, and
 `docs/hover-spec.md` in the toolkit's repository).
 
+## [Unreleased]
+
+Card hovers run on the cardvision toolkit's shared hover host (experimental, cardvision 0.15.0rc1),
+the same code Kenbunshoku runs. DuelSight keeps its own tooltip and card details.
+`HOVER-DEVIATIONS.md` lists where DuelSight still differs from the hover spec.
+
+### Changed
+
+- **A background tab loads card recognition when it comes to the front**, also when hovers are
+  turned on there or its video starts playing (S-A7, S-A8). Before, it loaded at once.
+- **When a page removes the card picture while it shows**, the next move over the video brings it
+  back with the same card (S-A10). Before, it came back with the next card named.
+- **On Twitch, `/collections`, `/payments`, `/privacy`, `/products` and `/team`** wait for a hover
+  before loading, as `/following` and `/creatorcamp` do (S-G3), and `/videos/` is matched in
+  lowercase only, as are addresses with an empty part (`//name`) or an unusual clip name. Before,
+  the five were taken for channels.
+- **Moving the pointer on a page where hovers do not run** (a miniplayer over a search page) stops
+  following the video, and the first move back on a video page picks it again at once (S-G5).
+
+### For maintainers
+
+- `npm run build` and `npm run package` run the toolkit's realm check
+  (`vendor/cardvision-browser/node/realm-check.mjs`, through `scripts/realm.mjs`) on the built
+  extension and fail when a file holds a toolkit module twice. The Firefox source archive's
+  `build-firefox.sh` also compares the host files and the realm check with the toolkit's own build.
+
 ## [0.8.2] - 2026-11-16
 
 The recognition runtime moves to cardvision 0.14.1, a final release, and card hovers start on when

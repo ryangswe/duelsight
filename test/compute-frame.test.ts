@@ -1,16 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
-// DuelSight's compute frame on the toolkit's session (src/compute/frame.ts): the pages it serves,
-// its tag, the shown card held through short gaps, and the card facts channel. The session's own
-// rules (the worker's restart, rules 10 to 12, retries, the hold's details) are the toolkit's and
-// tested there.
+// DuelSight's compute frame on the toolkit's shared hover host (startHostCompute): the pages it
+// serves, its tag, the standard options, the shown card held while the viewer reads it, and the
+// card facts channel (src/compute/frame.ts). The session's own rules (the worker's restart, rules
+// 10 to 12, retries, the hold's details) and the host's preset are the toolkit's and tested there.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PROTOCOL_VERSION, READING_HOLD, SHOWN_HOLD } from "../vendor/cardvision-browser/compute-session.js";
-import { IDLE_UNLOAD_MS } from "../src/constants.js";
-import { computeFrameEnv, createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
+import { PROTOCOL_VERSION } from "../vendor/cardvision-browser/compute-session.js";
+import { startHostCompute, STANDARD_PRESET } from "../vendor/cardvision-browser/host-compute.js";
+import { createFactsChannel, SHOWN_IDS_LIMIT } from "../src/compute/frame.js";
+import { productConfig } from "../src/shared/product.js";
 import type { ReleasePointer, RemoteReleaseChoice } from "../vendor/cardvision-browser/remote-release.js";
-import { computeHarness } from "./helpers/compute-frame.js";
+import { computeHarness, FakeWorker, releaseOf } from "./helpers/compute-frame.js";
 import { SITE_ORIGIN } from "./helpers/fork.js";
+import { memoryStorage } from "./helpers/memory-storage.js";
+
+const IDLE_UNLOAD_MS = STANDARD_PRESET.idleUnloadMs;
+
+/** The host's own start, in a page at `origin` (undefined: none given; "null": hidden). */
+async function hostStart(options: { origin?: string | undefined; framed?: boolean; dev?: boolean; idleUnloadMs?: number } = {}) {
+  const { framed = true, dev = false, idleUnloadMs } = options;
+  const origin = "origin" in options ? options.origin : SITE_ORIGIN;
+  const toParent: Array<{ message: Record<string, unknown>; origin: string }> = [];
+  const parent = { postMessage: (message: Record<string, unknown>, to: string) => void toParent.push({ message, origin: to }) };
+  const win: Record<string, unknown> = {
+    location: { ancestorOrigins: origin === undefined ? [] : [origin] },
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  };
+  // Outside a frame, a window is its own parent.
+  win.parent = framed ? parent : win;
+  const host = await startHostCompute({
+    config: productConfig(dev),
+    win: win as never,
+    storage: memoryStorage(),
+    createWorker: () => new FakeWorker(),
+    loadRequest: () => ({ kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "chrome-extension://x/runtime/" }),
+    ...(idleUnloadMs !== undefined ? { devIdleUnloadMs: idleUnloadMs } : {}),
+  });
+  host?.stop();
+  return { host, toParent };
+}
 
 const ID = "0123456789abcdef";
 const pointer: ReleasePointer = { id: ID, path: `vision/releases/${ID}/release.json`, sha256: "a".repeat(64), minimumExtensionVersion: "0.3.0", maximumExtensionVersion: null };
@@ -28,10 +57,10 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("compute frame: the pages it serves", () => {
-  it("starts inside a video site and says ready to that origin only, under DuelSight's tag", () => {
-    const h = computeHarness();
-    expect(h.started).not.toBeNull();
-    const ready = h.toParent.find((p) => p.message.kind === "ready")!;
+  it("starts inside a video site and says ready to that origin only, under DuelSight's tag", async () => {
+    const { host, toParent } = await hostStart();
+    expect(host).not.toBeNull();
+    const ready = toParent.find((p) => p.message.kind === "ready")!;
     expect(ready.origin).toBe(SITE_ORIGIN);
     expect(ready.message).toMatchObject({ duelsight: 1, kind: "ready", version: PROTOCOL_VERSION });
     expect(ready.message.instance).toMatch(/^[0-9a-f]{16}$/);
@@ -42,16 +71,49 @@ describe("compute frame: the pages it serves", () => {
     ["a hidden origin (\"null\")", "null"],
     ["no origin", undefined],
     ["the local test page in a store build", "http://127.0.0.1:8770"],
-  ])("does not start in %s", (_, origin) => {
-    expect(computeHarness({ parentOrigin: origin }).started).toBeNull();
+  ])("does not start in %s", async (_, origin) => {
+    expect((await hostStart({ origin })).host).toBeNull();
   });
 
-  it("does not start outside a frame", () => {
-    expect(computeHarness({ framed: false }).started).toBeNull();
+  it("does not start outside a frame", async () => {
+    expect((await hostStart({ framed: false })).host).toBeNull();
   });
 
-  it("serves the local test page in a dev build", () => {
-    expect(computeHarness({ parentOrigin: "http://127.0.0.1:8770", dev: true }).started).not.toBeNull();
+  it("serves the local test page in a dev build", async () => {
+    expect((await hostStart({ origin: "http://127.0.0.1:8770", dev: true })).host).not.toBeNull();
+  });
+
+  it("takes a shorter idle unload in a dev build only, and goes idle after it", async () => {
+    await expect(hostStart({ idleUnloadMs: 6_000 })).rejects.toThrow(/development builds only/);
+    const clock = { t: 1_000 };
+    const workers: FakeWorker[] = [];
+    const win: Record<string, unknown> = { location: { ancestorOrigins: ["http://127.0.0.1:8770"] }, addEventListener: () => undefined, removeEventListener: () => undefined };
+    win.parent = { postMessage: () => undefined };
+    const host = (await startHostCompute({
+      config: productConfig(true),
+      win: win as never,
+      storage: memoryStorage(),
+      createWorker: () => {
+        const w = new FakeWorker();
+        workers.push(w);
+        return w;
+      },
+      loadRequest: () => ({ kind: "load", releaseUrl: "chrome-extension://x/release/release.json", wasmPaths: "chrome-extension://x/runtime/" }),
+      now: () => clock.t,
+      devIdleUnloadMs: 6_000,
+    }))!;
+    try {
+      workers.at(-1)!.reply({ kind: "release-status", ok: true, error: null, release: releaseOf("r"), cards: [] });
+      host.frame.tick();
+      clock.t += 5_000;
+      host.frame.tick();
+      expect(host.frame.state).not.toBe("idle");
+      clock.t += 2_000;
+      host.frame.tick();
+      expect(host.frame.state).toBe("idle");
+    } finally {
+      host.stop();
+    }
   });
 
   it("acts only on messages from its parent window and origin", () => {
@@ -66,23 +128,9 @@ describe("compute frame: the pages it serves", () => {
 });
 
 describe("compute frame: the shown card", () => {
-  it("paces analysis from its measured cost (measuredPacing is on)", () => {
-    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).measuredPacing).toBe(true);
-  });
-
-  it("asks for turned cards' outlines (rotatedOutlines is on)", () => {
-    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).rotatedOutlines).toBe(true);
-  });
-
-  it("keeps a shown card while the pointer stays where it was seen (READING_HOLD is on)", () => {
-    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).hold).toBe(READING_HOLD);
-  });
-
-  it("takes the short hold (SHOWN_HOLD) with \"Keep the card I'm pointing at\" off, the reading hold otherwise", () => {
-    const hold = (keepCard?: boolean) => computeFrameEnv({ ...computeHarness().env, ...(keepCard === undefined ? {} : { keepCard }) }, createFactsChannel(() => undefined)).hold;
-    expect(hold(false)).toBe(SHOWN_HOLD);
-    expect(hold(true)).toBe(READING_HOLD);
-    expect(hold()).toBe(READING_HOLD);
+  it("starts with the standard options: pointer mode, measured pacing, turned cards' outlines, a 10-minute idle unload", () => {
+    expect(STANDARD_PRESET).toEqual({ mode: "pointer", rotatedOutlines: true, measuredPacing: true, idleUnloadMs: 10 * 60_000 });
+    expect(productConfig(false).capabilities.geometricStage).toBe(false);
   });
 
   it("with \"Keep the card I'm pointing at\" off, drops a card gone from under a resting pointer", () => {
@@ -93,12 +141,6 @@ describe("compute frame: the shown card", () => {
     h.scene.card = null;
     for (let i = 0; i < 5; i += 1) h.analyzeAt();
     expect(h.lastShown()).toBeNull();
-  });
-
-  it("ends its worker after 10 idle minutes, or the time a dev build gives (idleUnloadMs)", () => {
-    expect(IDLE_UNLOAD_MS).toBe(10 * 60_000);
-    expect(computeFrameEnv({ ...computeHarness().env }, createFactsChannel(() => undefined)).idleUnloadMs).toBe(IDLE_UNLOAD_MS);
-    expect(computeFrameEnv({ ...computeHarness().env, idleUnloadMs: 60_000 }, createFactsChannel(() => undefined)).idleUnloadMs).toBe(60_000);
   });
 
   it("goes idle 10 minutes after the pointer leaves, not before", () => {

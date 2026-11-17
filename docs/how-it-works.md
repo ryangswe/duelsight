@@ -77,10 +77,11 @@ flowchart TD
 in [PRIVACY.md](../PRIVACY.md). Nothing else leaves the browser.
 
 - **The content script** is on for all supported videos (the popup's switch is the sole
-  control). When the page's main video starts playing it makes the compute frame, which loads
+  control). When the page's main video starts playing in the tab in front (a tab behind waits
+  until it comes to the front) it makes the compute frame, which loads
   the model, and the tooltip frame, which loads its card table, settings and details file, so
   both are usually ready before the pointer comes to a card. That is a YouTube watch or live
-  page, or a Twitch channel, video or clip page (`site.ts` `loadsAtPlay`); not a YouTube player
+  page, or a Twitch channel, video or clip page (the shared hover host's site policy, hover spec S-G2 and S-G3); not a YouTube player
   embedded in another website (owner, 2026-11-12: "Wait for a hover"), nor Twitch's front page or
   directory, whose previews play on their own, its popout player or its moderator view. A video
   that never plays, an embed or a preview loads when the pointer comes over its picture. It
