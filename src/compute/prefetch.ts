@@ -21,10 +21,16 @@
 //     cache, given up after IMAGE_TIMEOUT_MS; its body is read so that the cache keeps it, and
 //     nothing else is done with it. A failure is dropped and not asked for again by this frame:
 //     the tooltip's own fetch tries again when the card is shown, with its fallbacks.
+//   - A source whose fetches failed SOURCE_FAILURE_LIMIT times in a row is skipped, as the tooltip
+//     skips it (images/chain.ts, SourceHealth): the cards named after that are fetched from the
+//     next source they can fill, the one the tooltip then shows. The tooltip frame keeps its own
+//     count, from its own fetches of the same addresses. Settings read again (`settingsChanged`)
+//     try every source again, as in the tooltip; a fetch started before that does not count.
 
 import type { FrameAnalysis } from "../../vendor/cardvision-browser/cardvision.js";
 import { IMAGE_TIMEOUT_MS } from "../constants.js";
-import type { Settings } from "../settings/schema.js";
+import { SourceHealth } from "../images/chain.js";
+import type { ImageSource, Settings } from "../settings/schema.js";
 import { type CardRef, expandTemplate } from "../settings/templates.js";
 
 /** Addresses fetched ahead per compute frame, at most (the tooltip keeps 60 pictures). */
@@ -64,14 +70,25 @@ export function namedCards(analysis: FrameAnalysis): string[] {
   return ids;
 }
 
-/** The address the tooltip tries first for a card, or null when no source can serve it. */
-export function firstAddress(settings: Pick<Settings, "namesOnly" | "primary" | "fallbacks">, card: CardRef): string | null {
+/** The source and address the tooltip tries first for a card (leaving out the sources `health`
+ *  skips), or null when no source can serve it. */
+export function firstSource(
+  settings: Pick<Settings, "namesOnly" | "primary" | "fallbacks">,
+  card: CardRef,
+  health?: SourceHealth,
+): { source: ImageSource; url: string } | null {
   if (settings.namesOnly) return null;
   for (const source of [...(settings.primary ? [settings.primary] : []), ...settings.fallbacks]) {
+    if (health?.skipped(source)) continue;
     const url = expandTemplate(source.template, card);
-    if (url !== null) return url;
+    if (url !== null) return { source, url };
   }
   return null;
+}
+
+/** The address the tooltip tries first for a card, or null when no source can serve it. */
+export function firstAddress(settings: Pick<Settings, "namesOnly" | "primary" | "fallbacks">, card: CardRef): string | null {
+  return firstSource(settings, card)?.url ?? null;
 }
 
 export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
@@ -83,6 +100,10 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
   const queue: string[] = [];
   let inFlight = 0;
   let settings: Promise<Pick<Settings, "namesOnly" | "primary" | "fallbacks"> | null> | null = null;
+  /** Consecutive failures per source, since the settings were last read. */
+  const health = new SourceHealth();
+  /** Bumped when the settings are read again: a fetch from before then does not count. */
+  let generation = 0;
 
   const pump = (): void => {
     while (inFlight < PREFETCH_IN_FLIGHT && queue.length > 0 && started.length + inFlight < PREFETCH_LIMIT) {
@@ -96,18 +117,30 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
   };
 
   const fetchOne = async (id: string): Promise<void> => {
+    let target: { source: ImageSource; url: string } | null = null;
+    let fetchedIn = generation;
+    let ok = false;
     try {
       settings ??= deps.settings().catch(() => null);
       const [effective, card] = await Promise.all([settings, deps.card(id)]);
       if (!effective || !card) return;
-      const url = firstAddress(effective, card);
-      if (url === null || seenUrls.has(url) || started.length >= PREFETCH_LIMIT) return;
-      seenUrls.add(url);
-      started.push(url);
-      const response = await deps.fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "default", signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
-      if (response.ok) await response.arrayBuffer();
+      fetchedIn = generation;
+      target = firstSource(effective, card, health);
+      if (target === null || seenUrls.has(target.url) || started.length >= PREFETCH_LIMIT) {
+        target = null;
+        return;
+      }
+      seenUrls.add(target.url);
+      started.push(target.url);
+      const response = await deps.fetch(target.url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "default", signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+      if (response.ok) {
+        await response.arrayBuffer();
+        ok = true;
+      }
     } catch {
       // Dropped: the tooltip fetches it itself.
+    } finally {
+      if (target !== null && fetchedIn === generation) health.record(target.source, ok);
     }
   };
 
@@ -116,6 +149,8 @@ export function createPrefetcher(deps: PrefetchDeps): Prefetcher {
     settingsChanged() {
       settings = null;
       seenIds.clear();
+      health.reset();
+      generation += 1;
     },
     onAnalysis(analysis) {
       let added = 0;

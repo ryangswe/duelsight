@@ -8,6 +8,13 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
 
 ## [Unreleased]
 
+### Fixed
+
+- **When the card pictures from the first source keep failing**, the pictures downloaded ahead of
+  the pointer come from the next source, as the tooltip's do after three failures in a row.
+  Before, the downloads ahead kept asking the failing source for pictures the tooltip would not
+  show, until the settings were read again.
+
 ### For maintainers
 
 - The recognition runtime moves to cardvision 0.15.0, the final release of 0.15.0rc1. The vendored

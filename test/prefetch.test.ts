@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FrameAnalysis } from "../vendor/cardvision-browser/cardvision.js";
+import { SOURCE_FAILURE_LIMIT } from "../src/constants.js";
 import { createPrefetcher, firstAddress, namedCards, PREFETCH_IN_FLIGHT, PREFETCH_LIMIT, PREFETCH_PER_ANALYSIS, type PrefetchDeps } from "../src/compute/prefetch.js";
 import type { CardRef } from "../src/settings/templates.js";
 import { FIXTURE_CDN } from "./helpers/fork.js";
@@ -212,5 +213,82 @@ describe("fetching ahead", () => {
     await flush();
     expect(s.p.started).toEqual([`${FIXTURE_CDN}/art/full/1.jpg`]);
     expect(read).toBe(0);
+  });
+});
+
+describe("fetching ahead when a source keeps failing", () => {
+  const TOOLTIP = { id: "tooltip", template: `${FIXTURE_CDN}/art/tooltip/{cardId}.webp` };
+  const TWO = { namesOnly: false, primary: TOOLTIP, fallbacks: [PRIMARY] };
+  const tooltipUrl = (id: string) => `${FIXTURE_CDN}/art/tooltip/${id}.webp`;
+  const fullUrl = (id: string) => `${FIXTURE_CDN}/art/full/${id}.jpg`;
+  const ok = { ok: true, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+  const refused = { ok: false, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Response;
+
+  /** One card per analysis, each settled before the next, so the order is the fetch order. */
+  async function nameInTurn(p: ReturnType<typeof createPrefetcher>, ids: string[]) {
+    for (const id of ids) {
+      p.onAnalysis(analysis([id]));
+      await flush();
+    }
+  }
+
+  it(`skips a source after ${SOURCE_FAILURE_LIMIT} failures in a row, as the tooltip does, and fetches the next one`, async () => {
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? Promise.reject(new Error("timeout")) : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4", "5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4"), fullUrl("5")]);
+  });
+
+  it("counts a refused picture as a failure, and a picture that came as a fresh start", async () => {
+    const fetched: string[] = [];
+    const answers: Record<string, Response> = { "1": refused, "2": refused, "3": ok, "4": refused, "5": refused, "6": refused, "7": ok };
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? answers[url.match(/(\d+)\.webp$/)![1]!]! : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4", "5", "6", "7"]);
+    // 1 and 2 fail, 3 comes (the count starts over), 4 to 6 fail: 7 is fetched from the full art.
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5"), tooltipUrl("6"), fullUrl("7")]);
+  });
+
+  it("tries every source again once the settings are read again", async () => {
+    const fetched: string[] = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: async (url) => (fetched.push(url), url.includes("/tooltip/") ? refused : ok),
+    });
+    await nameInTurn(p, ["1", "2", "3", "4"]);
+    p.settingsChanged();
+    await nameInTurn(p, ["5"]);
+    expect(fetched).toEqual([tooltipUrl("1"), tooltipUrl("2"), tooltipUrl("3"), fullUrl("4"), tooltipUrl("5")]);
+  });
+
+  it("does not count a fetch that started before the settings were read again", async () => {
+    const fetched: string[] = [];
+    const pending: Array<() => void> = [];
+    const p = createPrefetcher({
+      settings: async () => TWO,
+      card: async (id) => ({ id, art: `full/${id}.jpg` }),
+      fetch: (url) => {
+        fetched.push(url);
+        if (["1", "2"].some((id) => url === tooltipUrl(id))) return new Promise((_, reject) => pending.push(() => reject(new Error("timeout"))));
+        return Promise.resolve(url.includes("/tooltip/") ? refused : ok);
+      },
+    });
+    p.onAnalysis(analysis(["1", "2"]));
+    await flush();
+    p.settingsChanged();
+    while (pending.length) pending.shift()!();
+    await flush();
+    // 1 and 2 failed under the old settings: they do not count, so 3 and 4 failing is two in a
+    // row, and 5 is still asked from the tooltip pictures.
+    await nameInTurn(p, ["3", "4", "5"]);
+    expect(fetched.slice(2)).toEqual([tooltipUrl("3"), tooltipUrl("4"), tooltipUrl("5")]);
   });
 });
