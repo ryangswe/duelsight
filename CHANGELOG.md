@@ -39,6 +39,9 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
   `test/browser/product.mjs`) and `prefetched` counts. DuelSight's copy
   (`test/browser/hover-browser.mjs`, its `netlog.mjs` and `test/netlog.test.ts`) is gone; the
   toolkit tests the network scope. Only the harness changed; the extension's files are the same.
+- Then to riftsight-vision e1bf3c7, whose vendored harness carries its type declarations, so
+  `test/hover-product.test.ts` is type-checked against them. The harness's code and the extension's
+  files are the same.
 
 ## [0.9.0] - unreleased
 

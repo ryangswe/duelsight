@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "toolkit": {
     "version": "0.15.0",
-    "commit": "e05ab03e74fe1534aa4d1f8a3c4a31d8f8cb1c59"
+    "commit": "e1bf3c783b7a0583933127e01542a6607b93f14a"
   },
   "options": {
     "opencv": true,
@@ -49,8 +49,8 @@
       "sha256": "5110f6c8137a81c7e035778dadbfed6ee4fbe583d599549e93724fa786bcb8ab"
     },
     "cardvision-vendor-check.mjs": {
-      "bytes": 28210,
-      "sha256": "411fa2c5d8cb3244bf268de1d865ad04eb5410d238dbaf90d918aa989500b5ef"
+      "bytes": 28276,
+      "sha256": "3e33419fdce52cf180e9ae340b02a2dd429c8b8902f5b95343b24aa0b3f277e2"
     },
     "cardvision.d.ts": {
       "bytes": 108,
@@ -72,13 +72,25 @@
       "bytes": 46779,
       "sha256": "79801971d5ce249f511910504f6c5ea289618919254c8d7be65fb4f18674e44b"
     },
+    "harness/clauses.d.mts": {
+      "bytes": 152,
+      "sha256": "fae1fdf0057960afe44bab95525fd9f51f08870943f87615498fe4a42a9291cb"
+    },
     "harness/clauses.mjs": {
       "bytes": 1215,
       "sha256": "426f8dcffd91225ca69900e165b6a792f4ae151de87db25202405d9e12943207"
     },
+    "harness/clip.d.mts": {
+      "bytes": 699,
+      "sha256": "7531032120294dffdc309ea3f56b11250967a9d7005ccf3fd442d42e44f1fafd"
+    },
     "harness/clip.mjs": {
       "bytes": 2756,
       "sha256": "213e152f5b0d3e238c4e257f2c35888118efaa376e64066a8a57aeed90fe0a8c"
+    },
+    "harness/console-watch.d.mts": {
+      "bytes": 276,
+      "sha256": "7fa161dcd9cff6d4780dc6fe64735e7ce08c5e3808085dce22e7b8edfd8b2dc5"
     },
     "harness/console-watch.mjs": {
       "bytes": 1951,
@@ -88,9 +100,17 @@
       "bytes": 60437,
       "sha256": "65efc928da807126ebe6437a5544330ab14201dd3745bba0b6f5a6082de4caa3"
     },
+    "harness/netlog.d.mts": {
+      "bytes": 496,
+      "sha256": "53cd7ef409a4190842c7432d8077a556fd712ad91135853b30e4e3702134db90"
+    },
     "harness/netlog.mjs": {
       "bytes": 3303,
       "sha256": "bbcab95769f2a6f8fffd4f5761a51a957c1fdf89c4325f667c3dc29d85663f69"
+    },
+    "harness/product-shape.d.mts": {
+      "bytes": 238,
+      "sha256": "d39d625e5d593ec583de45fa45c92b0862e76620b43f61edc576d830686d9f9b"
     },
     "harness/product-shape.mjs": {
       "bytes": 5931,
@@ -104,9 +124,17 @@
       "bytes": 3664,
       "sha256": "058cbe4436f2a88e090fd2774a275882db3c75aa82c4662d0e4de502893758f6"
     },
+    "harness/steady.d.mts": {
+      "bytes": 608,
+      "sha256": "88695f94e31f22209c01c6bc45a3489e5cec6866fc36ed19cf6040ae8053022e"
+    },
     "harness/steady.mjs": {
       "bytes": 3384,
       "sha256": "58ae566f24c7b39ae512293b86cd856f7665cacccec0f16aff2af10c06d8036f"
+    },
+    "harness/timings.d.mts": {
+      "bytes": 858,
+      "sha256": "e633049f385e49a83f7d9c023ab061f5657eb2f42a68d6fb7adf2d846aadbdfb"
     },
     "harness/timings.mjs": {
       "bytes": 5348,
@@ -137,8 +165,8 @@
       "sha256": "01d36f8dd60dfb30768fd1873a44a7b0a757c9e2449db9ebee9d023f49d0db1a"
     },
     "hover-spec.json": {
-      "bytes": 53910,
-      "sha256": "e66c6b0cd1be596ea9bfa0e3fc5ebcd06a31decdb0d293912932eceb544958b8"
+      "bytes": 56202,
+      "sha256": "b2b1c3c063ca935a662478883f18186e69c289f25830ab05e437a2760d4aee66"
     },
     "node/package-zip.mjs": {
       "bytes": 2861,

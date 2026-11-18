@@ -4,10 +4,7 @@
 // arrival check.
 import { describe, expect, it } from "vitest";
 
-// The vendored harness ships no declarations (`--harness` copies its .mjs files only).
-// @ts-expect-error -- untyped vendored module
 import { CHECKS } from "../vendor/cardvision-browser/harness/clauses.mjs";
-// @ts-expect-error -- untyped vendored module
 import { LIMIT_DEFAULTS, productProblems } from "../vendor/cardvision-browser/harness/product-shape.mjs";
 import product from "./browser/product.mjs";
 
