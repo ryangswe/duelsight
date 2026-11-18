@@ -15,11 +15,13 @@
 # that bundles a new card release (release-legal/NOTICE names it) moves those pins to where that
 # release is published.
 #
-# The hover browser test (test/browser/hover-browser.mjs) loads two dev builds, from the same card
-# release, in headless Chrome for Testing on a local page. Its clip is rendered from official card
+# The hover browser test (the toolkit's shared vendor/cardvision-browser/harness/hover-browser.mjs,
+# with DuelSight's test/browser/product.mjs) loads two dev builds, from the same card release, in
+# headless Chrome for Testing on a local page. Its clip is rendered from official card
 # pictures fetched at setup, which are never kept. It asserts the hover behaviors: frames at play,
-# the card's picture, the outline, the kept card, the switches, the idle unload and no request
-# leaving the machine. Chrome needs one kernel setting on Ubuntu 24.04, because AppArmor otherwise
+# the card's picture, the outline, the kept card, a paused picture's cards, a card laid down
+# under the pointer, a still card, the switches, the idle unload, no request leaving the machine
+# and no content-security-policy violation. Chrome needs one kernel setting on Ubuntu 24.04, because AppArmor otherwise
 # blocks the user namespaces of its sandbox ("No usable sandbox"). The smoke scripts in test/smoke/
 # print and assert nothing, so they stay local tools.
 name: Tests
@@ -114,8 +116,9 @@ jobs:
         env:
           PUPPETEER_CORE_DIR: ${{ runner.temp }}/pcore
         run: |
-          node test/browser/hover-browser.mjs --chrome "$CHROME" --release "$RELEASE_DIR" \
-            --art "$RUNNER_TEMP/art" --fetch-art --dist dist --dist-idle dist-idle --out "$RUNNER_TEMP/hover-browser"
+          node vendor/cardvision-browser/harness/hover-browser.mjs --product test/browser/product.mjs \
+            --chrome "$CHROME" --release "$RELEASE_DIR" --art "$RUNNER_TEMP/art" --fetch-art \
+            --dist dist --dist-idle dist-idle --out "$RUNNER_TEMP/hover-browser"
       - name: Keep the report, the event log and the NetLogs
         if: always()
         uses: actions/upload-artifact@v7

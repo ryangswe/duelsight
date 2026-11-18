@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+// DuelSight's earlier copy of the hover browser test. CI runs the toolkit's shared one instead
+// (vendor/cardvision-browser/harness/hover-browser.mjs with test/browser/product.mjs). This copy
+// stays for local runs until the shared one has --art-delay-ms and the artAfterShownMs and
+// prefetched counts; then it goes.
+//
 // The hover browser test: the real extension, loaded unpacked in headless Chrome for Testing, on a
 // local page that plays a clip rendered at run time from official card pictures. It asserts the
 // hover behaviors below and fails (exit 1) when one breaks. It is not part of `npm test`; CI runs

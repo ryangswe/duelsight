@@ -5,21 +5,33 @@ Before a release, the maintainer checks a test build by hand on real videos. Thi
 steps and, for each one, the automatic check that now covers it, if any. A step with no automatic
 check is still done by hand.
 
-The hover browser test is `test/browser/hover-browser.mjs`. It runs in CI on every pull request,
-with a synthetic clip on a local page, so it never sees YouTube, Twitch, real footage or the real
-CDN. Its settings file names no card details file, so the details panel is not shown there. Each
-browser check names the clause it covers in the toolkit's hover spec
-([docs/hover-spec.md](https://github.com/ryangswe/riftsight-vision/blob/main/docs/hover-spec.md)),
-in the `CLAUSES` table of the test. Unit tests are the vitest files in `test/`.
+The hover browser test is the cardvision toolkit's shared one,
+`vendor/cardvision-browser/harness/hover-browser.mjs`, run with DuelSight's product module,
+`test/browser/product.mjs` (the toolkit's `browser/README.md`, "The hover browser test", says how).
+It runs in CI on every pull request, with a synthetic clip on a local page, so it never sees
+YouTube, Twitch, real footage or the real CDN. Its settings file names no card details file, so the
+details panel is not shown there. Each browser check names the clause it covers in the toolkit's
+hover spec ([docs/hover-spec.md](https://github.com/ryangswe/riftsight-vision/blob/main/docs/hover-spec.md)),
+in the harness's `harness/clauses.mjs`. Every run also fails on a content-security-policy violation
+in any page, frame or worker, and writes `timings.json` beside its report. Unit tests are the vitest
+files in `test/`.
+
+`test/browser/hover-browser.mjs` is DuelSight's earlier copy of the test. CI no longer runs it. It
+stays for local runs until the toolkit's harness has its three extras: `--art-delay-ms`, and the
+report's `artAfterShownMs` and `prefetched` counts.
 
 The test serves only the four pictures of its clip. A card can be named by another of its
-printings (another Dark Magician, say), whose picture the test does not serve, so the tooltip shows
-the card's name without a picture. The checks compare names, which every printing shares. A
-future check on the picture must accept any printing of the card.
+printings, whose picture the test does not serve, so the tooltip shows the card's name without a
+picture. Every hover on slots A, B and C waits for the card's name and its picture, so the checks
+that hover them need those three pictures; the clip's printings of those cards are the ones named.
+Slot D is only compared by name: its Dark Magician is named by another printing (36996508), whose
+picture is not served. A change of slot cards, or
+a release that names another printing, must keep that so: change the card rather than weaken a
+check.
 
 | Step done by hand | Covered by | Still by hand |
 | --- | --- | --- |
-| The model loads when the video plays, before any hover | browser test `frames-at-play` | on YouTube and Twitch pages |
+| The model loads when the video plays, before any hover, and comes back on the next play after its frames were removed | browser test `frames-at-play` | on YouTube and Twitch pages |
 | Nothing is read from the video before the pointer comes over it | browser test `no-capture-before-pointer` | none |
 | Hovering a card shows its picture at once | browser test `art-visible` (time to the picture is reported) | on real footage, at real network speed |
 | The details panel (type, stats, card text) shows beside the picture, in the chosen language | unit tests in `tooltip.test.ts`, `panel-layout.test.ts`, `details.test.ts`, `localized-details.test.ts` | yes, its look and fit |
@@ -28,11 +40,12 @@ future check on the picture must accept any printing of the card.
 | A card laid on top doesn't replace the one you point at | browser test `covered-kept` | none |
 | Its outline goes while the picture stays | browser test `held-outline-hides` | none |
 | With "Keep the card I'm pointing at" off, the card on top replaces it | browser test `switch-flips` | none |
-| Moving across several cards shows each in turn | none | yes |
+| Moving across several cards shows each in turn | browser test `paused-names-each` (on a paused picture, after B: A, then C, each within 1 s) | on a playing video |
+| A card laid down under a resting pointer is shown, with no seek | browser test `arrives-under-rest` (within 3 s, with "Keep the card I'm pointing at" on) | none |
 | The outline goes after about 10 s of rest on a playing video | none | yes |
 | A page's own made-up pointer events do nothing | browser test `fake-pointer-ignored`; unit tests in `agent.test.ts` | none |
 | Card hovers off: no frames, nothing read or fetched | browser test `off-means-off` | none |
-| Card hovers on again while a video plays: it loads at once | browser test `on-while-playing-loads` | none |
+| Card hovers on again while a video plays: it loads at once, and a tab in the background loads only when it comes to the front | browser test `on-while-playing-loads` | none |
 | The popup's settings are grayed out while card hovers are off | unit tests in `popup.test.ts` | the look of the popup |
 | Card size and the details switch in the popup | unit tests in `popup.test.ts`, `card-size.test.ts` | the look of the tooltip at 70% and 130% |
 | A second tab of the same page names a card while the first tab plays on | browser test `second-tab-names-card` (one pointer move, then a resting pointer; a model that finishes loading more than 10 s after that move gets its one picture, from toolkit 0.14.0) | none |
@@ -43,7 +56,8 @@ future check on the picture must accept any printing of the card.
 | From Twitch's front page, clicking into the channel whose preview was playing | none | yes |
 | No request leaves for any host but the settings host | browser test network scope (every Chrome process; Chrome's own sign-in and update traffic to Google's hosts, which no page or extension starts, is exempt and listed in the report) | none |
 | The video plays and starts as quickly as without the extension | none | yes |
-| A still card's tooltip and outline do not jitter | none | yes |
+| With "Keep the card I'm pointing at" off, a still card's tooltip does not blink | browser test `still-card-no-blink` (a 16.5 s rest; the tooltip is not hidden in any sampled animation frame) | on real footage |
+| A still card's tooltip and outline do not jitter | browser test `still-outline-steady` (the same rest; the outline stays put or moves only with a new report) | on real footage, where the card's box moves |
 | Firefox | `web-ext lint` in CI (the build job), which does not exercise behavior | yes |
 
 ## Planned, not covered yet
@@ -58,4 +72,5 @@ they are, unit tests cover part of them and the rest stays by hand.
   capture still pending when the frames are removed (unit tests in `agent.test.ts`, in part).
 - Replies from a compute frame that was replaced are ignored (unit tests in `agent.test.ts`).
 - Keep the card I'm pointing at changed while the model loads (by hand).
-- A card picked up from under a resting pointer (the clip has one; not asserted yet).
+- A card picked up from under a resting pointer: the clip has one, and `arrives-under-rest` reports
+  whether its card was shown before it left, but does not assert it.
