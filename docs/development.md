@@ -128,9 +128,8 @@ The hover browser test is the asserting version: the cardvision toolkit's shared
 kept), checks the hover behaviors and fails when one breaks. CI runs it on every pull request
 ("Hover browser test"); the "Hover browser test" job in `.github/workflows/tests.yml` has the
 steps to run it here, and the toolkit's `browser/README.md` describes it.
-`test/browser/LIVE-CHECKS.md` lists the release's live checks and which of them it covers.
-`test/browser/hover-browser.mjs`, DuelSight's earlier copy, is kept for local runs until the
-toolkit's harness has its `--art-delay-ms` and picture-timing counts.
+`test/browser/LIVE-CHECKS.md` lists the release's live checks and which of them it covers, and
+the harness's options for timing the card pictures locally.
 
 ## Maintainer notes
 
