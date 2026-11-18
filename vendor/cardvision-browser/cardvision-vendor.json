@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "toolkit": {
     "version": "0.15.0",
-    "commit": "584012dcaf3278c6de1dba07fc0aad51d4db5f1e"
+    "commit": "9ece68a13428b012684ee7d3d1dbf8dfae7608d7"
   },
   "options": {
     "opencv": true,
@@ -73,24 +73,24 @@
       "sha256": "79801971d5ce249f511910504f6c5ea289618919254c8d7be65fb4f18674e44b"
     },
     "harness/clauses.mjs": {
-      "bytes": 1083,
-      "sha256": "0f1672724d6efb031aab374e15df09e3a3a9742132c2200cc26bb7ef38a58633"
+      "bytes": 1215,
+      "sha256": "426f8dcffd91225ca69900e165b6a792f4ae151de87db25202405d9e12943207"
     },
     "harness/console-watch.mjs": {
       "bytes": 1951,
       "sha256": "6d5a98160b40c10c2ac9baf973ee2b4850fc46d602afaaa49f8ef82a08661ee3"
     },
     "harness/hover-browser.mjs": {
-      "bytes": 44987,
-      "sha256": "2373338123ff14732cc6341f18f1dce76a33f0a890ad4a6f9f701f81507a99ca"
+      "bytes": 59210,
+      "sha256": "162cb3dc5622db2765bfd6a129949fa035208c302b04e9bb328cdfa1ee718b8b"
     },
     "harness/netlog.mjs": {
       "bytes": 3281,
       "sha256": "a0ebfe5ab7e50d11a989d595b4d26e7205e87760ad9e860cb0bb835b8ef94686"
     },
     "harness/product-shape.mjs": {
-      "bytes": 3534,
-      "sha256": "66fd6311f4f99353eab2e3bed723203ef276d813d2e4df4aadb700e40511c44b"
+      "bytes": 5803,
+      "sha256": "a63c866608cc356b72b2bd4133b38e5126d963dbdc58d7109c77c5c8f5f0f9cb"
     },
     "harness/rollback-check.mjs": {
       "bytes": 20276,
@@ -99,6 +99,14 @@
     "harness/serve.mjs": {
       "bytes": 3664,
       "sha256": "058cbe4436f2a88e090fd2774a275882db3c75aa82c4662d0e4de502893758f6"
+    },
+    "harness/steady.mjs": {
+      "bytes": 3384,
+      "sha256": "58ae566f24c7b39ae512293b86cd856f7665cacccec0f16aff2af10c06d8036f"
+    },
+    "harness/timings.mjs": {
+      "bytes": 3620,
+      "sha256": "27ca6b9d8d06c74c92c05f82704d5ba6ab836d4c54e3cdb6247c029f2d17f208"
     },
     "host-compute.d.ts": {
       "bytes": 123,

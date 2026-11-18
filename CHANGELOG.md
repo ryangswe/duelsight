@@ -28,6 +28,12 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
   changed (`store-upload.mjs check --pull-request`), and the extension's files are the same.
   `.github/workflows/store-check.yml` is now the toolkit's template for it, with DuelSight's build
   step; `scripts/store-before.mjs` is gone.
+- The vendored toolkit then moves to riftsight-vision 9ece68a, whose hover browser test harness CI
+  now runs with DuelSight's `test/browser/product.mjs`, in place of DuelSight's own copy: four more
+  checks (a paused picture's cards, a card laid down under a resting pointer, and a still card's
+  tooltip and outline), a stricter `frames-at-play` and `on-while-playing-loads`, a failure on a
+  content-security-policy violation, and `timings.json`. Only the harness changed; the extension's
+  files are the same.
 
 ## [0.9.0] - unreleased
 
