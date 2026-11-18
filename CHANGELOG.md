@@ -34,6 +34,11 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
   tooltip and outline), a stricter `frames-at-play` and `on-while-playing-loads`, a failure on a
   content-security-policy violation, and `timings.json`. Only the harness changed; the extension's
   files are the same.
+- Then to riftsight-vision e05ab03, whose harness has the three things only DuelSight's copy had:
+  `--art-delay-ms`, and the report's `artAfterShownMs` (`tooltipDebugGlobal` in
+  `test/browser/product.mjs`) and `prefetched` counts. DuelSight's copy
+  (`test/browser/hover-browser.mjs`, its `netlog.mjs` and `test/netlog.test.ts`) is gone; the
+  toolkit tests the network scope. Only the harness changed; the extension's files are the same.
 
 ## [0.9.0] - unreleased
 

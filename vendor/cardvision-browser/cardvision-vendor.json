@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "toolkit": {
     "version": "0.15.0",
-    "commit": "9ece68a13428b012684ee7d3d1dbf8dfae7608d7"
+    "commit": "e05ab03e74fe1534aa4d1f8a3c4a31d8f8cb1c59"
   },
   "options": {
     "opencv": true,
@@ -76,25 +76,29 @@
       "bytes": 1215,
       "sha256": "426f8dcffd91225ca69900e165b6a792f4ae151de87db25202405d9e12943207"
     },
+    "harness/clip.mjs": {
+      "bytes": 2756,
+      "sha256": "213e152f5b0d3e238c4e257f2c35888118efaa376e64066a8a57aeed90fe0a8c"
+    },
     "harness/console-watch.mjs": {
       "bytes": 1951,
       "sha256": "6d5a98160b40c10c2ac9baf973ee2b4850fc46d602afaaa49f8ef82a08661ee3"
     },
     "harness/hover-browser.mjs": {
-      "bytes": 59210,
-      "sha256": "162cb3dc5622db2765bfd6a129949fa035208c302b04e9bb328cdfa1ee718b8b"
+      "bytes": 60437,
+      "sha256": "65efc928da807126ebe6437a5544330ab14201dd3745bba0b6f5a6082de4caa3"
     },
     "harness/netlog.mjs": {
-      "bytes": 3281,
-      "sha256": "a0ebfe5ab7e50d11a989d595b4d26e7205e87760ad9e860cb0bb835b8ef94686"
+      "bytes": 3303,
+      "sha256": "bbcab95769f2a6f8fffd4f5761a51a957c1fdf89c4325f667c3dc29d85663f69"
     },
     "harness/product-shape.mjs": {
-      "bytes": 5803,
-      "sha256": "a63c866608cc356b72b2bd4133b38e5126d963dbdc58d7109c77c5c8f5f0f9cb"
+      "bytes": 5931,
+      "sha256": "4df30f5e6cdd69f37844e47c6efd900d056ddd835df34092dcc06bf7b794b2f7"
     },
     "harness/rollback-check.mjs": {
-      "bytes": 20276,
-      "sha256": "45dcf5ad43957f6c052401633981f7d8fd5e2632d5c4c3a581b67d3859c39791"
+      "bytes": 19189,
+      "sha256": "ec4f0d8a7463750784f08f7bcbba9fbe3c9157a0893eb74c4688948e0c3cac51"
     },
     "harness/serve.mjs": {
       "bytes": 3664,
@@ -105,8 +109,8 @@
       "sha256": "58ae566f24c7b39ae512293b86cd856f7665cacccec0f16aff2af10c06d8036f"
     },
     "harness/timings.mjs": {
-      "bytes": 3620,
-      "sha256": "27ca6b9d8d06c74c92c05f82704d5ba6ab836d4c54e3cdb6247c029f2d17f208"
+      "bytes": 5348,
+      "sha256": "089e8245710dd1a532d9f6281b23d04ca4403204b98f8367a688d7c2fd925a86"
     },
     "host-compute.d.ts": {
       "bytes": 123,

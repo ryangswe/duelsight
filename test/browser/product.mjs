@@ -58,4 +58,8 @@ export default {
   },
   /** Checks expected to fail on this product's code, each until the change named fixes it. */
   expectedFail: {},
+  /** The dev build's tooltip-frame debug function (src/tooltip/tooltip.ts): { timings: [{ event:
+   *  "show" | "art", cardId, at }] }, for the report's per-slot artAfterShownMs. A slot named by
+   *  another printing (D, in practice) has no pair under its id and reads null. */
+  tooltipDebugGlobal: "__duelsightTooltipDebug",
 };

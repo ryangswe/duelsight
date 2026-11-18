@@ -16,9 +16,13 @@ in the harness's `harness/clauses.mjs`. Every run also fails on a content-securi
 in any page, frame or worker, and writes `timings.json` beside its report. Unit tests are the vitest
 files in `test/`.
 
-`test/browser/hover-browser.mjs` is DuelSight's earlier copy of the test. CI no longer runs it. It
-stays for local runs until the toolkit's harness has its three extras: `--art-delay-ms`, and the
-report's `artAfterShownMs` and `prefetched` counts.
+For local runs, `--art-delay-ms <ms>` holds each card picture's answer from the stand-in, as a far
+CDN would. The timed checks are judged all the same, so a long delay can fail them, and such a run
+cannot be used with or as a `--baseline`. Most hovers find their picture already fetched ahead, so
+the delay shows mainly on the run's opening hover (slot B). The report's
+`counts.artAfterShownMs` is, per slot, the time from the tooltip showing the card to its picture
+(from the tooltip frame's `__duelsightTooltipDebug`), and `counts.prefetched` the pictures the
+compute frame fetched ahead.
 
 The test serves only the four pictures of its clip. A card can be named by another of its
 printings, whose picture the test does not serve, so the tooltip shows the card's name without a
