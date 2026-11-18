@@ -129,6 +129,13 @@ no npm.
 
   It is not a required check.
 
+## Pull request checks
+
+Red means do not merge. A pull request check fails only on what that pull request can fix. What can
+only happen after the merge is a warning on the pull request, and is enforced at the tag or the
+upload. The store check above works this way: a privacy page that is not live yet is a warning on
+the pull request, and the tag's build job and the upload job hold the release until it is live.
+
 ## A core-model refresh
 
 When the cardvision toolkit publishes a better detector or recognizer, or a new runtime:
