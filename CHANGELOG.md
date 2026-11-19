@@ -42,6 +42,10 @@ follow in the cardvision toolkit's hover spec (`vendor/cardvision-browser/hover-
 - Then to riftsight-vision e1bf3c7, whose vendored harness carries its type declarations, so
   `test/hover-product.test.ts` is type-checked against them. The harness's code and the extension's
   files are the same.
+- CI's "Hover browser test" job installs ffmpeg from the pinned build the toolkit uses (ffmpeg-static
+  b6.1.1, checked by sha256), in place of `apt-get`, whose package update stalled the toolkit's
+  same job for 15 to 18 minutes in 7 of 21 runs (riftsight-vision #174). Each install step has a
+  5-minute limit.
 
 ## [0.9.0] - unreleased
 
